@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Générateur d'OI (Lite)</title>
+    <title>Générateur d'OI</title>
 	<link rel="icon" href="favicon.ico" sizes="any" type="image/png">
     <link rel="icon" href="favicon.ico" type="image/svg+xml">
     <link rel="apple-touch-icon" href="favicon.ico">
@@ -477,7 +477,7 @@
     </dialog>
 
     <div class="container">
-        <h1>Générateur d'OI (Lite)</h1>
+        <h1>Générateur d'OI</h1>
         
         <ul class="wizard-progress">
             <li class="wizard-progress-step" onclick="goToStep(0)"><span class="material-symbols-outlined" style="font-size: 1.2em; margin-right: 5px;">info</span>1. Situation</li>
@@ -3350,7 +3350,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 const dateTitle = `DU ${getVal('date_op') || '(DATE)'}`;
                 const titleWidth = helveticaBoldFont.widthOfTextAtSize(mainTitle, 24);
                 const dateTitleWidth = helveticaBoldFont.widthOfTextAtSize(dateTitle, 18);
-                context.currentPage.drawText(mainTitle, { x: context.pageWidth / 2 - titleWidth / 2, y: context.pageHeight / 2 + 10, font: helveticaBoldFont, size: 24, color: context.colors.accent });
+                context.currentPage.drawText(mainTitle, { x: context.pageWidth / 2 - titleWidth / 2, y: context.pageHeight / 1.5 + 10, font: helveticaBoldFont, size: 24, color: context.colors.accent });
                 context.currentPage.drawText(dateTitle, { x: context.pageWidth / 2 - dateTitleWidth / 2, y: context.pageHeight / 2 - 20, font: helveticaBoldFont, size: 18, color: context.colors.text });
 
                 addNewPage(); // Page 2
@@ -3464,7 +3464,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
                 const finalText = "Avez vous des questions?";
                 const finalTextWidth = helveticaBoldFont.widthOfTextAtSize(finalText, 48);
-                context.currentPage.drawText(finalText, { x: context.pageWidth / 2 - finalTextWidth / 2, y: context.pageHeight / 4, font: helveticaBoldFont, size: 48, color: context.colors.accent });
+                context.currentPage.drawText(finalText, { x: context.pageWidth / 2 - finalTextWidth / 2, y: context.pageHeight /1.5, font: helveticaBoldFont, size: 48, color: context.colors.accent });
             };
 
             await pdfCreationLogic();

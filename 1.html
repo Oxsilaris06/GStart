@@ -3351,7 +3351,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 const titleWidth = helveticaBoldFont.widthOfTextAtSize(mainTitle, 24);
                 const dateTitleWidth = helveticaBoldFont.widthOfTextAtSize(dateTitle, 18);
                 context.currentPage.drawText(mainTitle, { x: context.pageWidth / 2 - titleWidth / 2, y: context.pageHeight / 1.5 + 10, font: helveticaBoldFont, size: 24, color: context.colors.accent });
-                context.currentPage.drawText(dateTitle, { x: context.pageWidth / 2 - dateTitleWidth / 2, y: context.pageHeight / 2 - 20, font: helveticaBoldFont, size: 18, color: context.colors.text });
+                context.currentPage.drawText(dateTitle, { x: context.pageWidth / 2 - dateTitleWidth / 2, y: context.pageHeight / 1.5 - 15, font: helveticaBoldFont, size: 18, color: context.colors.text });
 
                 addNewPage(); // Page 2
                 drawTitle("1. SITUATION");
@@ -3464,7 +3464,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
                 const finalText = "Avez vous des questions?";
                 const finalTextWidth = helveticaBoldFont.widthOfTextAtSize(finalText, 48);
-                context.currentPage.drawText(finalText, { x: context.pageWidth / 2 - finalTextWidth / 2, y: context.pageHeight /1.5, font: helveticaBoldFont, size: 48, color: context.colors.accent });
+                context.currentPage.drawText(finalText, { x: context.pageWidth / 2 - finalTextWidth / 2, y: context.pageHeight /2, font: helveticaBoldFont, size: 48, color: context.colors.accent.blue });
             };
 
             await pdfCreationLogic();

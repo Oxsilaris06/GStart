@@ -3099,7 +3099,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         width: scaled.width, 
                         height: scaled.height,
                         // CONSIGNE: Opacité fixée à 0.7
-                        opacity: 0.7
+                        opacity: 0.97
                     }); 
                 }
             };
@@ -3464,7 +3464,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
                 const finalText = "Avez vous des questions?";
                 const finalTextWidth = helveticaBoldFont.widthOfTextAtSize(finalText, 48);
-                context.currentPage.drawText(finalText, { x: context.pageWidth / 2 - finalTextWidth / 2, y: context.pageHeight / 2, font: helveticaBoldFont, size: 48, color: context.colors.accent });
+                context.currentPage.drawText(finalText, { x: context.pageWidth / 2 - finalTextWidth / 2, y: context.pageHeight / 4, font: helveticaBoldFont, size: 48, color: context.colors.accent });
             };
 
             await pdfCreationLogic();

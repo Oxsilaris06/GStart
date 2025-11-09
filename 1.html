@@ -410,7 +410,7 @@
         <div id="presentation-content">
             </div>
         <div class="modal-actions-pdf">
-            <button id="downloadPdfBtn" type="button" class="wizard-nav-btn">
+           <button id="downloadPdfBtn" type="button" class="wizard-nav-btn">
                 Télécharger le PDF <span class="material-symbols-outlined" style="font-size: 1.2em;">picture_as_pdf</span>
             </button>
             <button id="closePresentationModalBtn" type="button" class="wizard-nav-btn" style="background-color: var(--danger-red); color: white;">
@@ -3464,7 +3464,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
                 const finalText = "Avez vous des questions?";
                 const finalTextWidth = helveticaBoldFont.widthOfTextAtSize(finalText, 48);
-                context.currentPage.drawText(finalText, { x: context.pageWidth / 2 - finalTextWidth / 2, y: context.pageHeight /2, font: helveticaBoldFont, size: 48, color: context.colors.accent.blue });
+                context.currentPage.drawText(finalText, { x: context.pageWidth / 2 - finalTextWidth / 2, y: context.pageHeight /2, font: helveticaBoldFont, size: 60, color: context.colors.accent.blue });
             };
 
             await pdfCreationLogic();

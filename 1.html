@@ -3451,7 +3451,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 
                 addNewPage();
                 drawTitle("7. PATRACDVR");
-                const patracHeaders = ["Trigramme", "Fonction", "Cellule", "Princ.", "Sec.", "A.F.I.", "Grenades", "Équip. 1", "Équip. 2", "Tenue", "GPB"];
+                const patracHeaders = ["Pax", "Fonction", "Cellule", "Princ.", "Sec.", "A.F.I.", "Grenades", "Équip. 1", "Équip. 2", "Tenue", "GPB"];
                 for (const row of (formData.patracdvr_rows || [])) {
                     if(row.vehicle && row.members && row.members.length > 0) {
                         drawSubTitle(`Véhicule: ${row.vehicle}`);
@@ -3461,7 +3461,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                             m.equipement, m.equipement2, m.tenue, m.gpb
                         ]);
                         if (patracRows.length > 0) { 
-                             drawTable(patracHeaders, patracRows, [70, 60, 60, 70, 50, 50, 60, 60, 60, 50, 50], context.margin); 
+                             drawTable(patracHeaders, patracRows, [60, 60, 60, 70, 60, 60, 60, 60, 60, 60, 60], context.margin); 
                         }
                     }
                 }

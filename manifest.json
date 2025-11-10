@@ -10,7 +10,7 @@
   "theme_color": "#000000",
   "icons": [
     {
-      "src": "https://oxsilaris06.github.io/GStart/favicon.ico",
+      "src": "https://oxsilaris06.github.io/GStart/512.png",
       "type": "image/png",
       "sizes": "any",
       "isSquare": false,

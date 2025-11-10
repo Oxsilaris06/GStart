@@ -1,13 +1,13 @@
 {
-  "background_color": "#ffffff",
+  "background_color": "#000000",
   "dir": "ltr",
   "display": "standalone",
-  "name": "oxsilaris06.github",
+  "name": "OI v.1",
   "orientation": "any",
   "scope": "/",
-  "short_name": "oxsilaris06.github",
-  "start_url": "/",
-  "theme_color": "#ffffff",
+  "short_name": "OI v.1",
+  "start_url": "https://oxsilaris06.github.io/GStart/1.html",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "https://oxsilaris06.github.io/GStart/favicon.ico",

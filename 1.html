@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Générateur d'OI</title>
+    <title>Générateur d'OI (Lite)</title>
 	<link rel="icon" href="favicon.ico" sizes="any" type="image/png">
     <link rel="icon" href="favicon.ico" type="image/svg+xml">
     <link rel="apple-touch-icon" href="favicon.ico">
     <link rel="manifest" href="site.webmanifest">
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One:wght@400&display=swap" rel="stylesheet">
     <!-- Utilisation des Material Symbols Outlined -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <style>
@@ -410,7 +410,7 @@
         <div id="presentation-content">
             </div>
         <div class="modal-actions-pdf">
-           <button id="downloadPdfBtn" type="button" class="wizard-nav-btn">
+            <button id="downloadPdfBtn" type="button" class="wizard-nav-btn">
                 Télécharger le PDF <span class="material-symbols-outlined" style="font-size: 1.2em;">picture_as_pdf</span>
             </button>
             <button id="closePresentationModalBtn" type="button" class="wizard-nav-btn" style="background-color: var(--danger-red); color: white;">
@@ -419,7 +419,8 @@
         </div>
     </dialog>
     
-    <button id="darkModeToggle" title="Changer le thème"><span class="material-symbols-outlined" id="darkModeIcon">nightlight</span></button>
+    <button id="darkModeToggle" title="Changer le thème"><span class="material-symbols-outlined" id="darkModeIcon">nightlight</span></span class="material-symbols-outlined" style="font-size: 1.2em;">picture_as_pdf</span>
+    </button>
 
     <dialog id="quickEditModal">
         <div class="modal-form">
@@ -477,7 +478,7 @@
     </dialog>
 
     <div class="container">
-        <h1>Générateur d'OI</h1>
+        <h1>Générateur d'OI (Lite)</h1>
         
         <ul class="wizard-progress">
             <li class="wizard-progress-step" onclick="goToStep(0)"><span class="material-symbols-outlined" style="font-size: 1.2em; margin-right: 5px;">info</span>1. Situation</li>
@@ -716,8 +717,6 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                     <h2>8. Gestion des Photos</h2>
                     <p>Utilisez cette section pour ajouter et annoter toutes les photos.</p>
                 
-                    <!-- SECTION D'UPLOAD DE FOND DE PDF SUPPRIMÉE -->
-                
                     <!-- ADVERSAIRE PRINCIPAL -->
                     <div class="collapsible-container">
                         <div class="collapsible-header">
@@ -778,25 +777,29 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                                 <h4>Itinéraire Extérieur (INDIA)</h4>
                                 <button type="button" class="add-btn" style="width:100%; justify-content: center;" onclick="document.getElementById('photo_container_itineraire_exterieur_input').click()">➕ Ajouter Photo(s)</button>
                                 <input type="file" id="photo_container_itineraire_exterieur_input" class="photo-input" accept="image/jpeg, image/png" multiple onchange="handleFileChange(this, 'photo_container_itineraire_exterieur_preview_container', false)">
-                                <div id="photo_container_itineraire_exterieur_display" class="photo-display-area"></div>
+                                <!-- CORRECTION: Changer le conteneur d'upload ici -->
+                                <div id="photo_container_itineraire_exterieur_preview_container" class="image-preview-container"></div>
                             </div>
                              <div class="photo-upload-section">
                                 <h4>Itinéraire Intérieur (INDIA)</h4>
                                 <button type="button" class="add-btn" style="width:100%; justify-content: center;" onclick="document.getElementById('photo_container_itineraire_interieur_input').click()">➕ Ajouter Photo(s)</button>
                                 <input type="file" id="photo_container_itineraire_interieur_input" class="photo-input" accept="image/jpeg, image/png" multiple onchange="handleFileChange(this, 'photo_container_itineraire_interieur_preview_container', false)">
-                                <div id="photo_container_itineraire_interieur_display" class="photo-display-area"></div>
+                                <!-- CORRECTION: Changer le conteneur d'upload ici -->
+                                <div id="photo_container_itineraire_interieur_preview_container" class="image-preview-container"></div>
                             </div>
                              <div class="photo-upload-section">
                                 <h4>Baptême Terrain (AO)</h4>
                                 <button type="button" class="add-btn" style="width:100%; justify-content: center;" onclick="document.getElementById('photo_container_bapteme_terrain_input').click()">➕ Ajouter Photo(s)</button>
                                 <input type="file" id="photo_container_bapteme_terrain_input" class="photo-input" accept="image/jpeg, image/png" multiple onchange="handleFileChange(this, 'photo_container_bapteme_terrain_preview_container', false)">
-                                <div id="photo_container_bapteme_terrain_display" class="photo-display-area"></div>
+                                <!-- CORRECTION: Changer le conteneur d'upload ici -->
+                                <div id="photo_container_bapteme_terrain_preview_container" class="image-preview-container"></div>
                             </div>
                             <div class="photo-upload-section">
                                 <h4>Emplacement (AO)</h4>
                                 <button type="button" class="add-btn" style="width:100%; justify-content: center;" onclick="document.getElementById('photo_container_emplacement_ao_input').click()">➕ Ajouter Photo(s)</button>
                                 <input type="file" id="photo_container_emplacement_ao_input" class="photo-input" accept="image/jpeg, image/png" multiple onchange="handleFileChange(this, 'photo_container_emplacement_ao_preview_container', false)">
-                                <div id="photo_container_emplacement_ao_display" class="photo-display-area"></div>
+                                <!-- CORRECTION: Changer le conteneur d'upload ici -->
+                                <div id="photo_container_emplacement_ao_preview_container" class="image-preview-container"></div>
                             </div>
                         </div>
                     </div>
@@ -1023,6 +1026,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             'renforts_photo_preview_container': 'renforts_photo_display',
             'adversary_photo_preview_container_2': 'adversary_photo_display_2',
             'adversary_extra_photos_preview_container_2': 'adversary_extra_photos_display_2',
+            // CORRECTION: Remplacer les conteneurs d'affichage par les conteneurs d'upload
             'photo_container_itineraire_exterieur_preview_container': 'photo_container_itineraire_exterieur_display',
             'photo_container_itineraire_interieur_preview_container': 'photo_container_itineraire_interieur_display',
             'photo_container_bapteme_terrain_preview_container': 'photo_container_bapteme_terrain_display',
@@ -1098,7 +1102,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         console.error("Erreur lors du stockage de l'image:", error);
                         // Révocation de l'URL si elle a été créée avant l'erreur de stockage
                         if (objectURL && objectUrlsCache[previewImgId]) {
-                             URL.revokeObjectURL(objectUrlsCache[previewImgId]);
+                             URL.revokeObjectURL(objectURL);
                              delete objectUrlsCache[previewImgId];
                         }
                         alert("Une erreur est survenue lors de l'ajout de l'image.");
@@ -1110,11 +1114,14 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             saveFormData();
         }
         
-        // Les fonctions handlePdfBackgroundChange et removePdfBackground ont été supprimées.
-        // La section d'upload dans le HTML a été mise à jour.
-
         async function removeImage(imgId, itemElement) {
             try {
+                // Révocation de l'URL de l'objet et suppression du cache
+                if (objectUrlsCache[imgId]) {
+                    URL.revokeObjectURL(objectUrlsCache[imgId]);
+                    delete objectUrlsCache[imgId];
+                }
+
                 await dbManager.deleteItem(imgId);
                 if (itemElement) itemElement.remove();
                 syncAllThumbnails();
@@ -1792,8 +1799,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     }
                 }
                 syncAllThumbnails();
-                
-                // Suppression du chargement d'image de fond depuis IndexedDB.
                 
                 // Charger les autres champs dynamiques
                 document.getElementById('me_container').innerHTML = '';
@@ -3098,8 +3103,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         y: (height - scaled.height) / 2, 
                         width: scaled.width, 
                         height: scaled.height,
-                        // CONSIGNE: Opacité fixée à 0.7
-                        opacity: 0.97
+                        // CONSIGNE: Opacité fixée à 1.0
+                        opacity: 1.0
                     }); 
                 }
             };
@@ -3346,13 +3351,30 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             const pdfCreationLogic = async () => {
                 // Initialisation de la première page (qui doit avoir le fond)
                 addNewPage();
+                
+                // CONSIGNE: Titre en haut à gauche
                 const mainTitle = "OPÉRATION DE POLICE JUDICIAIRE";
+                context.currentPage.drawText(mainTitle, { 
+                    x: context.margin, 
+                    y: context.pageHeight - context.margin, 
+                    font: helveticaBoldFont, 
+                    size: 24, 
+                    color: context.colors.accent 
+                });
+                
+                // CONSIGNE: Date en haut à droite
                 const dateTitle = `DU ${getVal('date_op') || '(DATE)'}`;
-                const titleWidth = helveticaBoldFont.widthOfTextAtSize(mainTitle, 24);
                 const dateTitleWidth = helveticaBoldFont.widthOfTextAtSize(dateTitle, 18);
-                context.currentPage.drawText(mainTitle, { x: context.pageWidth / 2 - titleWidth / 2, y: context.pageHeight / 1.5 + 10, font: helveticaBoldFont, size: 24, color: context.colors.accent });
-                context.currentPage.drawText(dateTitle, { x: context.pageWidth / 2 - dateTitleWidth / 2, y: context.pageHeight / 1.5 - 15, font: helveticaBoldFont, size: 18, color: context.colors.text });
-
+                context.currentPage.drawText(dateTitle, { 
+                    x: context.pageWidth - context.margin - dateTitleWidth, 
+                    y: context.pageHeight - context.margin - (24-18)*0.5, // Aligner verticalement avec le titre
+                    font: helveticaBoldFont, 
+                    size: 18, 
+                    color: context.colors.text 
+                });
+                
+                context.y = context.pageHeight - context.margin - 40; // Démarrer le contenu sous le titre
+                
                 addNewPage(); // Page 2
                 drawTitle("1. SITUATION");
                 drawSubTitle("1.1 Situation Générale"); drawWrappedText(getVal('situation_generale'), { size: 14 });
@@ -3462,9 +3484,21 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 // Ajoute la page finale AVEC le fond
                 addNewPage(true); 
 
+                // CONSIGNE: Le texte "Avez vous des questions?" est centré dans le premier quart supérieur de la diapo.
                 const finalText = "Avez vous des questions?";
                 const finalTextWidth = helveticaBoldFont.widthOfTextAtSize(finalText, 48);
-                context.currentPage.drawText(finalText, { x: context.pageWidth / 2 - finalTextWidth / 2, y: context.pageHeight /2, font: helveticaBoldFont, size: 60, color: context.colors.accent.blue });
+                
+                // Y: Le premier quart est de context.pageHeight à context.pageHeight * 0.75.
+                // Centré sur le point Y = (Max Y + Min Y) / 2 = (height + (height * 0.75)) / 2 = height * 0.875
+                const targetY = context.pageHeight * 0.85; // Ajustement visuel dans le premier quart
+                
+                context.currentPage.drawText(finalText, { 
+                    x: context.pageWidth / 2 - finalTextWidth / 2, 
+                    y: targetY, 
+                    font: helveticaBoldFont, 
+                    size: 48, 
+                    color: context.colors.accent 
+                });
             };
 
             await pdfCreationLogic();

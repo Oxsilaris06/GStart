@@ -1,28 +1,66 @@
 {
-  "background_color": "#000000",
-  "dir": "ltr",
+  "background_color": "#6e6e6e",
+  "dir": "auto",
   "display": "standalone",
-  "name": "OI v.1",
+  "name": "OI-V1",
   "orientation": "any",
   "scope": "/",
-  "short_name": "OI 1.0",
-  "start_url": "/1.html",  // Simplification du start_url si le manifeste est à la racine
+  "short_name": "OI-V1",
+  "start_url": "https://oxsilaris06.github.io/GStart/1",
   "theme_color": "#000000",
   "icons": [
     {
-      "src": "https://oxsilaris06.github.io/GStart/512.png",
-      "type": "image/png",
-      "sizes": "512x512" // Spécifiez la taille exacte
+      "src": "https://oxsilaris06.github.io/GStart/favicon.ico",
+      "type": "image/x-icon"
     },
     {
-      "src": "https://oxsilaris06.github.io/GStart/android-launchericon-192-192.png", // Corrigé le casing de Gstart
+      "src": "https://oxsilaris06.github.io/GStart/android-icon-192x192.png",
       "type": "image/png",
       "sizes": "192x192"
     },
-    {
-      "src": "https://oxsilaris06.github.io/GStart/256.png",
+    {"src": "https://oxsilaris06.github.io/GStart/512x512.png",
       "type": "image/png",
-      "sizes": "256x256"
+      "sizes": "512x512"
+    },
+    {
+      "src": "https://oxsilaris06.github.io/GStart/apple-touch-icon-57x57.png",
+      "sizes": "57x57"
+    },
+    {
+      "src": "https://oxsilaris06.github.io/GStart/apple-touch-icon-60x60.png",
+      "sizes": "60x60"
+    },
+    {
+      "src": "https://oxsilaris06.github.io/GStart/apple-touch-icon-72x72.png",
+      "sizes": "72x72"
+    },
+    {
+      "src": "https://oxsilaris06.github.io/GStart/apple-touch-icon-76x76.png",
+      "sizes": "76x76"
+    },
+    {
+      "src": "https://oxsilaris06.github.io/GStart/apple-touch-icon-114x114.png",
+      "sizes": "114x114"
+    },
+    {
+      "src": "https://oxsilaris06.github.io/GStart/apple-touch-icon-120x120.png",
+      "sizes": "120x120"
+    },
+    {
+      "src": "https://oxsilaris06.github.io/GStart/apple-touch-icon-144x144.png",
+      "sizes": "144x144"
+    },
+    {
+      "src": "https://oxsilaris06.github.io/GStart/apple-touch-icon-152x152.png",
+      "sizes": "152x152"
+    },
+    {
+      "src": "https://oxsilaris06.github.io/GStart/apple-touch-icon-180x180.png",
+      "sizes": "180x180"
+    },
+    {
+      "src": "https://oxsilaris06.github.io/CET/ms-icon-144x144.png"
     }
-  ]
+  ],
+  "lang": "fr"
 }

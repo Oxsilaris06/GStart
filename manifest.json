@@ -6,30 +6,23 @@
   "orientation": "any",
   "scope": "/",
   "short_name": "OI v.1",
-  "start_url": "https://oxsilaris06.github.io/GStart/1.html",
+  "start_url": "/1.html",  // Simplification du start_url si le manifeste est à la racine
   "theme_color": "#000000",
   "icons": [
     {
       "src": "https://oxsilaris06.github.io/GStart/512.png",
       "type": "image/png",
-      "sizes": "any",
-      "isSquare": false,
-      "isPng": true,
-      "isWebp": false,
-      "isJpg": false,
-      "width": 0,
-      "is512x512": false,
-      "is256x256": false,
-      "is192x192": false
-    }
-          {"src": "https://oxsilaris06.github.io/Gstart/android-launchericon-192-192.png",
+      "sizes": "512x512" // Spécifiez la taille exacte
+    },
+    {
+      "src": "https://oxsilaris06.github.io/GStart/android-launchericon-192-192.png", // Corrigé le casing de Gstart
       "type": "image/png",
       "sizes": "192x192"
     },
-    {"src": "https://oxsilaris06.github.io/GStart/512.png",
+    {
+      "src": "https://oxsilaris06.github.io/GStart/256.png",
       "type": "image/png",
-      "sizes": "512x512"
-    },
-    
+      "sizes": "256x256"
+    }
   ]
 }

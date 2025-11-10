@@ -22,5 +22,14 @@
       "is256x256": false,
       "is192x192": false
     }
+          {"src": "https://oxsilaris06.github.io/Gstart/android-icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {"src": "https://oxsilaris06.github.io/GStart/512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    
   ]
 }

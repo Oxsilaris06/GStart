@@ -1,5 +1,5 @@
 {
-  "background_color": "#000000",
+  "background_color": "#ffffff",
   "dir": "ltr",
   "display": "standalone",
   "name": "oxsilaris06.github",
@@ -7,7 +7,7 @@
   "scope": "/",
   "short_name": "oxsilaris06.github",
   "start_url": "/",
-  "theme_color": "#000000",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "https://oxsilaris06.github.io/GStart/favicon.ico",
@@ -22,6 +22,5 @@
       "is256x256": false,
       "is192x192": false
     }
-  ],
-  "description": "OIGenerator"
+  ]
 }

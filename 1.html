@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Générateur d'OI (Lite)</title>
+    <title>OI</title>
 	<link rel="icon" href="favicon.ico" sizes="any" type="image/png">
     <link rel="icon" href="favicon.ico" type="image/svg+xml">
     <link rel="apple-touch-icon" href="favicon.ico">
@@ -13,18 +13,19 @@
     <!-- Utilisation des Material Symbols Outlined -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <style>
-        :root {
-            --bg-body: #121212; --bg-container: #1e1e1e; --bg-interactive: #2a2a2a;
+       :root {
+            --bg-body: #000000; --bg-container: #000000; --bg-interactive: #2a2a2a;
             --text-primary: #e0e0e0; --text-secondary: #95a5a6; --border-color: #444444;
-            --accent-blue: #5b9bd5; --accent-hover: #4a7aa5; --danger-red: #c0392b;
-            --success-green: #27ae60;
+            --accent-blue: #5b9bd5; --accent-hover: #4a7aa5; --danger-red: #be1b09;
+            --success-green: #259654;
             --trash-color: #6c757d;
         }
         body.light-mode {
-            --bg-body: #f0f2f5; --bg-container: #ffffff; --bg-interactive: #f8f9fa;
-            --text-primary: #212529; --text-secondary: #6c757d; --accent-blue: #0033a0;
-            --border-color: #dee2e6;
-            --trash-color: #adb5bd;
+            --bg-body: #d2d3d59c; --bg-container: #cdcccc; --bg-interactive: #ffffff;
+            --text-primary: #212529; --text-secondary: #212529; --accent-blue: #002e91;
+            --success-green: #13bf00;
+            --border-color: #000000;
+            --trash-color: #000000;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { font-size: 16px; }
@@ -478,7 +479,7 @@
     </dialog>
 
     <div class="container">
-        <h1>Générateur d'OI (Lite)</h1>
+        <h1>Générateur d'OI</h1>
         
         <ul class="wizard-progress">
             <li class="wizard-progress-step" onclick="goToStep(0)"><span class="material-symbols-outlined" style="font-size: 1.2em; margin-right: 5px;">info</span>1. Situation</li>
@@ -696,7 +697,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                     </div>
 
                     <h4 style="margin-top: 20px;">Ajouter un véhicule ou un membre</h4>
-                    <div id="vehicle_creation_buttons">
+                   <div id="vehicle_creation_buttons" style=" display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;">
                         <button type="button" class="add-btn add-vehicle-btn" id="addManualVehicleBtn">➕ Véhicule Manuel</button>
                         <button type="button" class="add-btn add-vehicle-btn" id="addManualMemberBtn">➕ Membre Manuel</button>
                         </div>
@@ -2456,12 +2457,12 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             const aoMembers = members.filter(m => m.cellule && m.cellule.toLowerCase().startsWith('ao'));
             const allAssignedMembers = [...indiaMembers, ...aoMembers];
 
-            if (!getVal('date_op')) { alerts.push("La **Date de l'opération** est manquante. <span class='material-symbols-outlined'>event</span>"); }
+            if (!getVal('date_op')) { alerts.push("La Date de l'opération est manquante. <span class='material-symbols-outlined'>event</span>"); }
 
-            if (!getVal('nom_adversaire')) { alerts.push("Le **Nom de l'adversaire Principal** est manquant. (Onglet 2) <span class='material-symbols-outlined'>person</span>"); }
+            if (!getVal('nom_adversaire')) { alerts.push("Le Nom de l'adversaire Principal est manquant. (Onglet 2) <span class='material-symbols-outlined'>person</span>"); }
             
             if (getVal('nom_adversaire_2') && !getVal('domicile_adversaire_2')) {
-                 alerts.push(`Le **Domicile de l'adversaire Secondaire** est manquant. (Onglet 2) <span class='material-symbols-outlined'>home</span>`);
+                 alerts.push(`Le Domicile de l'adversaire Secondaire est manquant. (Onglet 2) <span class='material-symbols-outlined'>home</span>`);
             }
             
             allAssignedMembers.forEach(member => {
@@ -2469,28 +2470,28 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 const hasNoSecondary = member.secondaires === 'Sans' || !member.secondaires;
                 
                 if (hasNoPrimary && hasNoSecondary && member.fonction !== 'Sans') {
-                    alerts.push(`Membre **${member.trigramme}** est assigné mais n'a **AUCUN armement principal/secondaire**. (Cellule: ${member.cellule}) <span class='material-symbols-outlined'>local_fire_department</span>`);
+                    alerts.push(`Membre ${member.trigramme} est assigné mais n'a AUCUN armement principal/secondaire. (Cellule: ${member.cellule}) <span class='material-symbols-outlined'>local_fire_department</span>`);
                 }
                 if (member.afis !== 'Sans' && !member.afis) {
-                    alerts.push(`Membre **${member.trigramme}** a un AFI non spécifié. <span class='material-symbols-outlined'>handgun</span>`);
+                    alerts.push(`Membre ${member.trigramme} a un AFI non spécifié. <span class='material-symbols-outlined'>handgun</span>`);
                 }
             });
 
             const chefInter = allAssignedMembers.find(m => m.fonction === 'Chef inter');
             if (chefInter && !chefInter.cellule.toLowerCase().startsWith('india')) {
-                 alerts.push(`Le **Chef inter** (${chefInter.trigramme}) est assigné à la cellule **${chefInter.cellule}** au lieu d'India. <span class='material-symbols-outlined'>group</span>`);
+                 alerts.push(`Le Chef inter (${chefInter.trigramme}) est assigné à la cellule ${chefInter.cellule} au lieu d'India. <span class='material-symbols-outlined'>group</span>`);
             }
 
             if (!formData.time_events || formData.time_events.length < 3) {
-                alerts.push(`La **Chronologie** (T0, T1, T4...) est incomplète. Au moins 3 étapes sont recommandées. (Onglet 5) <span class='material-symbols-outlined'>timeline</span>`);
+                alerts.push(`La Chronologie (T0, T1, T4...) est incomplète. Au moins 3 étapes sont recommandées. (Onglet 5) <span class='material-symbols-outlined'>timeline</span>`);
             } else {
                  const t4 = formData.time_events.find(e => e.type === 'T4');
-                 if (!t4) alerts.push("Le **TOP ACTION (T4)** n'est pas défini dans la chronologie. <span class='material-symbols-outlined'>timer</span>");
+                 if (!t4) alerts.push("Le TOP ACTION (T4) n'est pas défini dans la chronologie. <span class='material-symbols-outlined'>timer</span>");
             }
 
             const unassignedCount = (formData.patracdvr_unassigned || []).length;
             if (unassignedCount > 0) {
-                 alerts.push(`**${unassignedCount} membres** ne sont **PAS assignés** à un véhicule/équipe. <span class='material-symbols-outlined'>groups_2</span>`);
+                 alerts.push(`${unassignedCount} membres ne sont PAS assignés à un véhicule/équipe. <span class='material-symbols-outlined'>groups_2</span>`);
             }
             
             coherenceAlertsContainer.innerHTML = '';
@@ -2502,18 +2503,18 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     coherenceAlertsContainer.appendChild(alertDiv);
                 });
             } else {
-                coherenceAlertsContainer.innerHTML = `<div class="coherence-alert" style="background-color: var(--success-green); color: white;"><span class="material-symbols-outlined">check_circle</span> Aucune incohérence majeure détectée. Prêt à générer.</div>`;
+                coherenceAlertsContainer.innerHTML = `<div class="coherence-alert" style="background-color: var(--success-green); color: #000000;"><span class="material-symbols-outlined">check_circle</span> Aucune incohérence majeure détectée. Prêt à générer.</div>`;
             }
 
             let recapHtml = '<h4>Synthèse des Éléments Clés :</h4><ul>';
-            recapHtml += `<li>**Opération** du ${getVal('date_op') || 'N/A'} - H: ${getVal('heure_execution') || 'N/A'}</li>`;
-            recapHtml += `<li>**Objectif 1** : ${getVal('nom_adversaire') || 'N/A'}</li>`;
+            recapHtml += `<li>Opération du ${getVal('date_op') || 'N/A'} - H: ${getVal('heure_execution') || 'N/A'}</li>`;
+            recapHtml += `<li>Objectif 1 : ${getVal('nom_adversaire') || 'N/A'}</li>`;
             if (getVal('nom_adversaire_2')) {
-                recapHtml += `<li>**Objectif 2** : ${getVal('nom_adversaire_2') || 'N/A'}</li>`;
+                recapHtml += `<li>Objectif 2 : ${getVal('nom_adversaire_2') || 'N/A'}</li>`;
             }
-            recapHtml += `<li>**Équipe INDIA** : ${indiaMembers.map(m => m.trigramme).join(', ') || 'N/A'}</li>`;
-            recapHtml += `<li>**Équipe AO** : ${aoMembers.map(m => m.trigramme).join(', ') || 'N/A'}</li>`;
-            recapHtml += `<li>**Hypothèses** : H1 (${getVal('hypothese_h1').substring(0, 30)}...)</li>`;
+            recapHtml += `<li>Équipe INDIA : ${indiaMembers.map(m => m.trigramme).join(', ') || 'N/A'}</li>`;
+            recapHtml += `<li>Équipe AO : ${aoMembers.map(m => m.trigramme).join(', ') || 'N/A'}</li>`;
+            recapHtml += `<li>Hypothèses : H1 (${getVal('hypothese_h1').substring(0, 30)}...)</li>`;
             recapHtml += '</ul>';
             recapFinalisation.innerHTML = recapHtml;
 

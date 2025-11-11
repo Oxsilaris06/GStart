@@ -348,7 +348,7 @@
         }
         
         /* Styles du Dock Flottant (Corrigé et Ajouté) */
-        .dock-menu { 
+       .dock-menu { 
             position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); 
             display: flex; gap: 10px; padding: 10px; z-index: 1000; 
             background-color: rgba(30, 30, 30, 0.7); 
@@ -376,7 +376,6 @@
         }
         #dockToggleBtn .material-symbols-outlined { transition: transform 0.3s ease; }
         .dock-menu.collapsed #dockToggleBtn .material-symbols-outlined { transform: rotate(180deg); }
-
 
         /* Styles spécifiques au mobile pour le dock */
         @media (max-width: 600px) {
@@ -1909,7 +1908,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         function initializePatracdvr(dataFromStorage) {
             unassignedContainer.innerHTML = '';
             patracdvrContainer.innerHTML = '';
-            if (dataFromStorage && (dataFromStorage.patracdvr_rows?.length > 0 || dataFromStorage.patracdvr_unassigned?.length > 0)) {
+            if (dataFromStorage && (dataFromadvData.patracdvr_rows?.length > 0 || dataFromStorage.patracdvr_unassigned?.length > 0)) {
                 (dataFromStorage.patracdvr_unassigned || []).forEach(member => addPatracdvrMember(unassignedContainer, member));
                 (dataFromStorage.patracdvr_rows || []).forEach(row => addPatracdvrRow(row.vehicle, row.members));
             }
@@ -2639,6 +2638,38 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             return document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
         }
 
+        // Nouvelle fonction pour forcer l'affichage plein écran après la première interaction utilisateur
+        function requestFullscreenOnStart() {
+            // Tente de mettre la page en plein écran (l'API nécessite une interaction utilisateur)
+            if (!isFullscreen()) {
+                const element = document.documentElement;
+                if (element.requestFullscreen) {
+                    element.requestFullscreen();
+                } else if (element.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
+                    element.webkitRequestFullscreen();
+                } else if (element.mozRequestFullScreen) { /* Firefox */
+                    element.mozRequestFullScreen();
+                } else if (element.msRequestFullscreen) { /* IE/Edge */
+                    element.msRequestFullscreen();
+                }
+            }
+        }
+        
+        // Gestionnaire pour la première interaction
+        function handleFirstInteraction(e) {
+            // On ne veut pas que la bascule de thème ou le bouton lui-même déclenchent le plein écran de manière intempestive
+            if (e.target.closest('#darkModeToggle') || e.target.closest('#fullscreenToggle') || e.target.closest('#dockToggleBtn')) {
+                return;
+            }
+            
+            // Déclenche le plein écran
+            requestFullscreenOnStart();
+            
+            // Supprimer l'écouteur après la première interaction réussie
+            document.body.removeEventListener('click', handleFirstInteraction);
+            document.body.removeEventListener('touchend', handleFirstInteraction);
+        }
+
         function toggleFullscreen() {
             const icon = document.getElementById('fullscreenIcon');
             if (!isFullscreen()) {
@@ -2651,8 +2682,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 } else if (document.documentElement.msRequestFullscreen) { /* IE/Edge */
                     document.documentElement.msRequestFullscreen();
                 }
-                icon.textContent = 'fullscreen_exit';
-                icon.title = 'Quitter le plein écran';
             } else {
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
@@ -2663,8 +2692,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 } else if (document.msExitFullscreen) { /* IE/Edge */
                     document.msExitFullscreen();
                 }
-                icon.textContent = 'fullscreen';
-                icon.title = 'Plein écran';
             }
         }
         
@@ -2689,7 +2716,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             document.getElementById('darkModeIcon').textContent = isDarkMode ? 'nightlight' : 'clear_day';
         }
         
-        // NOUVEAU: Logique de bascule du dock
+        // Logique de bascule du dock
         function toggleDock() {
             const dock = document.getElementById('dockMenu');
             const dockCollapsed = dock.classList.toggle('collapsed');
@@ -2698,6 +2725,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             // Mise à jour de l'icône de toggle
             const icon = document.querySelector('#dockToggleBtn .material-symbols-outlined');
             if (icon) {
+                // Inverser l'icône : expand_more (pointe vers le bas/ouvert) -> expand_less (pointe vers le haut/fermé)
                 icon.textContent = dockCollapsed ? 'expand_less' : 'expand_more';
             }
         }
@@ -2711,7 +2739,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 // Initialiser IndexedDB en premier
                 await dbManager.init();
             } catch (e) {
-                alert("Votre navigateur ne supporte pas IndexedDB, ou son utilisation est bloquée. La gestion des photos ne fonctionnera pas.");
                 console.error(e);
                 return;
             }
@@ -2750,6 +2777,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                      document.querySelector('#dockToggleBtn .material-symbols-outlined').textContent = 'expand_less';
                  }
             }
+            
+            // **********************************************
+            // * NOUVEAU: Activation "intelligente" Fullscreen *
+            // **********************************************
+            // Ajout des écouteurs pour la première interaction
+            document.body.addEventListener('click', handleFirstInteraction);
+            document.body.addEventListener('touchend', handleFirstInteraction);
             
             // Réinitialisation/Chargement des chips après loadFormData
             const formData = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || {};

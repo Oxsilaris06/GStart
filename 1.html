@@ -13,7 +13,7 @@
     <!-- Utilisation des Material Symbols Outlined -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     <style>
-       :root {
+        :root {
             --bg-body: #000000; --bg-container: #000000; --bg-interactive: #2a2a2a;
             --text-primary: #e0e0e0; --text-secondary: #95a5a6; --border-color: #444444;
             --accent-blue: #5b9bd5; --accent-hover: #4a7aa5; --danger-red: #be1b09;
@@ -27,7 +27,7 @@
             --border-color: #000000;
             --trash-color: #000000;
         }
-		#main-footer { width: 100%;  text-align: center; margin-top: 2rem;  padding: 1rem; color: #5b9bd5; font-size: 0.75rem;border-top: 1px solid #5b9bd5;}
+		#main-footer { width: 100%; text-align: center; margin-top: 2rem; padding: 1rem; color: #5b9bd5; font-size: 0.75rem;border-top: 1px solid #5b9bd5;}
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { font-size: 16px; }
         body { font-family: 'Oswald', sans-serif; background-color: var(--bg-body); color: var(--text-primary); line-height: 1.6; padding: 10px; padding-bottom: 30px; transition: background-color 0.3s, color 0.3s; }
@@ -35,7 +35,7 @@
             width: 100%; max-width: 800px; margin: auto; 
             background: var(--bg-container); padding: 20px; 
             border-radius: 8px; border: 1px solid var(--border-color); 
-            position: relative; /* Pour positionner la bascule du thème */
+            position: relative; 
         }
         h1 { 
             font-size: 2.2em; margin-bottom: 20px; color: var(--accent-blue); 
@@ -46,16 +46,27 @@
         h3 { font-size: 1.1em; color: var(--text-primary); margin-top: 15px; margin-bottom: 10px; }
         h4 { font-size: 1.0em; color: var(--text-secondary); margin-top: 10px; margin-bottom: 5px; }
         
-        /* Bouton de bascule du thème déplacé dans l'en-tête */
-        #darkModeToggle { 
-            position: absolute; top: 20px; right: 20px; 
+        /* Boutons d'en-tête (Thème et Fullscreen) */
+        .header-buttons {
+            position: absolute; top: 20px; right: 20px;
+            display: flex; gap: 10px;
+        }
+
+        #darkModeToggle, #fullscreenToggleBtn { 
             background-color: var(--bg-interactive); color: var(--text-primary); 
             border: 1px solid var(--border-color); border-radius: 50%; width: 40px; 
             height: 40px; font-size: 20px; cursor: pointer; transition: all 0.2s;
             display: flex; align-items: center; justify-content: center;
         }
-        #darkModeToggle:hover { background-color: var(--accent-blue); color: white; border-color: var(--accent-blue); }
-
+        #darkModeToggle:hover, #fullscreenToggleBtn:hover { 
+            background-color: var(--accent-blue); color: white; border-color: var(--accent-blue); 
+        }
+        
+        /* Mouvement du bouton de thème quand le bouton fullscreen est présent */
+        #darkModeToggle { 
+            right: 60px; /* Ajusté pour laisser de la place au bouton fullscreen */
+        }
+        
         .wizard-progress { 
             display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; 
             margin-bottom: 25px; list-style-type: none; padding: 0; 
@@ -71,7 +82,7 @@
              .wizard-progress-step {
                 font-size: 0.85em;
                 padding: 8px 12px;
-             }
+               }
         }
         
         .wizard-progress-step:hover { background-color: var(--bg-body); }
@@ -421,8 +432,12 @@
         </div>
     </dialog>
     
-    <button id="darkModeToggle" title="Changer le thème"><span class="material-symbols-outlined" id="darkModeIcon">nightlight</span>
-    </button>
+    <!-- Zone pour les boutons d'en-tête -->
+    <div class="header-buttons">
+        <button id="fullscreenToggleBtn" title="Mode Plein Écran"><span class="material-symbols-outlined" id="fullscreenIcon">fullscreen</span></button>
+        <button id="darkModeToggle" title="Changer le thème"><span class="material-symbols-outlined" id="darkModeIcon">nightlight</span>
+        </button>
+    </div>
 
     <dialog id="quickEditModal">
         <div class="modal-form">
@@ -439,11 +454,11 @@
             <div class="annotation-toolbar">
                  <div id="contextual_tools">
                      <div class="toolbar-contextual-tools">
-                        <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
-                            <label for="rotation_input" style="font-size: 0.8em; margin:0;">Rotation (Degrés)</label>
-                            <input type="number" id="rotation_input" min="0" max="360" step="1" value="0" style="max-width: 80px; text-align: center; padding: 5px; height: 35px; margin: 0;" onchange="updateAnnotationRotation()">
-                        </div>
-                        <button id="edit_text_btn" class="tool-btn"><span class="material-symbols-outlined">text_fields</span>Texte</button>
+                         <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                             <label for="rotation_input" style="font-size: 0.8em; margin:0;">Rotation (Degrés)</label>
+                             <input type="number" id="rotation_input" min="0" max="360" step="1" value="0" style="max-width: 80px; text-align: center; padding: 5px; height: 35px; margin: 0;" onchange="updateAnnotationRotation()">
+                         </div>
+                         <button id="edit_text_btn" class="tool-btn"><span class="material-symbols-outlined">text_fields</span>Texte</button>
                          <button id="delete_btn" class="tool-btn" style="background-color: var(--danger-red); color: white;"><span class="material-symbols-outlined">delete</span>Supprimer</button>
                      </div>
                  </div>
@@ -698,7 +713,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                     </div>
 
                     <h4 style="margin-top: 20px;">Ajouter un véhicule ou un membre</h4>
-                   <div id="vehicle_creation_buttons" style=" display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;">
+                    <div id="vehicle_creation_buttons" style=" display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;">
                         <button type="button" class="add-btn add-vehicle-btn" id="addManualVehicleBtn">➕ Véhicule Manuel</button>
                         <button type="button" class="add-btn add-vehicle-btn" id="addManualMemberBtn">➕ Membre Manuel</button>
                         </div>
@@ -768,7 +783,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                             </div>
                         </div>
                     </div>
-                
+                    
                     <div class="collapsible-container">
                         <div class="collapsible-header">
                             <h3>Articulation</h3>
@@ -805,7 +820,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                             </div>
                         </div>
                     </div>
-                
+                    
                     <div class="collapsible-container">
                         <div class="collapsible-header">
                             <h3>Logistique & Divers</h3>
@@ -879,9 +894,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@4.0.10/marked.min.js"></script>
 	<script>
-  if (typeof navigator.serviceWorker !== 'undefined') {
-    navigator.serviceWorker.register('sw.js')
-  }
+ if (typeof navigator.serviceWorker !== 'undefined') {
+	navigator.serviceWorker.register('sw.js')
+ }
 </script>
     <script>
         // Configuration des membres par défaut (pour initialisation si localStorage vide)
@@ -951,24 +966,24 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             // Utilisation de la clé isolée
             dbName: INDEXED_DB_NAME,
             storeName: 'images',
-        
+            
             init() {
                 return new Promise((resolve, reject) => {
                     if (this.db) {
                         return resolve(this.db);
                     }
                     const request = indexedDB.open(this.dbName, 1);
-        
+                    
                     request.onerror = (event) => {
                         console.error("Erreur d'ouverture de la base de données IndexedDB", event);
                         reject("Erreur IndexedDB.");
                     };
-        
+                    
                     request.onsuccess = (event) => {
                         this.db = event.target.result;
                         resolve(this.db);
                     };
-        
+                    
                     request.onupgradeneeded = (event) => {
                         const db = event.target.result;
                         if (!db.objectStoreNames.contains(this.storeName)) {
@@ -977,7 +992,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     };
                 });
             },
-        
+            
             putItem(key, blob) {
                 return new Promise((resolve, reject) => {
                     const transaction = this.db.transaction([this.storeName], 'readwrite');
@@ -987,7 +1002,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     request.onerror = (event) => reject(event.target.error);
                 });
             },
-        
+            
             getItem(key) {
                 return new Promise((resolve, reject) => {
                     const transaction = this.db.transaction([this.storeName], 'readonly');
@@ -1087,11 +1102,11 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 }
                 previewContainer.innerHTML = '';
             }
-        
+            
             if (input.files.length > 0) {
                 for (const file of Array.from(input.files)) {
                     const previewImgId = `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-        
+                    
                     let objectURL = null;
                     try {
                         await dbManager.putItem(previewImgId, file);
@@ -1107,7 +1122,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                                 <button type="button" class="remove-btn" style="padding: 4px 8px;" onclick="removeImage('${previewImgId}', this.closest('.image-preview-item'))">&times;</button>
                             </div>`;
                         previewContainer.appendChild(interactiveItem);
-        
+                    
                     } catch (error) {
                         console.error("Erreur lors du stockage de l'image:", error);
                         // Révocation de l'URL si elle a été créée avant l'erreur de stockage
@@ -1115,6 +1130,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                              URL.revokeObjectURL(objectURL);
                              delete objectUrlsCache[previewImgId];
                         }
+                        // Utilisation de `alert` natif pour les erreurs critiques utilisateur
                         alert("Une erreur est survenue lors de l'ajout de l'image.");
                     }
                 }
@@ -1151,14 +1167,14 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             document.querySelectorAll('.photo-display-area').forEach(container => {
                 container.innerHTML = '';
             });
-        
+            
             for (const previewId in displayMap) {
                 const displayId = displayMap[previewId];
                 if (!displayId) continue;
-        
+                
                 const previewContainer = document.getElementById(previewId);
                 const displayContainer = document.getElementById(displayId);
-        
+                
                 if (previewContainer && displayContainer) {
                     previewContainer.querySelectorAll('.image-preview-item img').forEach(previewImg => {
                         const displayImg = document.createElement('img');
@@ -1237,13 +1253,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
              customInput.style.minHeight = '40px';
              customInput.style.padding = '8px 12px';
              container.appendChild(customInput);
-         }
+          }
 
-         function getChipData(containerId) {
-             const container = document.getElementById(containerId);
-             const selectedChips = container.querySelectorAll('.chip-btn.selected');
-             return Array.from(selectedChips).map(btn => btn.textContent);
-         }
+          function getChipData(containerId) {
+              const container = document.getElementById(containerId);
+              const selectedChips = container.querySelectorAll('.chip-btn.selected');
+              return Array.from(selectedChips).map(btn => btn.textContent);
+          }
 
         function addMeField(value = '', containerId = 'me_container') {
             const container = document.getElementById(containerId);
@@ -1274,6 +1290,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 ];
                 const defaultValues = prefilledData[currentEventCount] || { type: `T${currentEventCount}`, desc: ''};
                 type = defaultValues.type;
+                hour = defaultValues.hour; // Conserver l'heure par défaut
                 desc = defaultValues.desc;
             }
 
@@ -1291,6 +1308,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         function addPatracdvrRow(vehicleName, members = []) {
             const container = document.getElementById('patracdvr_container');
             if (container.querySelector(`[data-vehicle-name="${vehicleName}"]`)) {
+                // Utilisation de `alert` natif
                 alert(`Le véhicule "${vehicleName}" existe déjà. Veuillez choisir un nom unique.`);
                 return;
             }
@@ -1344,6 +1362,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         }
         
         function addManualVehicle() {
+            // Utilisation de `prompt` natif
             let vehicleName = prompt("Veuillez saisir le nom du nouveau véhicule (ex: VW-Golf, VTC):");
             if (vehicleName) {
                 vehicleName = vehicleName.trim();
@@ -1354,11 +1373,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         }
         
         function addManualMember() {
+            // Utilisation de `prompt` natif
             let trigramme = prompt("Veuillez saisir le trigramme du nouveau membre (ex: ABC):");
             if (trigramme) {
                 trigramme = trigramme.trim().toUpperCase();
                 const existingMember = document.querySelector(`.patracdvr-member-btn[data-trigramme="${trigramme}"]`);
                 if (existingMember) {
+                    // Utilisation de `alert` natif
                     alert(`Le membre avec le trigramme "${trigramme}" existe déjà. Veuillez en choisir un autre.`);
                     return;
                 }
@@ -1370,7 +1391,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         fonction: 'Sans',
                         principales: 'Sans', 
                         secondaires: 'PSA', 
-                        afis: 'Sans',       
+                        afis: 'Sans',    
                         grenades: 'Sans',   
                         equipement: 'Sans',
                         equipement2: 'Sans',
@@ -1385,6 +1406,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     }
                     saveFormData();
                 } else {
+                    // Utilisation de `alert` natif
                     alert("Le trigramme doit contenir entre 2 et 4 caractères.");
                 }
             }
@@ -1584,8 +1606,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             trigrammeDiv.innerHTML = `
                 <h5>Trigramme</h5>
                 <input type="text" id="modal_quick_edit_trigramme_input" placeholder="Nouveau trigramme" 
-                       value="${member.dataset.trigramme || 'N/A'}" 
-                       style="padding: 8px; margin-bottom: 0; min-height: 38px; font-size: 1em;">
+                        value="${member.dataset.trigramme || 'N/A'}" 
+                        style="padding: 8px; margin-bottom: 0; min-height: 38px; font-size: 1em;">
             `;
             content.appendChild(trigrammeDiv);
             // Écouteur pour la mise à jour immédiate du trigramme (dans la modale uniquement)
@@ -1725,7 +1747,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 
                 // Sauvegarde des données détaillées des membres PATRACDVR
                 const memberDatasetsToSave = ['trigramme', 'fonction', 'cellule', 'equipement', 'equipement2', 'tenue', 'gpb', 
-                                              'principales', 'secondaires', 'afis', 'grenades']; 
+                                             'principales', 'secondaires', 'afis', 'grenades']; 
 
                 data.patracdvr_unassigned = Array.from(unassignedContainer.querySelectorAll('.patracdvr-member-btn')).map(btn => {
                     const memberData = {};
@@ -1736,9 +1758,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 data.patracdvr_rows = Array.from(document.querySelectorAll('#patracdvr_container .patracdvr-vehicle-row')).map(row => ({
                     vehicle: row.dataset.vehicleName,
                     members: Array.from(row.querySelectorAll('.patracdvr-member-btn')).map(btn => {
-                         const memberData = {};
-                         memberDatasetsToSave.forEach(key => { memberData[key] = btn.dataset[key] || ''; });
-                         return memberData;
+                          const memberData = {};
+                          memberDatasetsToSave.forEach(key => { memberData[key] = btn.dataset[key] || ''; });
+                          return memberData;
                     })
                 }));
                 
@@ -2013,6 +2035,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                      objectUrlsCache[previewImgId] = newUrl;
                      previewImg.src = newUrl;
                  } else {
+                     // Utilisation de `alert` natif
                      alert("Impossible de charger l'image pour l'annotation. Données non trouvées.");
                      return;
                  }
@@ -2029,8 +2052,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             };
         
             baseImage.onerror = (e) => {
-                alert("Impossible de charger l'image pour l'annotation. Erreur de source.");
-                console.error("Erreur de chargement de l'image dans `baseImage`:", e);
+                 // Utilisation de `alert` natif
+                 alert("Impossible de charger l'image pour l'annotation. Erreur de source.");
+                 console.error("Erreur de chargement de l'image dans `baseImage`:", e);
             };
         
             baseImage.src = objectURL;
@@ -2429,19 +2453,19 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 }
                 case 'arrow': {
                     const drawArrowLocal = (fromx, fromy, tox, toy, lineWidth) => {
-                         if (fromx === tox && fromy === toy) return;
-                         context.strokeStyle = '#c0392b'; context.fillStyle = '#c0392b'; context.lineWidth = lineWidth;
-                         const headlen = Math.max(lineWidth * 3, 10); 
-                         const dx = tox - fromx; const dy = toy - fromy;
-                         const angle = Math.atan2(dy, dx);
-                         const lineToX = tox - (headlen * 0.7) * Math.cos(angle);
-                         const lineToY = toy - (headlen * 0.7) * Math.sin(angle);
-                         
-                         context.beginPath(); context.moveTo(fromx, fromy); context.lineTo(lineToX, lineToY); context.stroke();
-                         context.beginPath(); context.moveTo(tox, toy);
-                         context.lineTo(tox - headlen * Math.cos(angle - Math.PI / 7), toy - headlen * Math.sin(angle - Math.PI / 7));
-                         context.lineTo(tox - headlen * Math.cos(angle + Math.PI / 7), toy - headlen * Math.sin(angle + Math.PI / 7));
-                         context.closePath(); context.fill();
+                          if (fromx === tox && fromy === toy) return;
+                          context.strokeStyle = '#c0392b'; context.fillStyle = '#c0392b'; context.lineWidth = lineWidth;
+                          const headlen = Math.max(lineWidth * 3, 10); 
+                          const dx = tox - fromx; const dy = toy - fromy;
+                          const angle = Math.atan2(dy, dx);
+                          const lineToX = tox - (headlen * 0.7) * Math.cos(angle);
+                          const lineToY = toy - (headlen * 0.7) * Math.sin(angle);
+                          
+                          context.beginPath(); context.moveTo(fromx, fromy); context.lineTo(lineToX, lineToY); context.stroke();
+                          context.beginPath(); context.moveTo(tox, toy);
+                          context.lineTo(tox - headlen * Math.cos(angle - Math.PI / 7), toy - headlen * Math.sin(angle - Math.PI / 7));
+                          context.lineTo(tox - headlen * Math.cos(angle + Math.PI / 7), toy - headlen * Math.sin(angle + Math.PI / 7));
+                          context.closePath(); context.fill();
                     };
                     drawArrowLocal(annotation.startX, annotation.startY, annotation.endX, annotation.endY, annotation.thickness || 5);
                     break;
@@ -2573,6 +2597,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 // Initialiser IndexedDB en premier
                 await dbManager.init();
             } catch (e) {
+                // Utilisation de `alert` natif
                 alert("Votre navigateur ne supporte pas IndexedDB, ou son utilisation est bloquée. La gestion des photos ne fonctionnera pas.");
                 console.error(e);
                 return;
@@ -2615,6 +2640,52 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
                 document.getElementById('darkModeIcon').textContent = isDarkMode ? 'nightlight' : 'clear_day';
             });
+            
+            // --- GESTION DU FULLSCREEN ---
+            const fullscreenToggleBtn = document.getElementById('fullscreenToggleBtn');
+            const fullscreenIcon = document.getElementById('fullscreenIcon');
+
+            function enterFullScreen() {
+                const elem = document.documentElement; // Vise l'élément <html>
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen();
+                } else if (elem.webkitRequestFullscreen) { /* Safari */
+                    elem.webkitRequestFullscreen();
+                } else if (elem.msRequestFullscreen) { /* IE11 */
+                    elem.msRequestFullscreen();
+                }
+            }
+
+            function exitFullScreen() {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) { /* Safari */
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) { /* IE11 */
+                    document.msExitFullscreen();
+                }
+            }
+
+            fullscreenToggleBtn.addEventListener('click', () => {
+                if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+                    exitFullScreen();
+                } else {
+                    enterFullScreen();
+                }
+            });
+
+            // Mettre à jour l'icône lors du changement de mode
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+                    fullscreenIcon.textContent = 'fullscreen_exit';
+                    fullscreenToggleBtn.title = 'Quitter le mode Plein Écran';
+                } else {
+                    fullscreenIcon.textContent = 'fullscreen';
+                    fullscreenToggleBtn.title = 'Mode Plein Écran';
+                }
+            });
+            // --- FIN GESTION DU FULLSCREEN ---
+
 
             resetPatracdvrBtn.addEventListener('click', () => { 
                 // Utilisation d'un `confirm` natif
@@ -2625,6 +2696,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     // Fermer le panneau d'édition si un membre est actif
                     activeMemberId = null;
                     document.getElementById('quickEditPanel').style.display = 'none';
+                    // Utilisation de `alert` natif
                     alert("PATRACDVR réinitialisé.");
                 } 
             });
@@ -2790,7 +2862,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             
             async function downloadOiPdf() {
                 // CORRECTION: Assurer que PDFLib est disponible avant de continuer
-                if (typeof PDFLib === 'undefined') { alert("Erreur: La bibliothèque PDF n'est pas encore chargée."); return; }
+                if (typeof PDFLib === 'undefined') { // Utilisation de `alert` natif
+                    alert("Erreur: La bibliothèque PDF n'est pas encore chargée."); return; }
                 const btn = downloadPdfBtn;
                 const originalText = btn.textContent;
                 btn.textContent = 'Génération en cours...'; btn.disabled = true;
@@ -2798,6 +2871,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 try {
                     const result = await buildPdf();
                     if (!result) { 
+                        // Utilisation de `alert` natif
                         alert("La génération a échoué. Vérifiez vos données.");
                         return; 
                     }
@@ -2825,6 +2899,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     
                 } catch (error) {
                     console.error("Erreur critique lors de la génération du PDF:", error);
+                    // Utilisation de `alert` natif
                     alert("Une erreur critique est survenue lors de la génération du PDF. Consultez la console (F12).");
                 } finally {
                     btn.textContent = originalText; btn.disabled = false;
@@ -2840,7 +2915,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 }
 
                 if(!checkCoherence()) {
-                     alert("Attention: Des incohérences ont été détectées. Veuillez les vérifier dans la section Finalisation avant de générer.");
+                     // Utilisation de `alert` natif
+                    alert("Attention: Des incohérences ont été détectées. Veuillez les vérifier dans la section Finalisation avant de générer.");
                 }
 
                 // CORRECTION: Ajout du contrôle du curseur pendant le chargement
@@ -2872,10 +2948,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 document.getElementById('closePresentationModalBtn').addEventListener('click', () => {
                     if (presentationModal) {
                          if(typeof presentationModal.close === 'function') {
-                            presentationModal.close();
-                        } else {
-                            presentationModal.style.display = 'none';
-                        }
+                             presentationModal.close();
+                         } else {
+                             presentationModal.style.display = 'none';
+                         }
                     }
                     // Désélectionner le membre actif si la modale est fermée
                     if (activeMemberId) {
@@ -2992,13 +3068,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 console.error("Erreur de chargement des polices PDF standard:", e);
                 return null;
             }
-        
+            
             saveFormData();
             // Utilisation de la clé isolée
             const formDataString = localStorage.getItem(LOCAL_STORAGE_KEY);
             if (!formDataString) { console.error("Aucune donnée à générer."); return null; }
             const formData = JSON.parse(formDataString);
-        
+            
             // --- Section de Compression Dynamique et de Chargement des Images ---
             const PDF_TARGET_SIZE_BYTES = 2.5 * 1024 * 1024;
             const TEXT_OVERHEAD_ESTIMATE = 150 * 1024; 
@@ -3020,7 +3096,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             let quality = 0.9;
             let compressedImages = {};
             let totalImageSize = 0;
-        
+            
             if (allImagesMeta.length > 0) {
                 console.log("Début de la compression dynamique...");
                 // Réduire la qualité jusqu'à 0.5 si la taille dépasse 2.5MB
@@ -3185,8 +3261,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                                 image = await pdfDoc.embedJpg(imageBytes);
                             }
                         } catch (e) {
-                            // Fallback si l'extension n'est pas fiable
-                            try { image = await pdfDoc.embedPng(imageBytes); } catch (e2) { image = await pdfDoc.embedJpg(imageBytes); }
+                             // Fallback si l'extension n'est pas fiable
+                             try { image = await pdfDoc.embedPng(imageBytes); } catch (e2) { image = await pdfDoc.embedJpg(imageBytes); }
                         }
                         
                         const { width, height } = context.currentPage.getSize();
@@ -3243,8 +3319,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         }
                     });
                      if (groupIndex < compositionData.length - 1) {
-                        groupParts.push({ text: '    ', style: separatorStyle });
-                    }
+                         groupParts.push({ text: '    ', style: separatorStyle });
+                     }
 
                     for(const part of groupParts) {
                         const partWidth = part.style.font.widthOfTextAtSize(part.text, part.style.size);
@@ -3470,7 +3546,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                             m.equipement, m.equipement2, m.tenue, m.gpb
                         ]);
                         if (patracRows.length > 0) { 
-                             drawTable(patracHeaders, patracRows, [60, 60, 60, 70, 60, 60, 60, 60, 60, 60, 60], context.margin); 
+                            drawTable(patracHeaders, patracRows, [60, 60, 60, 70, 60, 60, 60, 60, 60, 60, 60], context.margin); 
                         }
                     }
                 }
@@ -3592,7 +3668,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     imageHtml += `<div style="text-align: center; margin: 20px 0; border: 1px solid ${accentColor}; padding: 10px; background-color: ${isDarkMode ? '#1e1e1e' : '#ffffff'};">`;
                     imageHtml += `<h4 style="color: ${accentColor}; margin-bottom: 10px; font-size: 1.1em;">${finalTitle}</h4>`;
                     // Utiliser onload pour révoquer l'URL après le chargement
-                    imageHtml += `<img src="${objectURL}" alt="${finalTitle}" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,${isDarkMode ? 0.4 : 0.1});" onload="URL.revokeObjectURL(this.src)">`; 
+                    imageHtml += `<img src="${objectURL}" alt="Photo de l'objectif ${i}" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,${isDarkMode ? 0.4 : 0.1});" onload="URL.revokeObjectURL(this.src)">`; 
                     imageHtml += `</div>`;
                 }
                 return imageHtml;
@@ -3649,9 +3725,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         const objectURL = URL.createObjectURL(finalImageBlob);
                         
                         blockHtml += `<div style="text-align: center; margin-bottom: 15px;">
-                                        <h4 style="color:${accentColor}; margin-bottom: 5px;">Photo Principale</h4>
-                                        <img src="${objectURL}" alt="Photo de l'objectif ${adversaryIndex}" style="max-height: 250px; width: auto; border-radius: 4px;" onload="URL.revokeObjectURL(this.src)">
-                                      </div>`;
+                                                <h4 style="color:${accentColor}; margin-bottom: 5px;">Photo Principale</h4>
+                                                <img src="${objectURL}" alt="Photo de l'objectif ${adversaryIndex}" style="max-height: 250px; width: auto; border-radius: 4px;" onload="URL.revokeObjectURL(this.src)">
+                                            </div>`;
                     }
                 }
                 
@@ -3686,6 +3762,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             };
 
 
+            
             
             
             htmlContent += drawTitleHtml(`Ordre Initial - ${getVal('nom_adversaire') || 'OPÉRATION'}`);
@@ -3772,9 +3849,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 if(row.vehicle && row.members && row.members.length > 0) {
                     htmlContent += drawSubTitleHtml(`Véhicule: ${row.vehicle}`);
                     const patracRows = row.members.filter(m => m.trigramme).map(m => [
-                         m.trigramme, m.fonction, m.cellule, 
-                         m.principales, m.secondaires, m.afis, m.grenades, 
-                         m.equipement, m.equipement2, m.tenue, m.gpb
+                        m.trigramme, m.fonction, m.cellule, 
+                        m.principales, m.secondaires, m.afis, m.grenades, 
+                        m.equipement, m.equipement2, m.tenue, m.gpb
                     ]);
                     if (patracRows.length > 0) { htmlContent += drawTableHtml(patracHeaders, patracRows); }
                 }
@@ -3789,6 +3866,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             }
             htmlContent += drawSubTitleHtml("Liaison"); htmlContent += drawTextHtml(getVal('cat_liaison'), true);
             
+            htmlContent += `<div style="text-align: center; margin: 40px 0;">
+                                <h2 style="font-size: 3em; color: ${accentColor};">Avez vous des questions?</h2>
+                            </div>`;
+
             htmlContent += `</div>`;
             return htmlContent;
         }

@@ -51,7 +51,7 @@
         h3 { font-size: 1.1em; color: var(--text-primary); margin-top: 15px; margin-bottom: 10px; }
         h4 { font-size: 1.0em; color: var(--text-secondary); margin-top: 10px; margin-bottom: 5px; }
         
-        /* Suppression du style du bouton de thème dans l'en-tête */
+        /* Suppression du style du bouton de thème dans l'en-tête (qui était déjà fait mais je le laisse pour la clarté) */
         #darkModeToggle.header-button { display: none; }
 
         .wizard-progress { 
@@ -347,15 +347,14 @@
             font-size: 24px;
         }
         
-        /* Styles du Dock Flottant (Ajout) */
+        /* Styles du Dock Flottant (Corrigé et Ajouté) */
         .dock-menu { 
             position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); 
             display: flex; gap: 10px; padding: 10px; z-index: 1000; 
-            background-color: rgba(30, 30, 30, 0.7); /* Fond semi-transparent foncé */
+            background-color: rgba(30, 30, 30, 0.7); 
             border: 1px solid var(--border-color); 
             border-radius: 35px; backdrop-filter: blur(10px); 
             transition: all 0.3s ease-in-out; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
         .dock-menu-item { 
             display: flex; align-items: center; justify-content: center; 
@@ -367,21 +366,36 @@
             transition: all 0.2s; text-decoration: none; flex-shrink: 0; 
         }
         .dock-menu-item:hover { transform: scale(1.1); }
+        .dock-menu.collapsed { 
+            width: 55px; height: 55px; padding: 5px; 
+            border-radius: 50%; border: none; 
+            background-color: transparent; 
+        }
+        .dock-menu.collapsed .dock-menu-item:not(#dockToggleBtn) { 
+            opacity: 0; width: 0; margin-left: -10px; visibility: hidden; 
+        }
+        #dockToggleBtn .material-symbols-outlined { transition: transform 0.3s ease; }
+        .dock-menu.collapsed #dockToggleBtn .material-symbols-outlined { transform: rotate(180deg); }
+
 
         /* Styles spécifiques au mobile pour le dock */
         @media (max-width: 600px) {
-            body { padding-bottom: 80px; } /* S'assurer que le bas est dégagé */
+            body { padding-bottom: 80px; } 
             .dock-menu {
-                width: 90%;
+                width: auto;
                 padding: 8px;
                 gap: 8px;
                 justify-content: center;
+                min-width: unset;
             }
             .dock-menu-item {
                 width: 48px;
                 height: 48px;
                 font-size: 24px;
             }
+             .dock-menu.collapsed {
+                width: 48px; 
+             }
         }
 
 
@@ -914,6 +928,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
     
     <!-- Dock Flottant (Ajout) -->
     <div class="dock-menu" id="dockMenu">
+        <!-- Bouton de bascule du dock -->
+        <div class="dock-menu-item" id="dockToggleBtn" title="Réduire/Agrandir">
+            <span class="material-symbols-outlined">expand_more</span>
+        </div>
         <!-- Bouton Changement de thème -->
         <div class="dock-menu-item" id="darkModeToggle" title="Changer le thème">
             <span class="material-symbols-outlined" id="darkModeIcon">nightlight</span>
@@ -2670,6 +2688,19 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
             document.getElementById('darkModeIcon').textContent = isDarkMode ? 'nightlight' : 'clear_day';
         }
+        
+        // NOUVEAU: Logique de bascule du dock
+        function toggleDock() {
+            const dock = document.getElementById('dockMenu');
+            const dockCollapsed = dock.classList.toggle('collapsed');
+            localStorage.setItem('dockCollapsed', dockCollapsed);
+            
+            // Mise à jour de l'icône de toggle
+            const icon = document.querySelector('#dockToggleBtn .material-symbols-outlined');
+            if (icon) {
+                icon.textContent = dockCollapsed ? 'expand_less' : 'expand_more';
+            }
+        }
 
         // --- Fin Logique Fullscreen et Thème ---
 
@@ -2695,6 +2726,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             // Initialisation du dock
             const fullscreenToggleBtn = document.getElementById('fullscreenToggle');
             const darkModeToggleBtn = document.getElementById('darkModeToggle');
+            const dockToggleBtn = document.getElementById('dockToggleBtn');
+            const dock = document.getElementById('dockMenu');
+            
             if (fullscreenToggleBtn) {
                  fullscreenToggleBtn.addEventListener('click', toggleFullscreen);
                  document.addEventListener('fullscreenchange', updateFullscreenIcon);
@@ -2705,6 +2739,16 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             }
             if (darkModeToggleBtn) {
                  darkModeToggleBtn.addEventListener('click', handleThemeToggle);
+            }
+            
+            // Logique de bascule du dock
+            if (dockToggleBtn) {
+                 dockToggleBtn.addEventListener('click', toggleDock);
+                 // Charger l'état enregistré du dock
+                 if (localStorage.getItem('dockCollapsed') === 'true') {
+                     dock.classList.add('collapsed');
+                     document.querySelector('#dockToggleBtn .material-symbols-outlined').textContent = 'expand_less';
+                 }
             }
             
             // Réinitialisation/Chargement des chips après loadFormData
@@ -3708,11 +3752,11 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     const objectURL = URL.createObjectURL(finalImageBlob);
             
                     const finalTitle = imagesData.length > 1 ? `${title} (${i+1})` : title;
-                    blockHtml += `<div style="text-align: center; margin: 20px 0; border: 1px solid ${accentColor}; padding: 10px; background-color: ${isDarkMode ? '#1e1e1e' : '#ffffff'};">`;
-                    blockHtml += `<h4 style="color: ${accentColor}; margin-bottom: 10px; font-size: 1.1em;">${finalTitle}</h4>`;
+                    imageHtml += `<div style="text-align: center; margin: 20px 0; border: 1px solid ${accentColor}; padding: 10px; background-color: ${isDarkMode ? '#1e1e1e' : '#ffffff'};">`;
+                    imageHtml += `<h4 style="color: ${accentColor}; margin-bottom: 10px; font-size: 1.1em;">${finalTitle}</h4>`;
                     // Utiliser onload pour révoquer l'URL après le chargement
-                    blockHtml += `<img src="${objectURL}" alt="${finalTitle}" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,${isDarkMode ? 0.4 : 0.1});" onload="URL.revokeObjectURL(this.src)">`; 
-                    blockHtml += `</div>`;
+                    imageHtml += `<img src="${objectURL}" alt="${finalTitle}" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,${isDarkMode ? 0.4 : 0.1});" onload="URL.revokeObjectURL(this.src)">`; 
+                    imageHtml += `</div>`;
                 }
                 return imageHtml;
             };

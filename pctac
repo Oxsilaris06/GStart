@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PC Tac</title>
+    <link rel="icon" href="favicon.ico" sizes="any" type="image/png">
+    <link rel="icon" href="favicon.ico" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="favicon.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Utilisation des Material Symbols Outlined -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <style>
+        /* Définition des couleurs spécifiques pour PC Tac */
+       :root {
+            --bg-body: #000000; 
+            --bg-container: #111111; 
+            --bg-interactive: #2a2a2a;
+            --text-primary: #e0e0e0; 
+            --text-secondary: #95a5a6; 
+            --border-color: #444444;
+            --accent-blue: #5b9bd5; 
+            --accent-hover: #4a7aa5; 
+            --danger-red: #be1b09; /* Adversaire */
+            --civil-yellow: #f1c40f; /* Otage/Civil */
+            --inter-blue: #3498db; /* Inter */
+            --ao-green: #2ecc71; /* AO */
+            --trash-color: #6c757d;
+            
+            /* NOUVEAU: Couleurs pour le mode libre (12 couleurs DISTINCTES du mode standard) */
+            --free-color-1: #800000; /* Bordeaux (Maroon) */
+            --free-color-2: #B87333; /* Cuivre (Brown) */
+            --free-color-3: #FFDB58; /* Jaune Moutarde */
+            --free-color-4: #A3D900; /* Vert Lime */
+            --free-color-5: #00FFFF; /* Cyan */
+            --free-color-6: #000080; /* Bleu Marine (Navy) */
+            --free-color-7: #FF69B4; /* Rose Vif (Hot Pink) */
+            --free-color-8: #FF8C00; /* Orange Foncée */
+            --free-color-9: #8A2BE2; /* Bleu Violet */
+            --free-color-10: #008080; /* Sarcelle (Teal) */
+            --free-color-11: #C0C0C0; /* Argent (Silver) */
+            --free-color-12: #ffffff; /* Blanc pur */
+        }
+        body.light-mode {
+            --bg-body: #d2d3d59c; 
+            --bg-container: #ffffff; 
+            --bg-interactive: #e9ecef;
+            --text-primary: #212529; 
+            --text-secondary: #6c757d; 
+            --accent-blue: #002e91;
+            --border-color: #adb5bd;
+            --trash-color: #000000;
+        }
+		#main-footer { width: 100%;  text-align: center; margin-top: 2rem;  padding: 1rem; color: var(--accent-blue); font-size: 0.75rem;border-top: 1px solid var(--accent-blue);}
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: 16px; }
+        body { 
+            font-family: 'Oswald', sans-serif; background-color: var(--bg-body); color: var(--text-primary); 
+            line-height: 1.6; padding: 10px; padding-bottom: 90px;
+            transition: background-color 0.3s, color 0.3s; 
+        }
+        .container { 
+            width: 100%; max-width: 1000px; margin: auto; 
+            background: var(--bg-container); padding: 20px; 
+            border-radius: 8px; border: 1px solid var(--border-color); 
+            position: relative; 
+        }
+        h1 { 
+            /* Titre en bleu (couleur Inter) */
+            font-size: 2.5em; margin-bottom: 20px; color: var(--inter-blue); 
+            font-family: 'Saira+Stencil+One', sans-serif; text-align: center; 
+            letter-spacing: 2px; font-weight: 400; 
+        }
+        
+        /* Formulaire */
+        .log-entry-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--bg-interactive);
+            position: relative; /* IMPORTANT pour le positionnement absolu du toggle */
+        }
+
+        .log-entry-form h3 {
+            /* Ajout d'une marge à droite pour ne pas chevaucher le toggle en haut à droite */
+            padding-right: 150px; 
+        }
+        
+        .form-row {
+            display: grid;
+            gap: 10px;
+        }
+        
+        /* Grille pour les grands écrans */
+        @media (min-width: 768px) {
+            /* On modifie légèrement la grille pour optimiser l'espace si pas d'autocomplétion */
+            .form-row.main-fields {
+                grid-template-columns: 0.8fr 1.2fr 1fr 1fr;
+                align-items: end;
+            }
+            .form-row.text-fields {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Grille pour les mobiles (IMPORTANT: 1 colonne pour un empilement facile) */
+        @media (max-width: 767px) {
+            .form-row {
+                 grid-template-columns: 1fr;
+            }
+            .form-row.main-fields > div {
+                 margin-bottom: 10px;
+            }
+            .form-row.main-fields {
+                 grid-template-columns: 1fr;
+            }
+            /* L'heure vient en premier, suivi du PAX, puis des lieux */
+            .form-row.main-fields > div:nth-child(1) { order: 1; } /* Heure */
+            .form-row.main-fields > div:nth-child(2) { order: 2; } /* Pax */
+            .form-row.main-fields > div:nth-child(3) { order: 3; } /* Lieu */
+            .form-row.main-fields > div:nth-child(4) { order: 4; } /* Fenetre/Porte */
+        }
+
+        label { 
+            display: block; margin-bottom: 4px; font-weight: bold; 
+            color: var(--text-secondary); font-size: 0.9em;
+        }
+        /* OPTIMISATION: taille des inputs augmentée sur mobile pour le toucher */
+        input, textarea, select { 
+            width: 100%; padding: 12px 8px; /* Padding vertical augmenté */
+            border: 1px solid var(--border-color); 
+            border-radius: 4px; font-size: 1.1em; /* Texte plus grand */
+            background-color: var(--bg-body); color: var(--text-primary); 
+            font-family: 'Oswald', sans-serif; 
+            min-height: 50px; /* Hauteur minimale augmentée */
+        }
+        
+        /* Conteneur PAX - Bascule */
+        #pax_mode_toggle_container {
+            /* NOUVEAU POSITIONNEMENT: Haut droite du formulaire */
+            position: absolute; 
+            top: 15px; /* Décalage du padding du form */
+            right: 15px; 
+            display: flex;
+            gap: 5px; 
+            z-index: 10;
+        }
+        .mode-toggle-btn {
+            background-color: var(--bg-body);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            padding: 10px 15px; 
+            border-radius: 4px;
+            font-size: 1em; 
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mode-toggle-btn.active {
+             background-color: var(--accent-blue);
+             color: white;
+             border-color: var(--accent-blue);
+        }
+
+        /* Sélecteurs PAX */
+        .pax-select-wrapper {
+            transition: all 0.3s ease-in-out;
+        }
+        .pax-select {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        /* OPTIMISATION MOBILE: Taille des boutons PAX augmentée pour le toucher */
+        .pax-select-option {
+            flex-grow: 1;
+            padding: 18px 10px; /* ENCORE PLUS GRAND */
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            font-weight: bold;
+            transition: all 0.2s;
+            min-width: 80px;
+            display: block;
+            font-size: 1.2em; /* Très lisible */
+            line-height: 1;
+        }
+        .pax-select-option:hover {
+            opacity: 0.8;
+        }
+        .pax-select-option.selected {
+            border-width: 4px;
+        }
+
+        .pax-select-option[data-pax="Adversaire"] { background-color: var(--danger-red); color: white; }
+        .pax-select-option[data-pax="Otage"], .pax-select-option[data-pax="Civil"] { background-color: var(--civil-yellow); color: black; }
+        .pax-select-option[data-pax="Inter"] { background-color: var(--inter-blue); color: white; }
+        .pax-select-option[data-pax="AO"] { background-color: var(--ao-green); color: black; }
+
+        /* NOUVEAU: Sélecteur de couleur libre */
+        #free_mode_options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .color-palette {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px; /* Augmenté */
+            margin-bottom: 5px;
+        }
+        .color-swatch {
+            width: 35px; /* Augmenté */
+            height: 35px; /* Augmenté */
+            border-radius: 50%;
+            border: 2px solid var(--border-color);
+            cursor: pointer;
+            transition: transform 0.1s, border-color 0.2s;
+        }
+        .color-swatch:hover {
+            transform: scale(1.1);
+        }
+        .color-swatch.selected {
+            border: 4px solid var(--accent-blue);
+            transform: scale(1.1);
+        }
+        
+        /* Styles spécifiques pour chaque couleur libre (Mis à jour) */
+        .swatch-1 { background-color: var(--free-color-1); }
+        .swatch-2 { background-color: var(--free-color-2); }
+        .swatch-3 { background-color: var(--free-color-3); }
+        .swatch-4 { background-color: var(--free-color-4); }
+        .swatch-5 { background-color: var(--free-color-5); }
+        .swatch-6 { background-color: var(--free-color-6); }
+        .swatch-7 { background-color: var(--free-color-7); }
+        .swatch-8 { background-color: var(--free-color-8); }
+        .swatch-9 { background-color: var(--free-color-9); }
+        .swatch-10 { background-color: var(--free-color-10); }
+        .swatch-11 { background-color: var(--free-color-11); border-color: #ffffff; }
+        .swatch-12 { background-color: var(--free-color-12); border-color: #000000; }
+        
+        /* Tableau de Log */
+        #logTableContainer {
+            overflow-x: auto;
+            margin-top: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--bg-interactive);
+        }
+        #logTable {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            min-width: 600px;
+        }
+        #logTable th, #logTable td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        #logTable th {
+            background-color: var(--bg-interactive);
+            color: var(--accent-blue);
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+        }
+        #logTable tbody tr:hover {
+            background-color: var(--bg-body);
+        }
+
+        /* Style pour l'élément déplacé */
+        #logTable tbody tr.dragging {
+            opacity: 0.5;
+            border: 2px dashed var(--accent-blue);
+            cursor: grabbing !important;
+        }
+        
+        .pax-cell {
+            font-weight: bold;
+            padding: 5px;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 0.9em;
+            word-break: break-word; /* Pour les noms longs en mode libre */
+        }
+        
+        /* Logique de couleur pour le tableau */
+        .pax-Adversaire { background-color: var(--danger-red); color: white; }
+        .pax-Otage, .pax-Civil { background-color: var(--civil-yellow); color: black; }
+        .pax-Inter { background-color: var(--inter-blue); color: white; }
+        .pax-AO { background-color: var(--ao-green); color: black; }
+        
+        /* Modification pour la croix de suppression */
+        .delete-btn {
+            background: none;
+            border: none;
+            color: var(--trash-color);
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: color 0.2s;
+            float: right; 
+            margin-left: 5px;
+            line-height: 1; 
+        }
+        .delete-btn:hover {
+            color: var(--danger-red);
+        }
+        /* Nouvelle classe pour la cellule heure/suppression */
+        .heure-action-cell {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 5px;
+            padding-right: 0 !important; 
+        }
+        .heure-cell-text {
+            flex-grow: 1;
+            font-weight: bold;
+        }
+
+        
+        /* Boutons d'action */
+        .action-button {
+            padding: 16px 20px; /* Plus grand pour le toucher */
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.2em; /* Plus lisible */
+            font-weight: 500;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .add-log-btn {
+            background-color: var(--accent-blue);
+            color: white;
+            margin-top: 15px;
+        }
+        .add-log-btn:hover {
+            background-color: var(--accent-hover);
+        }
+        
+        /* Dock Flottant */
+       .dock-menu { 
+            position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); 
+            display: flex; gap: 10px; padding: 10px; z-index: 1000; 
+            background-color: rgba(30, 30, 30, 0.7); 
+            border: 1px solid var(--border-color); 
+            border-radius: 35px; backdrop-filter: blur(10px); 
+            transition: all 0.3s ease-in-out; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        body.light-mode .dock-menu {
+             background-color: rgba(255, 255, 255, 0.7); 
+             box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .dock-menu-item { 
+            display: flex; align-items: center; justify-content: center; 
+            background-color: var(--bg-container); color: var(--text-primary); 
+            border: 1px solid var(--border-color); 
+            border-radius: 50%; width: 50px; height: 50px; 
+            font-size: 28px; cursor: pointer; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
+            transition: all 0.2s; text-decoration: none; flex-shrink: 0; 
+        }
+        .dock-menu-item:hover { transform: scale(1.1); }
+        .dock-menu.collapsed { 
+            width: 55px; height: 55px; padding: 5px; 
+            border-radius: 50%; border: none; 
+            background-color: transparent; 
+        }
+        .dock-menu.collapsed .dock-menu-item:not(#dockToggleBtn) { 
+            opacity: 0; width: 0; margin-left: -10px; visibility: hidden; 
+        }
+        #dockToggleBtn .material-symbols-outlined { transition: transform 0.3s ease; }
+        .dock-menu.collapsed #dockToggleBtn .material-symbols-outlined { transform: rotate(180deg); }
+
+        /* Styles spécifiques au mobile pour le dock */
+        @media (max-width: 600px) {
+            body { padding-bottom: 70px; } 
+            .dock-menu {
+                width: auto; 
+                padding: 6px; 
+                gap: 8px; 
+                justify-content: center; 
+                min-width: unset;
+            }
+            .dock-menu-item {
+                width: 38px; 
+                height: 38px; 
+                font-size: 20px; 
+            }
+             .dock-menu.collapsed {
+                width: 38px; 
+             }
+            /* Sur mobile, on enlève la position absolue pour que le toggle se place sous le titre */
+             #pax_mode_toggle_container {
+                position: static; 
+                margin-bottom: 10px;
+            }
+            .log-entry-form h3 {
+                padding-right: 0; 
+            }
+        }
+
+         /* Modale de confirmation (pour la réinitialisation) */
+        .custom-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--bg-container);
+            border: 2px solid var(--accent-blue);
+            border-radius: 8px;
+            padding: 20px;
+            z-index: 1001;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            max-width: 90vw;
+            width: 400px;
+            display: none;
+        }
+
+        .custom-modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: none;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+
+        #confirmResetBtn {
+            background-color: var(--danger-red);
+            color: white;
+            border: none;
+        }
+
+        #cancelResetBtn {
+            background-color: var(--bg-interactive);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body class="dark-mode">
+    <!-- Champ de fichier caché pour l'importation de JSON -->
+    <input type="file" id="jsonImportInput" accept=".json" style="display: none;">
+
+    <!-- Modale de Confirmation -->
+    <div class="custom-modal-backdrop" id="modalBackdrop"></div>
+    <div class="custom-modal" id="resetModal">
+        <h3 style="color: var(--accent-blue); margin-bottom: 10px;">Confirmer la Réinitialisation</h3>
+        <p style="color: var(--text-primary);">Êtes-vous sûr de vouloir réinitialiser TOUTES les données de journalisation du PC Tac ? Cette action est irréversible et supprimera tout le tableau.</p>
+        <div class="modal-buttons">
+            <button id="confirmResetBtn">Oui, Réinitialiser</button>
+            <button id="cancelResetBtn">Annuler</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h1>PC Tac</h1>
+        
+        <!-- Formulaire d'ajout de ligne -->
+        <form id="log-form" class="log-entry-form">
+            <h3 style="color: var(--accent-blue); margin-top: 0;">Ajouter une entrée</h3>
+            
+            <!-- NOUVEL EMPLACEMENT du toggle : Haut à droite du formulaire -->
+            <div id="pax_mode_toggle_container">
+                <button type="button" class="mode-toggle-btn active" data-mode="standard" onclick="setPaxMode('standard')">Forcené</button>
+                <button type="button" class="mode-toggle-btn" data-mode="free" onclick="setPaxMode('free')">TP</button>
+            </div>
+            <!-- Fin NOUVEL EMPLACEMENT -->
+            
+            <!-- OPTIMISATION MOBILE: Le lieu et la fenêtre/porte sont déplacés à la fin de la grille pour une séquence Heure -> PAX -> Saisie rapide -->
+            <div class="form-row main-fields">
+                 <div>
+                    <label for="heure_input">Heure (HH:MM)</label>
+                    <!-- Type="time" utilise l'interface de sélection d'heure native du mobile, très rapide -->
+                    <input type="time" id="heure_input" required value="">
+                 </div>
+                 
+                 <div>
+                    <label>Pax</label>
+                    
+                    <!-- L'élément #pax_mode_toggle_container a été déplacé -->
+
+                    <div id="pax_select_wrapper_standard" class="pax-select-wrapper">
+                        <div class="pax-select" id="pax_select_container">
+                            <span class="pax-select-option" data-pax="Adversaire">Adversaire</span>
+                            <span class="pax-select-option" data-pax="Otage">Civil/Otage</span>
+                            <span class="pax-select-option" data-pax="Inter">Inter</span>
+                            <span class="pax-select-option" data-pax="AO">AO</span>
+                        </div>
+                    </div>
+                    
+                    <div id="pax_select_wrapper_free" class="pax-select-wrapper" style="display: none;">
+                        <div id="free_mode_options">
+                            <div class="color-palette" id="free_color_palette">
+                                <!-- Les swatches de couleur sont générés par JS -->
+                            </div>
+                            <input type="text" id="free_pax_input" placeholder="Intervenant/Adversaire" value="" />
+                            <input type="hidden" id="free_color_input" value="#800000" />
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" id="pax_input" required value="Adversaire">
+                    <input type="hidden" id="pax_mode_input" value="standard">
+                    <input type="hidden" id="pax_custom_color_input" value="#800000">
+                 </div>
+                 
+                 <div>
+                    <label for="lieu_input">Lieu</label>
+                    <input type="text" id="lieu_input" placeholder="Baptême terrain (A,B...)" value="">
+                 </div>
+
+                 <div>
+                    <label for="fenetre_porte_input">Fenêtre/Porte</label>
+                    <input type="text" id="fenetre_porte_input" placeholder="Ex: B1,A102" value="">
+                 </div>
+                 
+            </div>
+            
+            <div class="form-row text-fields">
+                <div style="grid-column: span 1;">
+                    <label for="remarques_input">Remarques</label>
+                    <!-- OPTIMISATION: Mise en évidence du champ remarques -->
+                    <textarea id="remarques_input" rows="3" placeholder="Informations clés, compte-rendu..."></textarea>
+                </div>
+            </div>
+
+            <button type="submit" class="action-button add-log-btn" id="addLogBtn">
+                <span class="material-symbols-outlined">add_task</span> Ajouter au Log
+            </button>
+        </form>
+
+        <!-- Tableau des entrées -->
+        <div id="logTableContainer">
+            <table id="logTable">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Heure</th>
+                        <th style="width: 15%;">Pax</th>
+                        <th style="width: 20%;">Lieu</th>
+                        <th style="width: 20%;">Fenêtre/Porte</th>
+                        <th style="width: 30%;">Remarques</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Les lignes de log seront insérées ici -->
+                </tbody>
+            </table>
+        </div>
+        
+		<footer id="main-footer">
+            © PC Tac by G/ Maheux
+        </footer>
+    </div>
+    
+    <!-- Dock Flottant -->
+    <div class="dock-menu collapsed" id="dockMenu">
+        <!-- Bouton de bascule du dock -->
+        <div class="dock-menu-item" id="dockToggleBtn" title="Ouvrir/Réduire">
+            <span class="material-symbols-outlined">expand_less</span>
+        </div>
+        <!-- Bouton Alt Route (Remplace Home) -->
+        <a class="dock-menu-item" href="1.html" title="Itération du jour" style="text-decoration: none;">
+            <span class="material-symbols-outlined">alt_route</span>
+        </a>
+        
+        <!-- Bouton Export JSON -->
+        <div class="dock-menu-item" id="exportJsonDockBtn" title="Exporter les données au format JSON">
+            <span class="material-symbols-outlined">save</span>
+        </div>
+         <!-- Bouton Import JSON -->
+         <div class="dock-menu-item" id="importJsonDockBtn" title="Importer des données au format JSON">
+            <span class="material-symbols-outlined">upload_file</span>
+        </div>
+        
+        <div class="dock-menu-item" id="darkModeToggle" title="Changer le thème">
+            <span class="material-symbols-outlined" id="darkModeIcon">nightlight</span>
+        </div>
+        <div class="dock-menu-item" id="fullscreenToggle" title="Plein écran">
+            <span class="material-symbols-outlined" id="fullscreenIcon">fullscreen</span>
+        </div>
+        <!-- Bouton PDF (téléchargement direct) -->
+         <div class="dock-menu-item" id="previewPdfDockBtn" title="Générer et télécharger le PDF">
+            <span class="material-symbols-outlined">picture_as_pdf</span>
+        </div>
+        <!-- Bouton Réinitialisation -->
+         <div class="dock-menu-item" id="resetDataDockBtn" title="Réinitialiser toutes les données">
+            <span class="material-symbols-outlined" style="color: var(--danger-red);">delete_forever</span>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <script>
+        const LOCAL_STORAGE_KEY = 'pcTacLogData';
+        
+        // --- COULEURS ÉTENDUES ---
+        const FREE_MODE_COLORS = [
+            { hex: '#800000', name: 'Bordeaux' },       
+            { hex: '#B87333', name: 'Cuivre' },         
+            { hex: '#FFDB58', name: 'Jaune Moutarde' }, 
+            { hex: '#A3D900', name: 'Vert Lime' },      
+            { hex: '#00FFFF', name: 'Cyan' },           
+            { hex: '#000080', name: 'Bleu Marine' },    
+            { hex: '#FF69B4', name: 'Rose Vif' },       
+            { hex: '#FF8C00', name: 'Orange Foncée' },  
+            { hex: '#8A2BE2', name: 'Bleu Violet' },    
+            { hex: '#008080', name: 'Sarcelle' },       
+            { hex: '#C0C0C0', name: 'Argent' },         
+            { hex: '#ffffff', name: 'Blanc' }           
+        ];
+
+        // Couleurs statiques pour le PDF (Standard)
+        const PDF_PAX_COLORS = {
+            'Adversaire': { text: 'Adversaire', color: '#be1b09', fontColor: '#ffffff' },
+            'Otage': { text: 'Civil/Otage', color: '#f1c40f', fontColor: '#000000' }, 
+            'Civil': { text: 'Civil/Otage', color: '#f1c40f', fontColor: '#000000' }, 
+            'Inter': { text: 'Inter', color: '#3498db', fontColor: '#ffffff' },
+            'AO': { text: 'AO', color: '#2ecc71', fontColor: '#000000' }
+        };
+
+        const logTableBody = document.querySelector('#logTable tbody');
+        const logForm = document.getElementById('log-form');
+        const heureInput = document.getElementById('heure_input');
+        const paxInput = document.getElementById('pax_input');
+        const paxModeInput = document.getElementById('pax_mode_input'); 
+        const paxCustomColorInput = document.getElementById('pax_custom_color_input'); 
+        const freePaxInput = document.getElementById('free_pax_input'); 
+        const lieuInput = document.getElementById('lieu_input');
+        const fenetrePorteInput = document.getElementById('fenetre_porte_input');
+        const remarquesInput = document.getElementById('remarques_input');
+        const paxSelectContainer = document.getElementById('pax_select_container');
+        const freeColorPalette = document.getElementById('free_color_palette'); 
+        const previewPdfDockBtn = document.getElementById('previewPdfDockBtn');
+        const resetDataDockBtn = document.getElementById('resetDataDockBtn');
+        const jsonImportInput = document.getElementById('jsonImportInput'); 
+        const exportJsonDockBtn = document.getElementById('exportJsonDockBtn'); 
+        const importJsonDockBtn = document.getElementById('importJsonDockBtn'); 
+        
+        // Variable pour suivre si l'utilisateur a modifié l'heure manuellement
+        let isTimeInputManuallyChanged = false;
+
+        // --- 1. Gestion des Données et Stockage ---
+
+        function saveLogData(logData) {
+            try {
+                // Tri par heure avant de sauvegarder (maintient l'ordre pour l'ajout standard)
+                logData.sort((a, b) => {
+                    if (a.heure === b.heure) return 0;
+                    if (a.heure < b.heure) return -1;
+                    if (a.heure > b.heure) return 1;
+                    return 0; 
+                });
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(logData));
+            } catch (e) {
+                console.error("Erreur de sauvegarde des données:", e);
+            }
+        }
+
+        function loadLogData() {
+            try {
+                const dataString = localStorage.getItem(LOCAL_STORAGE_KEY);
+                return dataString ? JSON.parse(dataString) : [];
+            } catch (e) {
+                console.error("Erreur de chargement des données:", e);
+                return [];
+            }
+        }
+        
+        function getLogData() {
+            // Récupère l'ordre actuel du DOM (important pour le Drag & Drop)
+            return Array.from(logTableBody.querySelectorAll('tr')).map(row => {
+                const getSafeDataset = (key) => {
+                    const value = row.dataset[key] || '';
+                    return value === 'undefined' ? '' : value; 
+                };
+                
+                const paxMode = getSafeDataset('paxmode') || 'standard';
+                let paxValue = getSafeDataset('pax');
+
+                if (paxMode === 'free') {
+                    paxValue = getSafeDataset('freepaxname') || 'Pax Libre';
+                }
+
+                return {
+                    id: row.dataset.id,
+                    heure: row.querySelector('.heure-cell-text').textContent,
+                    pax: paxValue,
+                    paxMode: paxMode, 
+                    paxColor: getSafeDataset('paxcolor') || (paxMode === 'free' ? FREE_MODE_COLORS[0].hex : undefined), 
+                    lieu: getSafeDataset('lieu'),
+                    fenetrePorte: getSafeDataset('fenetreporte'),
+                    remarques: getSafeDataset('remarques'),
+                };
+            });
+        }
+        
+        function renderLogTable(logData) {
+            // Tri par heure pour le rendu initial et après une réinitialisation
+            logData.sort((a, b) => {
+                if (a.heure < b.heure) return -1;
+                if (a.heure > b.heure) return 1;
+                return 0; 
+            });
+
+            logTableBody.innerHTML = '';
+            
+            logData.forEach(entry => {
+                
+                let paxColor, paxText, paxFontColor;
+
+                if (entry.paxMode === 'standard') {
+                    const paxInfo = PDF_PAX_COLORS[entry.pax] || PDF_PAX_COLORS['Adversaire'];
+                    paxColor = paxInfo.color;
+                    paxText = paxInfo.text;
+                    paxFontColor = paxInfo.fontColor;
+                } else {
+                    paxColor = entry.paxColor || FREE_MODE_COLORS[0].hex;
+                    paxText = entry.pax;
+                    const r = parseInt(paxColor.slice(1, 3), 16);
+                    const g = parseInt(paxColor.slice(3, 5), 16);
+                    const b = parseInt(paxColor.slice(5, 7), 16);
+                    const luminosity = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                    paxFontColor = luminosity > 0.5 ? '#000000' : '#ffffff';
+                }
+
+                const row = logTableBody.insertRow();
+                row.dataset.id = entry.id;
+                row.dataset.lieu = entry.lieu || '';
+                row.dataset.fenetreporte = entry.fenetrePorte || '';
+                row.dataset.remarques = entry.remarques || '';
+                row.dataset.pax = entry.paxMode === 'standard' ? entry.pax : 'Libre'; 
+                row.dataset.freepaxname = entry.paxMode === 'free' ? entry.pax : ''; 
+                row.dataset.paxmode = entry.paxMode; 
+                row.dataset.paxcolor = entry.paxMode === 'free' ? paxColor : ''; 
+                
+                // Rendre la ligne déplaçable
+                row.draggable = true;
+                row.classList.add('draggable-row');
+                row.addEventListener('dragstart', handleDragStart);
+
+                const heureCell = row.insertCell();
+                heureCell.style.width = '15%';
+                heureCell.innerHTML = `
+                    <div class="heure-action-cell">
+                        <span class="heure-cell-text">${entry.heure}</span>
+                        <button type="button" class="delete-btn" onclick="deleteLogEntry('${entry.id}')">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>`;
+
+                const paxCell = row.insertCell();
+                paxCell.style.width = '15%';
+                paxCell.innerHTML = `<span class="pax-cell" style="background-color: ${paxColor}; color: ${paxFontColor};">${paxText}</span>`;
+                
+                const lieuCell = row.insertCell();
+                lieuCell.style.width = '20%';
+                lieuCell.textContent = entry.lieu;
+
+                const fpCell = row.insertCell();
+                fpCell.style.width = '20%';
+                fpCell.textContent = entry.fenetrePorte;
+
+                const remarquesCell = row.insertCell();
+                remarquesCell.style.width = '30%'; 
+                remarquesCell.textContent = entry.remarques;
+            });
+            
+             // Mettre à jour les données dans localStorage après le rendu trié
+             saveLogData(getLogData());
+        }
+        
+        function addLogEntry(e) {
+            e.preventDefault();
+
+            const mode = paxModeInput.value;
+            let paxName, paxColorHex;
+
+            if (mode === 'standard') {
+                paxName = paxInput.value;
+                paxColorHex = ''; 
+                if (!paxName) {
+                    // Utiliser une alerte personnalisée ou une validation visuelle en production, mais ici on garde alert pour la simplicité
+                    alert("Veuillez sélectionner un type de PAX standard.");
+                    return;
+                }
+            } else {
+                paxName = freePaxInput.value.trim() || 'Pax Libre';
+                paxColorHex = paxCustomColorInput.value;
+                if (!freePaxInput.value.trim()) {
+                     alert("Veuillez donner un nom a l'intervenant.");
+                     return;
+                }
+                // *** SUPPRESSION DE LA LOGIQUE DE MEMOIRE TP ICI ***
+                // L'association nom/couleur n'est PAS sauvegardée dans localStorage.
+            }
+
+            if (!heureInput.value) {
+                alert("Veuillez renseigner l'heure.");
+                return;
+            }
+            
+            // L'heure de l'entrée est l'heure ACTUELLE de l'input
+            const currentHeure = heureInput.value;
+
+            const newEntry = {
+                id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+                heure: currentHeure,
+                pax: paxName, 
+                paxMode: mode,
+                paxColor: paxColorHex,
+                lieu: lieuInput.value.trim(),
+                fenetrePorte: fenetrePorteInput.value.trim(),
+                remarques: remarquesInput.value.trim(),
+            };
+
+            const logData = loadLogData();
+            logData.push(newEntry);
+
+            // Remettre le flag de modification manuelle à false après l'ajout
+            isTimeInputManuallyChanged = false;
+
+            renderLogTable(logData);
+
+            // --- PAS DE MISE EN MÉMOIRE : Réinitialisation des champs pour la prochaine entrée ---
+            updateTimeInput(); // Met à jour l'heure pour la prochaine entrée
+            lieuInput.value = '';
+            fenetrePorteInput.value = '';
+            remarquesInput.value = '';
+            
+            // OPTIMISATION MOBILE : Placer le focus sur le champ des remarques pour la saisie rapide
+            remarquesInput.focus();
+        }
+        
+        function deleteLogEntry(id) {
+            // *** SUPPRESSION DE LA LOGIQUE CONDITIONNELLE DE SUPPRESSION DE LA MEMOIRE TP ICI ***
+            // Seule la ligne de log est supprimée. La mémoire n'est pas gérée.
+            const logData = getLogData().filter(entry => entry.id !== id);
+            renderLogTable(logData);
+        }
+
+        // --- 2. Logique de sélection Pax (Standard et Libre) ---
+        
+        function getHexToRgb(hex) {
+             const bigint = parseInt(hex.slice(1), 16);
+             const r = (bigint >> 16) & 255;
+             const g = (bigint >> 8) & 255;
+             const b = bigint & 255;
+             return { r: r / 255, g: g / 255, b: b / 255 };
+        }
+        
+        // Fonction pour sélectionner la couleur dans la palette
+        function selectColorSwatch(hexColor) {
+             const allSwatches = Array.from(freeColorPalette.querySelectorAll('.color-swatch'));
+             allSwatches.forEach(s => s.classList.remove('selected'));
+             
+             const targetSwatch = allSwatches.find(s => s.dataset.color.toLowerCase() === hexColor.toLowerCase());
+             
+             if (targetSwatch) {
+                 targetSwatch.classList.add('selected');
+                 paxCustomColorInput.value = hexColor;
+                 
+                 // *** AUCUNE LOGIQUE DE MISE A JOUR DU NOM PAX LIBRE EN FONCTION DE LA COULEUR ICI ***
+                 // Seule la couleur est mise à jour.
+                 
+                 return true;
+             }
+             return false; // Couleur non trouvée dans la palette
+        }
+
+
+        // Initialisation du mode PAX et de la palette de couleurs
+        function initPaxModeAndColors() {
+            // Initialisation de la palette de couleurs libre
+            const paletteContainer = document.getElementById('free_color_palette');
+            paletteContainer.innerHTML = '';
+            FREE_MODE_COLORS.forEach((color, index) => {
+                const swatch = document.createElement('span');
+                swatch.className = `color-swatch swatch-${index + 1}`;
+                swatch.dataset.color = color.hex;
+                swatch.style.backgroundColor = color.hex;
+                // Si la couleur est très claire (comme le blanc), ajouter une bordure noire
+                if (color.hex === '#ffffff') {
+                    swatch.style.borderColor = '#000000';
+                }
+
+                swatch.addEventListener('click', function() {
+                    // Utilise la fonction simplifiée qui ne gère pas la mémoire PAX
+                    selectColorSwatch(this.dataset.color);
+                    // OPTIMISATION TP: Mettre le focus sur le champ de texte après sélection de couleur
+                    freePaxInput.focus(); 
+                });
+                paletteContainer.appendChild(swatch);
+            });
+            
+            // Sélectionner la première couleur par défaut
+            selectColorSwatch(FREE_MODE_COLORS[0].hex);
+
+            // Initialisation de l'heure et du PAX standard sélectionné par défaut
+            setPaxMode('standard');
+
+            // Initialisation de la sélection PAX standard
+            Array.from(paxSelectContainer.querySelectorAll('.pax-select-option')).forEach(option => {
+                option.addEventListener('click', function() {
+                    Array.from(paxSelectContainer.querySelectorAll('.pax-select-option')).forEach(o => o.classList.remove('selected'));
+                    this.classList.add('selected');
+                    paxInput.value = this.dataset.pax;
+                    // OPTIMISATION MOBILE: Mettre le focus sur Lieu après sélection PAX
+                    lieuInput.focus();
+                });
+            });
+
+            // Sélectionner Adversaire par défaut
+            paxInput.value = 'Adversaire';
+            const initialOption = paxSelectContainer.querySelector(`[data-pax="Adversaire"]`);
+            if (initialOption) {
+                initialOption.classList.add('selected');
+            }
+        }
+        
+        // Fonction pour basculer entre les modes PAX
+        function setPaxMode(mode) {
+            const isStandard = mode === 'standard';
+            
+            document.getElementById('pax_select_wrapper_standard').style.display = isStandard ? 'block' : 'none';
+            document.getElementById('pax_select_wrapper_free').style.display = isStandard ? 'none' : 'block';
+            
+            // Mettre à jour l'état du toggle
+            document.querySelectorAll('#pax_mode_toggle_container .mode-toggle-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+
+            paxModeInput.value = mode;
+
+            if (isStandard) {
+                 // S'assurer que le PAX standard est à nouveau sélectionné
+                 const selectedOption = paxSelectContainer.querySelector('.pax-select-option.selected');
+                 paxInput.value = selectedOption ? selectedOption.dataset.pax : 'Adversaire';
+            } else {
+                 // En mode libre, le champ libre gère la valeur de pax_input
+                 paxInput.value = freePaxInput.value.trim() || 'Pax Libre';
+                 // OPTIMISATION TP: Mettre le focus sur le champ de texte en mode libre pour saisie rapide
+                 freePaxInput.focus();
+            }
+        }
+
+        // --- Mise à jour de l'heure en temps réel ---
+
+        function updateTimeInput() {
+            if (!isTimeInputManuallyChanged) {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                heureInput.value = `${hours}:${minutes}`;
+            }
+        }
+
+        // Détecter la modification manuelle
+        heureInput.addEventListener('change', () => {
+            isTimeInputManuallyChanged = true;
+        });
+        
+        // --- 3. Logique Drag & Drop ---
+        
+        let dragSrcEl = null;
+
+        function handleDragStart(e) {
+            dragSrcEl = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dataset.id);
+            this.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const targetRow = this;
+
+            if (targetRow.closest('tbody') !== logTableBody) return; 
+            if (dragSrcEl === targetRow) return;
+
+            const rect = targetRow.getBoundingClientRect();
+            const offsetY = e.clientY - rect.top;
+            const halfHeight = rect.height / 2;
+
+            if (offsetY < halfHeight) {
+                logTableBody.insertBefore(dragSrcEl, targetRow);
+            } else {
+                logTableBody.insertBefore(dragSrcEl, targetRow.nextSibling);
+            }
+        }
+
+        function handleDrop(e) {
+            e.stopPropagation();
+            e.preventDefault(); 
+            
+            saveLogData(getLogData()); 
+            // Re-render pour s'assurer que le DOM et les données sont synchronisés
+            renderLogTable(loadLogData());
+
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+        }
+        
+        // --- 4. Gestion JSON (Export/Import) ---
+        
+        function exportJson() {
+             const logData = getLogData();
+             if (logData.length === 0) {
+                 alert("Le journal est vide. Rien à exporter.");
+                 return;
+             }
+             
+             // LOGIQUE DE NOMMAGE DU FICHIER (AAAA-MM-JJ_HH-MM.json) 
+             const now = new Date();
+             const year = now.getFullYear();
+             const month = String(now.getMonth() + 1).padStart(2, '0');
+             const day = String(now.getDate()).padStart(2, '0');
+             const datePart = `${year}-${month}-${day}`;
+             const hours = String(now.getHours()).padStart(2, '0');
+             const minutes = String(now.getMinutes()).padStart(2, '0');
+             const timePart = `${hours}-${minutes}`; 
+             const fileName = `PC_Tac_Session_${datePart}_${timePart}.json`;
+
+             const exportObject = {
+                 metadata: {
+                     appName: "PC Tac Log",
+                     version: "1.0",
+                     timestamp: now.toISOString()
+                 },
+                 logEntries: logData
+             };
+
+             const jsonString = JSON.stringify(exportObject, null, 2);
+             const blob = new Blob([jsonString], { type: "application/json" });
+             
+             const url = URL.createObjectURL(blob);
+             const link = document.createElement('a');
+             link.href = url;
+             link.download = fileName;
+             
+             document.body.appendChild(link);
+             link.click();
+             document.body.removeChild(link);
+             URL.revokeObjectURL(url);
+        }
+        
+        async function importJson(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const jsonContent = JSON.parse(e.target.result);
+                    
+                    if (jsonContent.metadata && jsonContent.metadata.appName === "PC Tac Log" && Array.isArray(jsonContent.logEntries)) {
+                        
+                        const validatedEntries = jsonContent.logEntries.map(entry => ({
+                            id: entry.id || Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+                            heure: entry.heure || '00:00',
+                            
+                            pax: entry.pax,
+                            paxMode: entry.paxMode || (PDF_PAX_COLORS[entry.pax] ? 'standard' : 'free'),
+                            paxColor: entry.paxColor || (entry.paxMode === 'free' ? FREE_MODE_COLORS[0].hex : undefined),
+
+                            lieu: entry.lieu || '',
+                            fenetrePorte: entry.fenetrePorte || '',
+                            remarques: entry.remarques || '',
+                        }));
+                        
+                        renderLogTable(validatedEntries);
+                        alert(`Importation JSON réussie : ${validatedEntries.length} entrées chargées.`);
+                        
+                    } else {
+                        throw new Error("Fichier JSON invalide. Assurez-vous qu'il provient d'une exportation PC Tac.");
+                    }
+                } catch (error) {
+                    console.error("Erreur lors de l'importation JSON:", error);
+                    alert(`Erreur d'importation : ${error.message}`);
+                } finally {
+                    jsonImportInput.value = ''; 
+                    initPaxModeAndColors(); // Réinitialiser le mode PAX du formulaire
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        // --- 5. Génération PDF (Aucun changement) ---
+        
+        function wrapTextForPdf(font, fontSize, text, maxWidth) {
+            text = String(text || ''); 
+            const token = ' \n ';
+            const chunks = text.replace(/\r?\n/g, token).split(' ');
+            let lines = []; 
+            let currentLine = '';
+
+            for (const chunk of chunks) {
+                if (chunk === '\n') { 
+                    lines.push(currentLine.trim()); 
+                    currentLine = ''; 
+                    continue; 
+                }
+                
+                const lineWithChunk = currentLine === '' ? chunk : `${currentLine} ${chunk}`;
+                
+                if (font.widthOfTextAtSize(lineWithChunk, fontSize) > maxWidth && currentLine !== '') { 
+                    lines.push(currentLine.trim()); 
+                    currentLine = chunk; 
+                } else { 
+                    currentLine = lineWithChunk; 
+                }
+            }
+            
+            lines.push(currentLine.trim()); 
+            return lines.filter(line => line.length > 0);
+        }
+        
+        function getPdfColors(isDarkMode, rgb) {
+            if (isDarkMode) {
+                return {
+                    background: rgb(0, 0, 0),
+                    text: rgb(1, 1, 1),
+                    line: rgb(1, 1, 1),
+                };
+            } else {
+                return {
+                    background: rgb(1, 1, 1),
+                    text: rgb(0, 0, 0),
+                    line: rgb(0, 0, 0),
+                };
+            }
+        }
+
+        let pdfRgb; 
+
+        async function buildPdf() {
+            if (typeof PDFLib === 'undefined') { throw new Error("PDFLib non chargé."); }
+
+            const { PDFDocument, StandardFonts, rgb, PageSizes } = PDFLib;
+            pdfRgb = rgb; 
+            
+            const pdfDoc = await PDFDocument.create();
+            let helveticaFont, helveticaBoldFont;
+            try {
+                helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+                helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+            } catch (e) {
+                console.error("Erreur de chargement des polices PDF standard:", e);
+                return null;
+            }
+            
+            const logData = getLogData();
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            const pdfThemeColors = getPdfColors(isDarkMode, rgb); 
+            
+            const pageConfig = { 
+                width: PageSizes.A4[1], 
+                height: PageSizes.A4[0],
+                margin: 30,
+                fontSize: 10,
+                lineHeight: 14
+            };
+            const colWidths = [0.10, 0.15, 0.20, 0.20, 0.35]; 
+            
+            const context = {
+                pdfDoc, helveticaFont, helveticaBoldFont,
+                currentPage: null, 
+                y: 0, 
+                pageNumber: 0,
+                pageWidth: pageConfig.width,
+                pageHeight: pageConfig.height,
+                margin: pageConfig.margin,
+                fontSize: pageConfig.fontSize,
+                lineHeight: pageConfig.lineHeight,
+                colors: {
+                    ...pdfThemeColors, 
+                    // Couleurs PAX Standard (RGB)
+                    adversaire: rgb(0xbe/255, 0x1b/255, 0x09/255), 
+                    otage: rgb(0xf1/255, 0xc4/255, 0x0f/255), 
+                    inter: rgb(0x34/255, 0x98/255, 0xdb/255), 
+                    ao: rgb(0x2e/255, 0xcc/255, 0x71/255) 
+                }
+            };
+            
+            const drawFooter = () => {
+                const footerText = `Page ${context.pageNumber}`;
+                const textWidth = context.helveticaFont.widthOfTextAtSize(footerText, context.fontSize);
+                
+                context.currentPage.drawText(footerText, {
+                    x: (context.pageWidth / 2) - (textWidth / 2), 
+                    y: context.margin / 2, 
+                    font: context.helveticaFont, 
+                    size: context.fontSize, 
+                    color: context.colors.text
+                });
+            };
+
+            const addNewPage = () => {
+                if (context.currentPage) { drawFooter(); }
+
+                context.currentPage = context.pdfDoc.addPage([PageSizes.A4[1], PageSizes.A4[0]]); 
+                context.pageNumber++;
+                context.pageWidth = context.currentPage.getWidth();
+                context.pageHeight = context.currentPage.getHeight();
+                context.y = context.pageHeight - context.margin;
+                
+                context.currentPage.drawRectangle({ x: 0, y: 0, width: context.pageWidth, height: context.pageHeight, color: context.colors.background });
+                
+                context.currentPage.drawText("PC TAC - Journal d'intervention", {
+                    x: context.margin, y: context.pageHeight - context.margin / 2,
+                    font: context.helveticaBoldFont, size: 14, color: context.colors.text
+                });
+                
+                context.y = context.pageHeight - context.margin - 20; 
+            };
+
+            const checkY = (spaceNeeded) => { 
+                if (context.y - spaceNeeded < context.margin * 1.5) { 
+                    addNewPage(); 
+                    drawTableHeader();
+                    return true; 
+                } 
+                return false; 
+            };
+            
+            const drawTableHeader = () => {
+                 const headers = ["Heure", "Pax", "Lieu", "Fenêtre/Porte", "Remarques"];
+                 let currentX = context.margin;
+                 const tableY = context.y;
+                 const headerHeight = context.lineHeight + 5;
+                 
+                 context.currentPage.drawLine({
+                    start: { x: context.margin, y: tableY - 1 },
+                    end: { x: context.pageWidth - context.margin, y: tableY - 1 },
+                    color: context.colors.line, thickness: 1
+                 });
+
+                 headers.forEach((header, i) => {
+                     const colWidth = context.pageWidth * colWidths[i];
+                     const x = currentX;
+                     
+                     context.currentPage.drawText(header, {
+                         x: x + 2, y: tableY - headerHeight + 5,
+                         font: context.helveticaBoldFont, size: context.fontSize, color: context.colors.text
+                     });
+                     
+                     currentX += colWidth;
+                 });
+                 context.y -= headerHeight;
+            };
+
+            const drawLogEntry = (entry) => {
+                
+                let paxColorHex, paxText, paxTextColor;
+
+                if (entry.paxMode === 'standard') {
+                    const paxInfo = PDF_PAX_COLORS[entry.pax] || PDF_PAX_COLORS['Adversaire'];
+                    paxColorHex = paxInfo.color;
+                    paxText = paxInfo.text;
+                    paxTextColor = paxInfo.fontColor === '#000000' ? pdfRgb(0, 0, 0) : pdfRgb(1, 1, 1);
+                } else {
+                    paxColorHex = entry.paxColor || FREE_MODE_COLORS[0].hex;
+                    paxText = entry.pax;
+                    
+                    const {r, g, b} = getHexToRgb(paxColorHex); 
+                    const luminosity = (0.299 * r + 0.587 * g + 0.114 * b);
+                    paxTextColor = luminosity > 0.5 ? pdfRgb(0, 0, 0) : pdfRgb(1, 1, 1);
+                }
+                
+                const { r, g, b } = getHexToRgb(paxColorHex); 
+                const paxPdfColor = pdfRgb(r, g, b); 
+                
+                const colWidthsPx = colWidths.map(ratio => context.pageWidth * ratio - 4);
+
+                const parts = [
+                    { text: entry.heure, colIndex: 0, font: context.helveticaFont, size: context.fontSize, color: context.colors.text },
+                    { text: paxText, colIndex: 1, font: context.helveticaBoldFont, size: context.fontSize, color: paxTextColor, isPax: true }, 
+                    { text: entry.lieu, colIndex: 2, font: context.helveticaFont, size: context.fontSize, color: context.colors.text }, 
+                    { text: entry.fenetrePorte, colIndex: 3, font: context.helveticaFont, size: context.fontSize, color: context.colors.text },
+                    { text: entry.remarques, colIndex: 4, font: context.helveticaFont, size: context.fontSize, color: context.colors.text },
+                ];
+                
+                let allLines = parts.map((part, i) => {
+                    part.text = String(part.text || '').trim();
+                    if (!part.text) return ['']; 
+                    return wrapTextForPdf(part.font, part.size, part.text, colWidthsPx[i]);
+                });
+
+                const maxLines = allLines.reduce((max, lines) => Math.max(max, lines.length), 1);
+                const rowHeight = maxLines * context.lineHeight + 5;
+                if (checkY(rowHeight)) return;
+
+                let currentX = context.margin;
+                const tableY = context.y;
+
+                parts.forEach((part, i) => {
+                    const colWidth = context.pageWidth * colWidths[i];
+                    const x = currentX;
+                    const textLines = allLines[i];
+                    
+                    if (i === 1) { // Colonne PAX
+                        const bgX = x + 1;
+                        const paxBlockHeight = context.lineHeight + 4; 
+                        const paxBlockY = tableY - rowHeight + (rowHeight - paxBlockHeight) / 2;
+                        
+                        context.currentPage.drawRectangle({
+                            x: bgX,
+                            y: paxBlockY, 
+                            width: colWidthsPx[i] - 2, 
+                            height: paxBlockHeight,
+                            color: paxPdfColor, 
+                            opacity: 1,
+                            borderWidth: 0
+                        });
+                        
+                        const text = textLines[0] || '';
+                        const textWidth = part.font.widthOfTextAtSize(text, part.size);
+                        const textX = bgX + (colWidthsPx[i] - textWidth) / 2;
+                        const textY = paxBlockY + (paxBlockHeight - part.size) / 2 + 1; 
+                        
+                        context.currentPage.drawText(text, {
+                            x: textX, y: textY, 
+                            font: part.font, size: part.size, color: part.color
+                        });
+
+                    } else { // Autres colonnes (multi-lignes)
+                        textLines.forEach((line, lineIndex) => {
+                            const textY = tableY - context.lineHeight - (lineIndex * context.lineHeight) - 2;
+                            
+                            if (line) {
+                                context.currentPage.drawText(line, {
+                                    x: x + 2, y: textY, 
+                                    font: part.font, size: part.size, color: part.color
+                                });
+                            }
+                        });
+                    }
+                    
+                    currentX += colWidth;
+                });
+                
+                context.currentPage.drawLine({
+                    start: { x: context.margin, y: tableY - rowHeight + 1 },
+                    end: { x: context.pageWidth - context.margin, y: tableY - rowHeight + 1 },
+                    color: context.colors.line, thickness: 0.5, opacity: 0.5
+                });
+
+                context.y -= rowHeight;
+            };
+
+            addNewPage();
+            drawTableHeader();
+            
+            logData.forEach(entry => {
+                drawLogEntry(entry);
+            });
+            
+            drawFooter();
+
+            const pdfBytes = await pdfDoc.save();
+            return pdfBytes;
+        }
+
+        async function downloadPdf() {
+            const btn = previewPdfDockBtn; 
+            const originalIcon = btn.querySelector('.material-symbols-outlined').textContent;
+            
+            btn.querySelector('.material-symbols-outlined').textContent = 'sync';
+            btn.disabled = true;
+            btn.style.opacity = 0.6;
+            
+            try {
+                const pdfBytes = await buildPdf();
+                if (!pdfBytes) { 
+                    alert("La génération a échoué. Vérifiez la console (F12).");
+                    return; 
+                }
+
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const today = new Date().toLocaleDateString('fr-FR').replace(/\//g, '-');
+                const fileName = `PC_Tac_Log_${today}.pdf`;
+
+                if (navigator.msSaveBlob) {
+                    navigator.msSaveBlob(blob, fileName);
+                } else {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = fileName;
+                    
+                    document.body.appendChild(link);
+                    link.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                    }, 0); 
+                }
+                
+            } catch (error) {
+                console.error("Erreur critique lors de la génération du PDF:", error);
+                alert("Une erreur critique est survenue lors de la génération du PDF. Consultez la console (F12).");
+            } finally {
+                btn.querySelector('.material-symbols-outlined').textContent = originalIcon;
+                btn.disabled = false;
+                btn.style.opacity = 1;
+            }
+        }
+        
+        // --- 6. Logique du Dock et Divers ---
+
+        function isFullscreen() {
+            return document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+        }
+
+        function toggleFullscreen() {
+            const icon = document.getElementById('fullscreenIcon');
+            if (!isFullscreen()) {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.mozRequestFullScreen) {
+                    document.documentElement.mozRequestFullScreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.documentElement.msExitFullscreen) {
+                    document.documentElement.msExitFullscreen();
+                }
+            }
+        }
+        
+        function updateFullscreenIcon() {
+            const icon = document.getElementById('fullscreenIcon');
+            if (icon) {
+                 icon.textContent = isFullscreen() ? 'fullscreen_exit' : 'fullscreen';
+                 icon.title = isFullscreen() ? 'Quitter le plein écran' : 'Plein écran';
+            }
+        }
+
+        function handleThemeToggle() {
+            document.body.classList.toggle('light-mode'); 
+            document.body.classList.toggle('dark-mode');
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+            document.getElementById('darkModeIcon').textContent = isDarkMode ? 'nightlight' : 'clear_day';
+        }
+
+        function toggleDock() {
+            const dock = document.getElementById('dockMenu');
+            const dockCollapsed = dock.classList.toggle('collapsed');
+            localStorage.setItem('dockCollapsed', dockCollapsed);
+            const icon = document.querySelector('#dockToggleBtn .material-symbols-outlined');
+            if (icon) {
+                // Si le dock est réduit, l'icône pointe vers le haut (expand_less), sinon vers le bas (expand_more)
+                icon.textContent = dockCollapsed ? 'expand_less' : 'expand_more';
+            }
+        }
+        
+        function showResetModal() {
+            document.getElementById('modalBackdrop').style.display = 'block';
+            document.getElementById('resetModal').style.display = 'block';
+        }
+
+        function hideResetModal() {
+            document.getElementById('modalBackdrop').style.display = 'none';
+            document.getElementById('resetModal').style.display = 'none';
+        }
+
+        function handleResetData() {
+            // Pas de mémoire TP à supprimer, seulement les logs principaux
+            localStorage.removeItem(LOCAL_STORAGE_KEY);
+            renderLogTable([]);
+            hideResetModal();
+            
+            heureInput.value = new Date().toTimeString().split(' ')[0].substring(0, 5);
+            paxInput.value = 'Adversaire';
+            // Réinitialiser correctement le mode PAX
+            setPaxMode('standard');
+            
+            lieuInput.value = '';
+            fenetrePorteInput.value = '';
+            remarquesInput.value = '';
+            alert("Toutes les données du Log PC Tac ont été réinitialisées.");
+        }
+
+
+        // --- 7. Initialisation ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            const isDarkMode = localStorage.getItem('theme') === 'dark' || !localStorage.getItem('theme');
+            if (!isDarkMode) { document.body.classList.replace('dark-mode', 'light-mode'); }
+            document.getElementById('darkModeIcon').textContent = isDarkMode ? 'nightlight' : 'clear_day';
+
+            document.getElementById('fullscreenToggle').addEventListener('click', toggleFullscreen);
+            document.getElementById('darkModeToggle').addEventListener('click', handleThemeToggle);
+            document.getElementById('dockToggleBtn').addEventListener('click', toggleDock);
+            document.addEventListener('fullscreenchange', updateFullscreenIcon);
+            updateFullscreenIcon(); 
+            
+            document.querySelector('#dockToggleBtn .material-symbols-outlined').textContent = 'expand_less'; 
+
+            // Démarrer la mise à jour de l'heure
+            updateTimeInput();
+            setInterval(updateTimeInput, 60000); // Mise à jour chaque minute
+
+            logForm.addEventListener('submit', addLogEntry);
+            initPaxModeAndColors(); // Utiliser la nouvelle fonction d'initialisation
+            
+            // Ajout des listeners Drag & Drop sur le corps du tableau pour les événements de glissement.
+            logTableBody.addEventListener('dragover', handleDragOver);
+            logTableBody.addEventListener('drop', handleDrop);
+            logTableBody.addEventListener('dragend', handleDragEnd); 
+            
+            // Rendu initial
+            renderLogTable(loadLogData());
+            
+            // Écouteur pour le champ libre pour mettre à jour l'input pax_input en temps réel
+            document.getElementById('free_pax_input').addEventListener('input', (e) => {
+                 if (paxModeInput.value === 'free') {
+                     // Met à jour la valeur cachée pour l'enregistrement, mais sans gérer la couleur associée
+                     paxInput.value = e.target.value.trim() || 'Pax Libre';
+                 }
+            });
+
+            previewPdfDockBtn.addEventListener('click', downloadPdf);
+
+            // Événements Import/Export JSON
+            exportJsonDockBtn.addEventListener('click', exportJson);
+            importJsonDockBtn.addEventListener('click', () => jsonImportInput.click());
+            jsonImportInput.addEventListener('change', importJson);
+            
+            // Événements Réinitialisation
+            resetDataDockBtn.addEventListener('click', showResetModal);
+            document.getElementById('confirmResetBtn').addEventListener('click', handleResetData);
+            document.getElementById('cancelResetBtn').addEventListener('click', hideResetModal);
+            document.getElementById('modalBackdrop').addEventListener('click', hideResetModal);
+        });
+        
+        // Exposer les fonctions pour les événements onclick (HTML inline)
+        window.setPaxMode = setPaxMode;
+        window.deleteLogEntry = deleteLogEntry;
+        // La fonction selectColorSwatch est exposée via l'événement click dans initPaxModeAndColors
+    </script>
+</body>
+</html>

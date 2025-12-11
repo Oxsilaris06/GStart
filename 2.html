@@ -3,428 +3,604 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Présentation Projet - Générateur d'OI</title>
-    <!-- Polices Google -->
+    <title>Générateur d'Ordres Initiaux - Présentation</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Fonts used in the App -->
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;700&family=Saira+Stencil+One&display=swap" rel="stylesheet">
-    <!-- Icônes FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
     <style>
-        :root {
-            --bg-dark: #000000;
-            --bg-panel: #1a1a1a;
-            --text-primary: #e0e0e0;
-            --text-secondary: #95a5a6;
-            --accent-blue: #5b9bd5;
-            --accent-green: #259654;
-            --accent-red: #be1b09;
-            --border-color: #444444;
-        }
+/* 1. THE SETUP - TACTICAL THEME BASED ON SOURCE CODE */
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+* {
+  box-sizing: border-box;
+}
 
-        body {
-            background-color: var(--bg-dark);
-            color: var(--text-primary);
-            font-family: 'Oswald', sans-serif;
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
+body {
+  background-color: #1a1a1a; /* Darker background for presentation viewing */
+  display: flex; /* Use flexbox to center content */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  min-height: 100vh;
+  padding: 0;
+  font-family: 'Oswald', sans-serif;
+  overflow: hidden; /* Hide overflow to maintain full screen presentation view */
+}
 
-        /* Arrière-plan style "Tactique" */
-        .tactical-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            background-image: 
-                linear-gradient(rgba(42, 42, 42, 0.3) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(42, 42, 42, 0.3) 1px, transparent 1px);
-            background-size: 40px 40px;
-            opacity: 0.3;
-            pointer-events: none;
-        }
+.slide-container {
+  align-items: center;
+  /* App Background Color */
+  background-color: #000000; 
+  /* App Border Color */
+  border: 1px solid #444444;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  height: 720px;
+  justify-content: center;
+  overflow: hidden;
+  padding: 60px;
+  position: absolute; /* Position absolute for stacking and centering */
+  width: 1280px;
+  opacity: 0; /* Hidden by default */
+  transition: opacity 0.5s ease-in-out;
+  pointer-events: none;
+}
 
-        /* Typographie */
-        h1, h2, h3 {
-            font-family: 'Saira Stencil One', cursive;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
+.slide-container.active {
+    opacity: 1; /* Active slide visible */
+    pointer-events: auto;
+}
 
-        h1 {
-            font-size: 4rem;
-            color: var(--accent-blue);
-            text-shadow: 0 0 20px rgba(91, 155, 213, 0.4);
-            margin-bottom: 1rem;
-        }
+/* 1.1 BACKGROUND STYLING - Tactical Grid */
+.slide-container::before {
+  content: '';
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+  z-index: 0;
+  background-image: 
+    linear-gradient(rgba(42, 42, 42, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42, 42, 42, 0.3) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.3;
+}
 
-        h2 {
-            font-size: 2.5rem;
-            color: var(--accent-blue);
-            margin-bottom: 2rem;
-            border-bottom: 2px solid var(--accent-blue);
-            display: inline-block;
-            padding-bottom: 10px;
-        }
+.slide-container > * {
+  position: relative;
+  z-index: 1;
+}
 
-        h3 {
-            font-size: 1.5rem;
-            color: #fff;
-            margin-bottom: 1rem;
-            font-family: 'Oswald', sans-serif; 
-            font-weight: 500;
-        }
+/* 2. TYPOGRAPHY - Matching the App */
 
-        p {
-            color: var(--text-secondary);
-            font-size: 1.2rem;
-            font-weight: 300;
-            margin-bottom: 1.5rem;
-        }
+/* Headings */
+.slide-container h1,
+.slide-container h2, 
+.slide-container h3 {
+  /* App Accent Blue */
+  color: #5b9bd5; 
+  font-family: 'Saira Stencil One', cursive; /* Stencil font for titles */
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 0;
+}
 
-        /* Structure */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
+.slide-container h1 {
+  font-size: 72px;
+  text-shadow: 0 0 10px rgba(91, 155, 213, 0.3);
+}
 
-        section {
-            padding: 80px 0;
-            border-bottom: 1px solid rgba(68, 68, 68, 0.5);
-        }
+.slide-container .slide-title {
+  font-size: 48px;
+  margin-bottom: 40px;
+  text-align: left;
+  width: 100%;
+  border-bottom: 2px solid #5b9bd5;
+  padding-bottom: 15px;
+}
 
-        /* Header Hero */
-        header {
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            background: radial-gradient(circle at center, rgba(91, 155, 213, 0.1) 0%, transparent 70%);
-        }
+.slide-container h3 {
+  font-size: 28px;
+  color: #e0e0e0; /* Primary Text Color */
+  font-family: 'Oswald', sans-serif;
+  font-weight: 500;
+  margin-bottom: 15px;
+}
 
-        .hero-content {
-            border: 2px solid var(--accent-blue);
-            padding: 60px;
-            border-radius: 20px;
-            background: rgba(26, 26, 26, 0.6);
-            backdrop-filter: blur(10px);
-            max-width: 900px;
-            animation: fadeIn 1.5s ease-out;
-        }
+/* Body Text */
+.slide-container p,
+.slide-container li,
+.slide-container .subtitle {
+  color: #95a5a6; /* Secondary Text Color */
+  font-family: 'Oswald', sans-serif;
+  font-size: 24px;
+  line-height: 1.6;
+  font-weight: 300;
+}
 
-        .tagline {
-            font-size: 1.5rem;
-            color: var(--text-primary);
-            margin-bottom: 2rem;
-        }
+.slide-container .subtitle {
+  color: #e0e0e0;
+  font-size: 28px;
+  margin-top: 20px;
+}
 
-        .author {
-            color: var(--text-secondary);
-            font-size: 1rem;
-            margin-top: 30px;
-            font-style: italic;
-        }
+/* 3. LAYOUT DEFINITIONS */
 
-        /* Grid Layouts */
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-        }
+.content-area {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  justify-content: center;
+  width: 100%;
+}
 
-        .grid-3 {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 30px;
-        }
+/* Title Layout */
+.title-layout {
+  text-align: center;
+  border: 2px solid #5b9bd5;
+  padding: 60px;
+  border-radius: 20px;
+  background: rgba(42, 42, 42, 0.5);
+  backdrop-filter: blur(5px);
+}
 
-        /* Cards */
-        .card {
-            background-color: var(--bg-panel);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 40px;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
+/* Section Title Layout */
+.section-title-layout {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+}
 
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(91, 155, 213, 0.1);
-            border-color: var(--accent-blue);
-        }
+.section-title-layout h2 {
+  font-size: 80px;
+  margin-bottom: 30px;
+}
 
-        .icon-box {
-            font-size: 3rem;
-            margin-bottom: 20px;
-            color: var(--accent-blue);
-        }
+.section-title-layout hr {
+  background-color: #5b9bd5;
+  border: none;
+  height: 6px;
+  margin: 30px auto;
+  width: 150px;
+  box-shadow: 0 0 10px #5b9bd5;
+}
 
-        /* Lists */
-        ul.custom-list {
-            list-style: none;
-        }
+/* Two Column Layout */
+.two-column {
+  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  width: 100%;
+}
 
-        ul.custom-list li {
-            margin-bottom: 15px;
-            padding-left: 30px;
-            position: relative;
-            font-size: 1.1rem;
-            color: var(--text-primary);
-        }
+.two-column.tiled > div {
+  background-color: #2a2a2a; /* Bg Interactive */
+  border: 1px solid #444444;
+  border-radius: 8px;
+  padding: 40px;
+  height: 100%;
+}
 
-        ul.custom-list li::before {
-            content: '\f054'; /* FontAwesome Chevron */
-            font-family: 'Font Awesome 6 Free';
-            font-weight: 900;
-            color: var(--accent-green);
-            position: absolute;
-            left: 0;
-            top: 4px;
-        }
+.two-column ul {
+  list-style: none;
+  padding: 0;
+}
 
-        /* Highlight Numbers */
-        .stat-card {
-            text-align: center;
-            background-color: var(--bg-panel);
-            border: 1px solid var(--accent-blue);
-            border-radius: 12px;
-            padding: 30px;
-        }
+.two-column li {
+  margin-bottom: 20px;
+  padding-left: 30px;
+  position: relative;
+}
 
-        .stat-number {
-            font-family: 'Saira Stencil One', cursive;
-            font-size: 5rem;
-            color: var(--accent-green);
-            line-height: 1;
-        }
+.two-column li::before {
+  content: '\f054'; /* FontAwesome Chevron Right */
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  color: #259654; /* Success Green */
+  position: absolute;
+  left: 0;
+  top: 2px;
+}
 
-        .stat-label {
-            font-size: 1.2rem;
-            text-transform: uppercase;
-            margin-top: 10px;
-            color: var(--text-primary);
-        }
+/* Tiled Content with Icons */
+.tiled-content {
+  align-items: stretch;
+  display: flex;
+  gap: 40px;
+  width: 100%;
+}
 
-        /* PATRACDVR Feature */
-        .feature-showcase {
-            display: flex;
-            align-items: center;
-            background: #111;
-            border: 1px dashed var(--accent-blue);
-            padding: 40px;
-            border-radius: 10px;
-            margin-top: 20px;
-            flex-direction: column;
-        }
+.tile {
+  background-color: #2a2a2a;
+  border: 1px solid #444444;
+  border-radius: 8px;
+  flex: 1;
+  padding: 30px;
+  text-align: center;
+  transition: transform 0.3s;
+}
 
-        .mock-element {
-            background: var(--bg-panel);
-            border: 1px solid #444;
-            padding: 15px;
-            margin: 10px;
-            border-radius: 5px;
-            width: 250px;
-            text-align: center;
-            position: relative;
-        }
+.tile .icon {
+  color: #5b9bd5;
+  font-size: 50px;
+  margin-bottom: 20px;
+  text-shadow: 0 0 15px rgba(91, 155, 213, 0.4);
+}
 
-        /* Footer */
-        footer {
-            text-align: center;
-            padding: 40px;
-            background-color: #0d0d0d;
-            border-top: 1px solid var(--accent-blue);
-            color: var(--text-secondary);
-        }
+/* Quote Layout */
+.quote-layout blockquote {
+  border-left: 5px solid #be1b09; /* Danger Red for contrast/impact */
+  color: #e0e0e0;
+  font-family: 'Saira Stencil One', cursive;
+  font-size: 40px;
+  margin: 0;
+  padding: 20px 40px;
+  background: rgba(190, 27, 9, 0.1);
+}
 
-        /* Animations */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+.quote-layout cite {
+  color: #95a5a6;
+  display: block;
+  font-size: 24px;
+  font-style: normal;
+  margin-top: 20px;
+  text-align: right;
+  font-family: 'Oswald', sans-serif;
+}
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .grid-2, .grid-3 {
-                grid-template-columns: 1fr;
-            }
-            h1 { font-size: 3rem; }
-            h2 { font-size: 2rem; }
-            .hero-content { padding: 30px; }
-        }
+/* Highlight Numbers */
+.highlight-numbers-layout {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+  width: 100%;
+}
+
+.highlight-numbers-layout > div {
+  background-color: #2a2a2a;
+  border: 1px solid #5b9bd5;
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  flex: 1;
+}
+
+.highlight-numbers-layout .number {
+  color: #259654; /* Success Green */
+  font-family: 'Saira Stencil One', cursive;
+  font-size: 90px;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.highlight-numbers-layout .number-label {
+  color: #e0e0e0;
+  font-size: 24px;
+  text-transform: uppercase;
+}
+
+/* Footer (inside the slide) */
+.slide-footer {
+  position: absolute;
+  bottom: 20px;
+  width: 100%;
+  text-align: center;
+  color: #444444;
+  font-size: 14px;
+  border-top: 1px solid #444444;
+  padding-top: 10px;
+  left: 0;
+}
+
+/* Specific Utility Classes for Colors based on App */
+.text-blue { color: #5b9bd5; }
+.text-green { color: #259654; }
+.text-red { color: #be1b09; }
+
+/* 4. NAVIGATION CONTROLS */
+.navigation {
+    position: fixed;
+    bottom: 20px;
+    z-index: 10;
+    display: flex;
+    gap: 20px;
+}
+
+.nav-button {
+    background-color: #2a2a2a;
+    color: var(--accent-blue);
+    border: 2px solid var(--accent-blue);
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Oswald', sans-serif;
+    text-transform: uppercase;
+    font-size: 18px;
+    transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
+}
+
+.nav-button:hover:not(:disabled) {
+    background-color: var(--accent-blue);
+    color: #000000;
+    box-shadow: 0 0 15px rgba(91, 155, 213, 0.6);
+}
+
+.nav-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
     </style>
 </head>
 <body>
 
-    <div class="tactical-bg"></div>
+<!-- Slide 1: Title_Slide -->
+<div class="slide-container active" id="slide1">
+    <div class="title-layout">
+        <h1>GÉNÉRATEUR D'OI</h1>
+        <p class="subtitle">Innovation Numérique & Opérationnelle</p>
+        <div style="margin-top: 30px;">
+            <p style="font-size: 20px; color: #5b9bd5;">ATELIERS DE L'INNOVATION GENDARMERIE</p>
+            <p style="font-size: 18px; color: #95a5a6;">Réalisation : Gendarme Maheux - PSIG Gilette</p>
+        </div>
+    </div>
+    <div class="slide-footer">© G/ Maheux - PSIG Gilette</div>
+</div>
 
-    <!-- HERO SECTION -->
-    <header>
-        <div class="container">
-            <div class="hero-content">
-                <h1>GÉNÉRATEUR D'OI</h1>
-                <p class="tagline">INNOVATION NUMÉRIQUE & OPÉRATIONNELLE</p>
-                <div style="width: 100px; height: 4px; background: var(--accent-blue); margin: 20px auto;"></div>
-                <p>Standardisation • Rapidité • Efficacité</p>
-                <p class="author">Réalisation : Gendarme Maheux - PSIG Gilette</p>
-                <p style="color: var(--accent-blue); font-weight: 500;">POUR LES ATELIERS DE L'INNOVATION GENDARMERIE</p>
+<!-- Slide 2: Two_Column_Tiled_Text (Le Constat) -->
+<div class="slide-container" id="slide2">
+    <h2 class="slide-title">LE CONSTAT INITIAL</h2>
+    <div class="content-area">
+        <div class="two-column tiled">
+            <div>
+                <h3><i class="fa-solid fa-triangle-exclamation text-red"></i> PROBLÉMATIQUE</h3>
+                <ul>
+                    <li><strong>Hétérogénéité des supports :</strong> Chaque MIP/AMIP utilise son propre canevas PowerPoint.</li>
+                    <li><strong>Absence d'uniformité :</strong> Pas de standard visuel entre les différents ordres initiaux.</li>
+                    <li><strong>Perte de temps :</strong> Création fastidieuse, modifications longues avant chaque mission.</li>
+                </ul>
+            </div>
+            <div>
+                <h3><i class="fa-solid fa-eye-slash text-blue"></i> QUALITÉ VISUELLE</h3>
+                <ul>
+                    <li><strong>Rendu amateur :</strong> Difficulté d'obtenir un rendu propre sans maîtrise avancée de PowerPoint.</li>
+                    <li><strong>Manque d'ergonomie :</strong> Outils classiques inadaptés à la rapidité opérationnelle requise en PSIG.</li>
+                    <li><strong>Risque d'erreur :</strong> Copier-coller hasardeux d'anciennes missions.</li>
+                </ul>
             </div>
         </div>
-    </header>
+    </div>
+    <div class="slide-footer">Genèse du projet</div>
+</div>
 
-    <!-- SECTION 1: GENÈSE -->
-    <section id="genese">
-        <div class="container">
-            <h2>LA GENÈSE DU PROJET</h2>
-            <div class="grid-2">
-                <div class="card">
-                    <div class="icon-box"><i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red);"></i></div>
-                    <h3>LE CONSTAT</h3>
-                    <ul class="custom-list">
-                        <li><strong>Hétérogénéité :</strong> Chaque MIP/AMIP utilise son propre canevas PowerPoint.</li>
-                        <li><strong>Manque d'uniformité :</strong> Pas de standard visuel entre les OI d'une même unité.</li>
-                        <li><strong>Perte de temps :</strong> Création fastidieuse, modifications longues avant mission.</li>
-                    </ul>
-                </div>
-                <div class="card">
-                    <div class="icon-box"><i class="fa-solid fa-code" style="color: var(--accent-blue);"></i></div>
-                    <h3>LA MÉTHODE</h3>
-                    <p>Développement via la méthode <strong>"Vibe Coding"</strong> alliée à des compétences solides en développement Web (HTML5, CSS3, JavaScript).</p>
-                    <p>Une approche "Terrain" : une réponse technique directe à un besoin opérationnel quotidien.</p>
-                </div>
+<!-- Slide 3: Section_Title (La Genèse) -->
+<div class="slide-container" id="slide3">
+    <div class="section-title-layout">
+        <hr>
+        <h2>LA GENÈSE</h2>
+        <p class="subtitle">"Vibe Coding" + Développement Web (HTML-CSS-JS)</p>
+        <p style="margin-top: 20px; max-width: 800px;">
+            Une réponse technique concrète à un besoin opérationnel quotidien.
+            Développé par le terrain, pour le terrain.
+        </p>
+    </div>
+    <div class="slide-footer">De l'idée au code</div>
+</div>
+
+<!-- Slide 4: Tiled_Text_With_Icons (Présentation Générale) -->
+<div class="slide-container" id="slide4">
+    <h2 class="slide-title">L'APPLICATION EN BREF</h2>
+    <div class="content-area">
+        <div class="tiled-content">
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <h3>INTUITIVE</h3>
+                <p>Interface "Wizard" étape par étape (Situation, Adversaire, Mission...) pour ne rien oublier.</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-layer-group"></i></div>
+                <h3>STANDARDISÉE</h3>
+                <p>Garantit une uniformité totale des OI, quel que soit le rédacteur ou l'unité.</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-bolt"></i></div>
+                <h3>RAPIDE</h3>
+                <p>Génération instantanée d'un support de présentation et d'un PDF diffusable.</p>
             </div>
         </div>
-    </section>
+    </div>
+    <div class="slide-footer">Vue d'ensemble</div>
+</div>
 
-    <!-- SECTION 2: FONCTIONNALITÉS -->
-    <section id="features">
-        <div class="container">
-            <h2>FONCTIONNALITÉS MAJEURES</h2>
-            <div class="grid-3">
-                <div class="card">
-                    <div class="icon-box"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
-                    <h3>INTUITIVE</h3>
-                    <p>Interface "Wizard" qui guide l'utilisateur étape par étape (Situation, Adversaire, Mission...) pour ne rien oublier lors de la rédaction.</p>
-                </div>
-                <div class="card">
-                    <div class="icon-box"><i class="fa-solid fa-layer-group"></i></div>
-                    <h3>STANDARDISÉE</h3>
-                    <p>Garantit une uniformité totale des Ordres Initiaux, quel que soit le rédacteur. Le rendu est toujours propre et professionnel.</p>
-                </div>
-                <div class="card">
-                    <div class="icon-box"><i class="fa-solid fa-bolt"></i></div>
-                    <h3>RAPIDE</h3>
-                    <p>Génération instantanée d'un support de présentation prêt à l'emploi et d'un PDF exportable pour diffusion.</p>
-                </div>
+<!-- Slide 5: Feature Focus - PATRACDVR -->
+<div class="slide-container" id="slide5">
+    <h2 class="slide-title">FONCTIONNALITÉ CLÉ : PATRACDVR</h2>
+    <div class="content-area">
+        <div class="two-column tiled">
+            <div style="flex: 1;">
+                <h3><i class="fa-solid fa-arrows-up-down-left-right text-blue"></i> DRAG & DROP TACTIQUE</h3>
+                <p>Gestion dynamique des effectifs et des véhicules via une interface de glisser-déposer.</p>
+                <ul style="margin-top: 20px;">
+                    <li>Création rapide de véhicules (VW-Golf, Kodiaq...).</li>
+                    <li>Attribution des personnels par simple glisser.</li>
+                    <li>Gestion visuelle des rôles (Chef, Effrac, TP...).</li>
+                </ul>
             </div>
-        </div>
-    </section>
-
-    <!-- SECTION 3: FOCUS PATRACDVR -->
-    <section id="patracdvr">
-        <div class="container">
-            <h2>FOCUS : PATRACDVR</h2>
-            <p>Le cœur tactique de l'application : une gestion dynamique des effectifs.</p>
-            
-            <div class="grid-2">
-                <div>
-                    <h3><i class="fa-solid fa-arrows-up-down-left-right" style="color: var(--accent-blue);"></i> DRAG & DROP TACTIQUE</h3>
-                    <ul class="custom-list">
-                        <li>Création de véhicules à la volée (Kodiaq, Banalisé...).</li>
-                        <li>Attribution des personnels par simple glisser-déposer.</li>
-                        <li>Attribution visuelle des rôles (Chef, Effrac, TP...) et des indicatifs.</li>
-                        <li>Suppression intuitive par glisser vers une zone de corbeille.</li>
-                    </ul>
-                </div>
-                <div class="feature-showcase">
-                    <p style="text-align: center; color: var(--text-secondary); margin-bottom: 20px;">
-                        <i class="fa-solid fa-hand-pointer"></i> Simulation d'Interface
-                    </p>
-                    <div class="mock-element">
-                        <i class="fa-solid fa-car-side" style="color: var(--accent-blue);"></i> KODIAQ (INDIA)
-                        <div style="margin-top: 10px; display: flex; justify-content: center; gap: 5px;">
-                             <span style="background: var(--accent-blue); color: black; padding: 2px 5px; font-size: 0.8rem; border-radius: 3px;">C.INT</span>
-                             <span style="border: 1px solid var(--text-secondary); padding: 2px 5px; font-size: 0.8rem; border-radius: 3px;">ABC</span>
+            <div style="display: flex; align-items: center; justify-content: center; background: #111; border: 1px dashed #5b9bd5;">
+                <!-- CSS Representation of the Interface Element -->
+                <div style="text-align: center;">
+                    <div style="background: #2a2a2a; border: 1px solid #444; padding: 15px; margin-bottom: 10px; border-radius: 5px; width: 200px; margin: 0 auto;">
+                        <i class="fa-solid fa-car-side text-blue"></i> KODIAQ
+                        <div style="margin-top: 10px; display: flex; gap: 5px; justify-content: center;">
+                            <span style="background: #5b9bd5; color: #000; padding: 2px 5px; font-size: 12px; border-radius: 3px;">C.INT</span>
+                            <span style="border: 1px solid #5b9bd5; color: #e0e0e0; padding: 2px 5px; font-size: 12px; border-radius: 3px;">ABC</span>
                         </div>
                     </div>
-                    <i class="fa-solid fa-arrow-up" style="color: #444; margin: 10px;"></i>
-                    <div class="mock-element" style="border-style: dashed; color: var(--text-secondary);">
-                        Zone de Personnel (Glisser ici)
+                    <i class="fa-solid fa-arrow-down" style="color: #444; margin: 10px 0;"></i>
+                    <div style="background: #2a2a2a; border: 1px dashed #444; padding: 10px; width: 200px; margin: 0 auto; color: #666;">
+                        Zone de personnel
                     </div>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
+    <div class="slide-footer">Gestion des moyens</div>
+</div>
 
-    <!-- SECTION 4: ARCHITECTURE TECHNIQUE -->
-    <section id="tech">
-        <div class="container">
-            <h2>SOUS LE CAPOT</h2>
-            <div class="grid-3">
-                <div class="card">
-                    <h3 style="color: var(--accent-green);">LOCAL STORAGE</h3>
-                    <p><strong>Sécurité & Confidentialité :</strong> Aucune donnée ne transite sur un serveur distant. Tout est stocké localement sur le navigateur du poste utilisateur.</p>
-                </div>
-                <div class="card">
-                    <h3 style="color: var(--accent-red);">PDF-LIB</h3>
-                    <p>Utilisation de la librairie JavaScript <code>pdf-lib</code> pour compiler les données textuelles et les images annotées en un document PDF officiel instantané.</p>
-                </div>
-                <div class="card">
-                    <h3 style="color: var(--accent-blue);">CANVAS API</h3>
-                    <p>Outils de dessin natifs HTML5 intégrés pour annoter les photos de surveillance (flèches directionnelles, zones cibles, textes) directement dans l'app.</p>
-                </div>
+<!-- Slide 6: Tiled_Text_With_Icons (Points Forts Techniques) -->
+<div class="slide-container" id="slide6">
+    <h2 class="slide-title">ARCHITECTURE TECHNIQUE</h2>
+    <div class="content-area">
+        <div class="tiled-content">
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-database text-green"></i></div>
+                <h3>LOCAL STORAGE</h3>
+                <p>Aucune donnée ne transite sur un serveur. Tout est stocké localement sur le navigateur du poste utilisateur pour une sécurité maximale.</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-file-pdf text-red"></i></div>
+                <h3>GÉNÉRATION PDF</h3>
+                <p>Utilisation de la librairie <code>pdf-lib</code> pour compiler les données et les images annotées en un document officiel instantané.</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-pen-to-square text-blue"></i></div>
+                <h3>ANNOTATION</h3>
+                <p>Outils de dessin sur canvas HTML5 intégrés pour annoter les photos de surveillance (flèches, zones, textes).</p>
             </div>
         </div>
-    </section>
+    </div>
+    <div class="slide-footer">Sous le capot</div>
+</div>
 
-    <!-- SECTION 5: IMPACT -->
-    <section id="impact">
-        <div class="container">
-            <h2>DÉPLOIEMENT & GAINS</h2>
-            <p style="text-align: center; font-size: 1.5rem; margin-bottom: 40px;">Un outil concret qui répond à une problématique réelle.</p>
-            
-            <div class="grid-3">
-                <div class="stat-card">
-                    <div class="stat-number">100%</div>
-                    <div class="stat-label">Opérationnel<br>PSIG Gilette</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">PACA</div>
-                    <div class="stat-label">Phase de test<br>Régionale</div>
-                </div>
-                <div class="stat-card" style="border-color: var(--accent-green);">
-                    <div class="stat-number">1H</div>
-                    <div class="stat-label" style="color: var(--text-primary);">Gain de temps<br>estimé par mission</div>
-                </div>
+<!-- Slide 7: Highlighted_Numbers (Déploiement) -->
+<div class="slide-container" id="slide7">
+    <h2 class="slide-title">DÉPLOIEMENT & IMPACT</h2>
+    <div class="content-area">
+        <div class="highlight-numbers-layout">
+            <div>
+                <div class="number">100%</div>
+                <div class="number-label">Opérationnel au PSIG Gilette</div>
             </div>
-            
-            <div style="margin-top: 60px; text-align: center; max-width: 800px; margin-left: auto; margin-right: auto;">
-                <p style="font-size: 1.8rem; font-family: 'Saira Stencil One'; color: var(--text-primary); border-left: 5px solid var(--accent-red); padding-left: 20px;">
-                    "L'objectif est la standardisation des procédures et l'efficacité opérationnelle par l'innovation numérique."
-                </p>
+            <div>
+                <div class="number">PACA</div>
+                <div class="number-label">Phase de test Régionale</div>
+            </div>
+            <div>
+                <div class="number">1H</div> <!-- Mis à jour à 1H -->
+                <div class="number-label">Gain de temps estimé</div>
             </div>
         </div>
-    </section>
+        <p class="subtitle" style="text-align: center; margin-top: 40px;">
+            "Un gain de temps estimé à 1 heure par préparation de mission."
+        </p>
+    </div>
+    <div class="slide-footer">État des lieux</div>
+</div>
 
-    <!-- FOOTER -->
-    <footer>
-        <div class="container">
-            <h2 style="font-size: 2rem; border: none; margin-bottom: 10px;">AVEZ-VOUS DES QUESTIONS ?</h2>
-            <p>Générateur d'OI - Innovation Gendarmerie</p>
-            <p style="font-size: 0.9rem; margin-top: 20px;">© 2024 - Réalisation Gendarme Maheux</p>
+<!-- Slide 8: Quote (Future) -->
+<div class="slide-container" id="slide8">
+    <div class="content-area">
+        <div class="quote-layout">
+            <blockquote>
+                L'objectif est la standardisation des procédures et l'efficacité opérationnelle par l'innovation numérique.
+            </blockquote>
+            <cite>— Gendarme Maheux</cite>
         </div>
-    </footer>
+    </div>
+    <div class="slide-footer">Conclusion</div>
+</div>
 
+<!-- Slide 9: Q&A -->
+<div class="slide-container" id="slide9">
+    <div class="section-title-layout">
+        <h2 style="color: #e0e0e0;">AVEZ-VOUS DES QUESTIONS ?</h2>
+        <div style="font-size: 80px; color: #5b9bd5; margin: 20px;">
+            <i class="fa-regular fa-comments"></i>
+        </div>
+        <p class="subtitle">Merci de votre attention.</p>
+    </div>
+    <div class="slide-footer">Fin de la présentation</div>
+</div>
+
+<!-- NAVIGATION CONTROLS -->
+<div class="navigation">
+    <button id="prevBtn" class="nav-button" disabled><i class="fa-solid fa-chevron-left"></i> Précédent</button>
+    <button id="nextBtn" class="nav-button">Suivant <i class="fa-solid fa-chevron-right"></i></button>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const slides = document.querySelectorAll('.slide-container');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        let currentSlide = 0; // Start at the first slide (index 0)
+        const totalSlides = slides.length;
+
+        /**
+         * Updates the visibility of the slides and the state of the navigation buttons.
+         */
+        function updateSlideDisplay() {
+            slides.forEach((slide, index) => {
+                slide.classList.remove('active');
+                if (index === currentSlide) {
+                    slide.classList.add('active');
+                }
+            });
+
+            // Update button states
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === totalSlides - 1;
+        }
+
+        /**
+         * Navigates to the next slide.
+         */
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlideDisplay();
+            }
+        }
+
+        /**
+         * Navigates to the previous slide.
+         */
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlideDisplay();
+            }
+        }
+
+        // Event listeners for buttons
+        nextBtn.addEventListener('click', nextSlide);
+        prevBtn.addEventListener('click', prevSlide);
+
+        // Event listener for keyboard navigation
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowRight' || event.key === ' ') {
+                // Right arrow or Space bar for next slide
+                nextSlide();
+            } else if (event.key === 'ArrowLeft') {
+                // Left arrow for previous slide
+                prevSlide();
+            }
+        });
+
+        // Initialize the display
+        updateSlideDisplay();
+    });
+</script>
 </body>
 </html>

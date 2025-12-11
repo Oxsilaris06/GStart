@@ -1445,13 +1445,12 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         tenues: 'UBAS',
                         gpb: 'GPBL'
                     };
-                    addPatracdvrMember(unassignedContainer, initialData);
+                    const newMemberBtn = addPatracdvrMember(unassignedContainer, initialData);
                     
-                    const newMemberBtn = unassignedContainer.lastChild;
                     if (newMemberBtn) {
                         handleMemberSelection({ target: newMemberBtn });
                     }
-                    saveFormData();
+                    // saveFormData(); // Déjà appelé dans addPatracdvrMember
                 } else {
                     alert("Le trigramme doit contenir entre 2 et 4 caractères.");
                 }
@@ -1481,7 +1480,16 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             };
             Object.keys(memberData).forEach(key => btn.dataset[key] = memberData[key]);
             updateMemberButtonVisuals(btn);
+            
+            // CORRECTION: Ajouter l'écouteur de clic au moment de la création du bouton
+            btn.addEventListener('click', handleMemberSelection);
+
             containerElement.appendChild(btn);
+            
+            // CONFORMITÉ: Sauvegarde immédiate après la création d'un membre
+            saveFormData();
+            
+            return btn; // Retourner le bouton créé pour la manipulation immédiate
         }
         function updateMemberButtonVisuals(btn) {
             const trigramme = btn.dataset.trigramme || 'N/A';
@@ -1618,6 +1626,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 populateQuickEditPanel(activeMemberId);
                 document.getElementById('quickEditPanel').style.display = 'flex';
             }
+            // CONFORMITÉ: Sauvegarde après sélection/désélection d'un membre (son état actif change)
+            saveFormData(); 
         }
         
         function populateQuickEditPanel(memberId) {
@@ -1660,41 +1670,25 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             document.getElementById('modal_quick_edit_trigramme_input').addEventListener('input', (e) => {
                  member.dataset.trigramme = e.target.value.toUpperCase();
                  title.textContent = `Édition Rapide: ${member.dataset.trigramme || 'N/A'}`;
+                 // CONFORMITÉ: Sauvegarde après modification du trigramme
+                 saveFormData();
             });
 
             // --- Ajouter les options d'édition ---
-            for (const [category, config] of Object.entries(quickEditMapping)) {
-                 if (!memberConfig[config.key] || memberConfig[config.key].length === 0) continue;
-                 
-                const attributeName = config.attribute; 
-                
-                const categoryDiv = document.createElement('div');
-                categoryDiv.className = 'quick-edit-category';
-                
-                const categoryTitle = document.createElement('h5');
-                categoryTitle.textContent = category;
-                categoryDiv.appendChild(categoryTitle);
-                
-                const optionsContainer = document.createElement('div');
-                optionsContainer.className = 'quick-edit-options';
-                
-                (memberConfig[config.key] || []).forEach(option => {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'quick-edit-btn';
-                    btn.textContent = option;
-                    btn.dataset.attribute = attributeName;
-                    btn.dataset.value = option;
-                    if (member.dataset[attributeName] === option) {
-                        btn.classList.add('selected');
-                    }
-                    // Le clic sera géré par la délégation d'événement de la modale
-                    optionsContainer.appendChild(btn);
-                });
-                
-                categoryDiv.appendChild(optionsContainer);
-                content.appendChild(categoryDiv);
-            }
+            setupQuickEditPanel(); // S'assurer que le panneau est mis à jour
+            
+            // Copier les boutons du panneau dans la modale
+            const quickEditPanelContent = document.querySelector('#quickEditPanel .quick-edit-content');
+            content.appendChild(quickEditPanelContent.cloneNode(true));
+            
+            // Mettre à jour l'état de sélection (copie des datasets dans les boutons dupliqués)
+            const modalButtons = content.querySelectorAll('.quick-edit-btn');
+            modalButtons.forEach(btn => {
+                 const attribute = btn.dataset.attribute;
+                 const value = btn.dataset.value;
+                 btn.classList.toggle('selected', member.dataset[attribute] === value);
+            });
+            
             modal.showModal();
         }
 
@@ -1720,6 +1714,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
              });
              
              updateMemberButtonVisuals(member);
+             // CONFORMITÉ: Sauvegarde après modification du panneau
              saveFormData();
              populateQuickEditPanel(activeMemberId);
         }
@@ -1747,6 +1742,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         activeMemberId = null;
                         document.getElementById('quickEditPanel').style.display = 'none';
                     }
+                    // CONFORMITÉ: Sauvegarde après suppression définitive
                     saveFormData();
                 }
             }
@@ -1832,7 +1828,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             cleanupObjectUrls(); // S'assurer que les anciennes URLs sont révoquées avant de charger de nouvelles données
             // Utilisation de la clé isolée
             const dataString = localStorage.getItem(LOCAL_STORAGE_KEY);
-            if (!dataString) return false;
+            if (!dataString) { 
+                // Si aucune donnée dans localStorage, on initialise le panneau d'édition rapide 
+                // avec les valeurs par défaut JS, et on retourne false
+                initializePatracdvr({});
+                setupQuickEditPanel();
+                return false;
+            }
         
             try {
                 const data = JSON.parse(dataString);
@@ -1896,26 +1898,34 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 (data.vehicules_list_2 || []).forEach(val => addDynamicField('vehicules_container_2', val));
 
                 (data.time_events || []).forEach(ev => addTimeEvent(ev.type, ev.hour, ev.description));
+                
+                // CORRECTION: Assurer la réinitialisation et le chargement des membres/véhicules
                 initializePatracdvr(data);
+                
+                // CORRECTION: Initialiser le panneau d'édition rapide APRÈS le chargement des données
+                setupQuickEditPanel(); 
         
                 updateArticulationDisplay();
                 return true;
         
             } catch (e) {
                 console.error("Erreur de chargement:", e);
+                // Si une erreur de chargement survient, on initialise quand même le PATRACDVR (vide)
+                // pour éviter une page cassée et on initialise le panneau.
+                initializePatracdvr({});
+                setupQuickEditPanel(); 
                 return false;
             }
         }
         
+        // CORRECTION: Retrait de l'appel à setupQuickEditPanel ici
         function initializePatracdvr(dataFromStorage) {
             unassignedContainer.innerHTML = '';
             patracdvrContainer.innerHTML = '';
-            if (dataFromStorage && (dataFromadvData.patracdvr_rows?.length > 0 || dataFromStorage.patracdvr_unassigned?.length > 0)) {
+            if (dataFromStorage && (dataFromStorage.patracdvr_rows?.length > 0 || dataFromStorage.patracdvr_unassigned?.length > 0)) {
                 (dataFromStorage.patracdvr_unassigned || []).forEach(member => addPatracdvrMember(unassignedContainer, member));
                 (dataFromStorage.patracdvr_rows || []).forEach(row => addPatracdvrRow(row.vehicle, row.members));
             }
-            // Si aucune donnée dans localStorage, on initialise le panneau d'édition rapide avec les valeurs par défaut JS
-            setupQuickEditPanel(); 
         }
 
         // Suppression de let draggedItem = null; pour utiliser l'objet DataTransfer
@@ -2021,6 +2031,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     }
                 }
                 
+                // CONFORMITÉ: Sauvegarde après le changement de conteneur/statut
                 saveFormData();
             }
         }
@@ -2052,6 +2063,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 const degrees = parseFloat(rotationInput.value) || 0;
                 selectedAnnotation.rotation = degrees * Math.PI / 180;
                 redrawCanvas();
+                // CONFORMITÉ: Sauvegarde après rotation
+                document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
+                saveFormData();
             }
         }
 
@@ -2396,6 +2410,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             document.body.style.overflow = '';
             if (isMovingAnnotation) {
                 isMovingAnnotation = false;
+                // CONFORMITÉ: Sauvegarde après déplacement/modification d'une annotation
+                document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
+                saveFormData();
                 redrawCanvas();
             } else if (isDrawing) {
                 isDrawing = false;
@@ -2794,7 +2811,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             initChipContainer('etat_esprit_container_2', formData.etat_esprit_list_2 || []);
             initChipContainer('volume_adversaire_container_2', formData.volume_list_2 || []);
 
-            setupQuickEditPanel(); 
+            // CORRECTION: setupQuickEditPanel est maintenant appelé dans loadFormData
+            // setupQuickEditPanel(); 
             initializeDragDropListeners(); // Initialiser les écouteurs de drop statiques
 
             // Écouteur pour les collapsibles
@@ -2804,11 +2822,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             });
             
             // Écouteur délégué pour la sélection de membre (pour le panneau desktop)
-            document.querySelector('.container').addEventListener('click', (e) => {
+            // CORRECTION: Cet écouteur est redondant avec l'écouteur attaché dans addPatracdvrMember, 
+            // mais on le garde si d'autres éléments pouvaient être affectés. On s'assure qu'il n'y ait pas de double attachement.
+            /* document.querySelector('.container').addEventListener('click', (e) => {
                 if (e.target.closest('.patracdvr-member-btn')) {
                     handleMemberSelection(e);
                 }
-            });
+            });*/
             
             // Écouteur pour le bouton de sauvegarde du panneau d'édition rapide (desktop)
             document.getElementById('saveQuickEditBtn').addEventListener('click', saveQuickEditChanges);
@@ -2835,7 +2855,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 btn.className = 'add-btn add-vehicle-btn';
                 btn.textContent = `➕ ${vehicle}`;
                 btn.addEventListener('click', () => addPatracdvrRow(vehicle));
-                vehicleCreationContainer.insertBefore(btn, document.getElementById('addManualVehicleBtn'));
+                // CORRECTION: S'assurer que les boutons de véhicules pré-définis sont ajoutés au bon endroit
+                const addManualVehicleBtn = document.getElementById('addManualVehicleBtn');
+                if (addManualVehicleBtn) {
+                     vehicleCreationContainer.insertBefore(btn, addManualVehicleBtn);
+                } else {
+                     vehicleCreationContainer.appendChild(btn); // Fallback
+                }
             });
 
             document.getElementById('addManualVehicleBtn').addEventListener('click', addManualVehicle);
@@ -2872,6 +2898,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     group.querySelectorAll('.quick-edit-btn').forEach(btn => btn.classList.remove('selected'));
                     quickEditButton.classList.add('selected');
                     
+                    // CONFORMITÉ: Sauvegarde après modification du quick edit panel
                     saveFormData();
                 } 
             });
@@ -2882,6 +2909,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     const member = document.getElementById(activeMemberId);
                     member.dataset.trigramme = e.target.value.toUpperCase();
                     updateMemberButtonVisuals(member);
+                    // CONFORMITÉ: Sauvegarde après modification du trigramme
                     saveFormData();
                 }
             });
@@ -2925,6 +2953,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 }
                 target.classList.add('selected');
 
+                // CONFORMITÉ: Sauvegarde après modification de la modale
                 saveFormData();
             });
 
@@ -2938,7 +2967,15 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             document.querySelectorAll('.toolbar-main-tools .tool-btn').forEach(btn => {
                 btn.addEventListener('click', () => { const toolId = btn.id.split('_')[1]; if (['move', 'location', 'arrow', 'box'].includes(toolId)) setActiveTool(toolId); });
             });
-            document.getElementById('tool_reset').addEventListener('click', () => { annotations = []; selectedAnnotation = null; setContextualTools(null); redrawCanvas();});
+            document.getElementById('tool_reset').addEventListener('click', () => { 
+                annotations = []; 
+                selectedAnnotation = null; 
+                setContextualTools(null); 
+                redrawCanvas();
+                // CONFORMITÉ: Sauvegarde après effacement de toutes les annotations
+                document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
+                saveFormData();
+            });
             document.getElementById('annotation_cancel').addEventListener('click', () => annotationModal.close());
             document.getElementById('annotation_save').addEventListener('click', () => {
                 const targetId = annotationModal.dataset.targetPreviewId; 
@@ -2957,7 +2994,17 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             
             rotationInput.addEventListener('change', updateAnnotationRotation);
 
-            document.getElementById('delete_btn').addEventListener('click', () => { if(selectedAnnotation){ annotations = annotations.filter(ann => ann !== selectedAnnotation); selectedAnnotation = null; setContextualTools(null); redrawCanvas(); } });
+            document.getElementById('delete_btn').addEventListener('click', () => { 
+                if(selectedAnnotation){ 
+                    annotations = annotations.filter(ann => ann !== selectedAnnotation); 
+                    selectedAnnotation = null; 
+                    setContextualTools(null); 
+                    redrawCanvas(); 
+                    // CONFORMITÉ: Sauvegarde après suppression d'une annotation
+                    document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
+                    saveFormData();
+                } 
+            });
             // Utilisation de `prompt` natif pour la saisie de texte simple
             document.getElementById('edit_text_btn').addEventListener('click', () => { 
                 if(selectedAnnotation && selectedAnnotation.type === 'location'){ 
@@ -2965,6 +3012,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     if(newText !== null){ 
                         selectedAnnotation.text = newText; 
                         redrawCanvas(); 
+                        // CONFORMITÉ: Sauvegarde après édition de texte
+                        document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
+                        saveFormData();
                     } 
                 } 
             });
@@ -2983,7 +3033,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                  const draggedItem = e.target.closest('.draggable'); 
                  if (draggedItem) { 
                      draggedItem.classList.remove('dragging'); 
-                     saveFormData(); // Sauvegarder l'état final du drag
+                     // CONFORMITÉ: Sauvegarde après fin du glisser-déposer (l'ordre peut avoir changé)
+                     saveFormData(); 
                  } 
              });
             

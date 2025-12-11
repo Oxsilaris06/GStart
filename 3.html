@@ -280,6 +280,8 @@ p, li {
     color: var(--text-muted); 
     flex-grow: 1; 
     text-align: left; 
+    /* AJOUT CRUCIAL : Fixe le problème de Flexbox en permettant à l'élément de se réduire correctement */
+    min-width: 0;
     /* Utilise overflow-wrap pour couper les mots UNIQUEMENT s'ils débordent (plus doux que word-break) */
     overflow-wrap: break-word; 
     /* S'assurer que le comportement par défaut de coupure de mots est utilisé pour le reste */

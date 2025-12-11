@@ -136,7 +136,7 @@
         .collapsible-container.open .collapsible-content { max-height: 4000px; padding-top: 10px; padding-bottom: 15px; }
         
         .articulation-composition-display p { margin-bottom: 5px; }
-        strong { color: var(--accent-blue); }
+        .articulation-composition-display strong { color: var(--accent-blue); }
 
         .photo-input, #pdfBackgroundInput { display: none; }
         .file-upload-label { background-color: var(--accent-blue); color: white !important; padding: 10px 14px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; font-family: 'Oswald', sans-serif; font-weight: normal; display: inline-block; text-align: center; flex-shrink: 0; }
@@ -954,7 +954,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
     <script>
         // Configuration des membres par défaut (pour initialisation si localStorage vide)
         let memberConfig = {
-            fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "DE", "Cyno", "Inter", "AO", "Sans"],
+            fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "DE", "Cyno", "Inter","Effrac", "AO", "Sans"],
             // CORRECTION: Ajout de 'AO8' dans la liste des cellules si c'était votre modification manuelle.
             cellules: ["AO1", "AO2", "AO3", "AO4", "AO5", "AO6", "AO7", "AO8", "India 1", "India 2", "India 3", "India 4", "India 5", "Effrac", "Sans"], 
             principales: ["UMP9", "G36", "FAP", "Sans"],
@@ -996,8 +996,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         
         // --- NOUVEAU: Clés de stockage isolées ---
         const LOCAL_STORAGE_KEY = 'oiFormDataLite';
-        // Clé spécifique pour la configuration PATRACDVR (membres/véhicules)
-        const PATRACDVR_CONFIG_KEY = 'oiPatracdvrConfig';
         const INDEXED_DB_NAME = 'OI_GeneratorLiteDB';
 
         /**
@@ -1344,7 +1342,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 ];
                 const defaultValues = prefilledData[currentEventCount] || { type: `T${currentEventCount}`, desc: ''};
                 type = defaultValues.type;
-                hour = hour_from_load; // Garder l'heure chargée si elle existe
                 desc = defaultValues.desc;
             }
 
@@ -1400,7 +1397,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                              document.getElementById('quickEditPanel').style.display = 'none';
                         }
                     }
-                    savePatracdvrConfig(); // Sauvegarde spécifique après modification PATRACDVR
+                    saveFormData();
                 }
             });
             
@@ -1411,7 +1408,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             membersContainer.addEventListener('drop', handleDrop);
 
             members.forEach(memberData => addPatracdvrMember(membersContainer, memberData));
-            savePatracdvrConfig(); // Sauvegarde spécifique après modification PATRACDVR
+            saveFormData();
         }
         
         function addManualVehicle() {
@@ -1448,13 +1445,12 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         tenues: 'UBAS',
                         gpb: 'GPBL'
                     };
-                    addPatracdvrMember(unassignedContainer, initialData);
+                    const newMemberBtn = addPatracdvrMember(unassignedContainer, initialData);
                     
-                    const newMemberBtn = unassignedContainer.lastChild;
                     if (newMemberBtn) {
                         handleMemberSelection({ target: newMemberBtn });
                     }
-                    savePatracdvrConfig(); // Sauvegarde spécifique après modification PATRACDVR
+                    saveFormData();
                 } else {
                     alert("Le trigramme doit contenir entre 2 et 4 caractères.");
                 }
@@ -1484,7 +1480,12 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             };
             Object.keys(memberData).forEach(key => btn.dataset[key] = memberData[key]);
             updateMemberButtonVisuals(btn);
+            
+            // CORRECTION: Ajouter l'écouteur de clic au moment de la création du bouton
+            btn.addEventListener('click', handleMemberSelection);
+
             containerElement.appendChild(btn);
+            return btn; // Retourner le bouton créé pour la manipulation immédiate
         }
         function updateMemberButtonVisuals(btn) {
             const trigramme = btn.dataset.trigramme || 'N/A';
@@ -1723,7 +1724,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
              });
              
              updateMemberButtonVisuals(member);
-             savePatracdvrConfig(); // Sauvegarde spécifique après édition PATRACDVR
+             saveFormData();
              populateQuickEditPanel(activeMemberId);
         }
         
@@ -1750,7 +1751,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         activeMemberId = null;
                         document.getElementById('quickEditPanel').style.display = 'none';
                     }
-                    savePatracdvrConfig(); // Sauvegarde spécifique après suppression PATRACDVR
+                    saveFormData();
                 }
             }
         }
@@ -1794,7 +1795,24 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
 
                 
-                // Note: Les données PATRACDVR sont gérées séparément par savePatracdvrConfig()
+                // Sauvegarde des données détaillées des membres PATRACDVR
+                const memberDatasetsToSave = ['trigramme', 'fonction', 'cellule', 'equipement', 'equipement2', 'tenue', 'gpb', 
+                                              'principales', 'secondaires', 'afis', 'grenades']; 
+
+                data.patracdvr_unassigned = Array.from(unassignedContainer.querySelectorAll('.patracdvr-member-btn')).map(btn => {
+                    const memberData = {};
+                    memberDatasetsToSave.forEach(key => { memberData[key] = btn.dataset[key] || ''; });
+                    return memberData;
+                });
+                
+                data.patracdvr_rows = Array.from(document.querySelectorAll('#patracdvr_container .patracdvr-vehicle-row')).map(row => ({
+                    vehicle: row.dataset.vehicleName,
+                    members: Array.from(row.querySelectorAll('.patracdvr-member-btn')).map(btn => {
+                         const memberData = {};
+                         memberDatasetsToSave.forEach(key => { memberData[key] = btn.dataset[key] || ''; });
+                         return memberData;
+                    })
+                }));
                 
                 data.time_events = Array.from(document.querySelectorAll('#time_events_container .time-item')).map(item => ({
                     type: item.querySelector('.time-type-select').value,
@@ -1812,61 +1830,22 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         }
         
         /**
-         * NOUVEAU: Sauvegarde spécifique de la configuration PATRACDVR (membres/véhicules)
-         * C'est la fonction demandée par l'utilisateur.
-         */
-        function savePatracdvrConfig() {
-            try {
-                const patracData = {};
-                const memberDatasetsToSave = ['trigramme', 'fonction', 'cellule', 'equipement', 'equipement2', 'tenue', 'gpb', 
-                                              'principales', 'secondaires', 'afis', 'grenades']; 
-
-                patracData.patracdvr_unassigned = Array.from(unassignedContainer.querySelectorAll('.patracdvr-member-btn')).map(btn => {
-                    const memberData = {};
-                    memberDatasetsToSave.forEach(key => { memberData[key] = btn.dataset[key] || ''; });
-                    return memberData;
-                });
-                
-                patracData.patracdvr_rows = Array.from(document.querySelectorAll('#patracdvr_container .patracdvr-vehicle-row')).map(row => ({
-                    vehicle: row.dataset.vehicleName,
-                    members: Array.from(row.querySelectorAll('.patracdvr-member-btn')).map(btn => {
-                         const memberData = {};
-                         memberDatasetsToSave.forEach(key => { memberData[key] = btn.dataset[key] || ''; });
-                         return memberData;
-                    })
-                }));
-
-                localStorage.setItem(PATRACDVR_CONFIG_KEY, JSON.stringify(patracData));
-                updateArticulationDisplay(); // Mettre à jour l'affichage d'articulation
-                
-            } catch (e) { 
-                console.error("Erreur de sauvegarde PATRACDVR:", e); 
-            }
-        }
-
-        /**
          * Charge les données du formulaire depuis localStorage et les images depuis IndexedDB.
          */
         async function loadFormData() {
             cleanupObjectUrls(); // S'assurer que les anciennes URLs sont révoquées avant de charger de nouvelles données
             // Utilisation de la clé isolée
             const dataString = localStorage.getItem(LOCAL_STORAGE_KEY);
-            
-            const patracConfigString = localStorage.getItem(PATRACDVR_CONFIG_KEY);
-            let patracData = {};
-            if (patracConfigString) {
-                try {
-                    patracData = JSON.parse(patracConfigString);
-                } catch (e) {
-                    console.error("Erreur de chargement PATRACDVR:", e);
-                }
+            if (!dataString) { 
+                // Si aucune donnée dans localStorage, on initialise le panneau d'édition rapide 
+                // avec les valeurs par défaut JS, et on retourne false
+                initializePatracdvr({});
+                setupQuickEditPanel();
+                return false;
             }
-
-
-            if (!dataString && !patracConfigString) return false;
         
             try {
-                const data = JSON.parse(dataString || '{}');
+                const data = JSON.parse(dataString);
         
                 // Nettoyer l'UI
                 document.querySelectorAll('.image-preview-container, .photo-display-area').forEach(c => c.innerHTML = '');
@@ -1927,28 +1906,34 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 (data.vehicules_list_2 || []).forEach(val => addDynamicField('vehicules_container_2', val));
 
                 (data.time_events || []).forEach(ev => addTimeEvent(ev.type, ev.hour, ev.description));
-                // Charger les données PATRACDVR à partir de la variable patracData chargée ci-dessus
-                initializePatracdvr(patracData);
+                
+                // CORRECTION: Assurer la réinitialisation et le chargement des membres/véhicules
+                initializePatracdvr(data);
+                
+                // CORRECTION: Initialiser le panneau d'édition rapide APRÈS le chargement des données
+                setupQuickEditPanel(); 
         
                 updateArticulationDisplay();
                 return true;
         
             } catch (e) {
                 console.error("Erreur de chargement:", e);
+                // Si une erreur de chargement survient, on initialise quand même le PATRACDVR (vide)
+                // pour éviter une page cassée et on initialise le panneau.
+                initializePatracdvr({});
+                setupQuickEditPanel(); 
                 return false;
             }
         }
         
+        // CORRECTION: Retrait de l'appel à setupQuickEditPanel ici
         function initializePatracdvr(dataFromStorage) {
             unassignedContainer.innerHTML = '';
             patracdvrContainer.innerHTML = '';
-            // Utiliser les données chargées du localStorage PATRACDVR
             if (dataFromStorage && (dataFromStorage.patracdvr_rows?.length > 0 || dataFromStorage.patracdvr_unassigned?.length > 0)) {
                 (dataFromStorage.patracdvr_unassigned || []).forEach(member => addPatracdvrMember(unassignedContainer, member));
                 (dataFromStorage.patracdvr_rows || []).forEach(row => addPatracdvrRow(row.vehicle, row.members));
             }
-            // Si aucune donnée dans localStorage, on initialise le panneau d'édition rapide avec les valeurs par défaut JS
-            setupQuickEditPanel(); 
         }
 
         // Suppression de let draggedItem = null; pour utiliser l'objet DataTransfer
@@ -2054,7 +2039,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     }
                 }
                 
-                savePatracdvrConfig(); // Sauvegarde spécifique après drag/drop PATRACDVR
+                saveFormData();
             }
         }
 
@@ -2090,7 +2075,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
         function setActiveTool(toolId) {
             currentTool = toolId;
-            document.querySelectorAll('.toolbar-main-tools .tool-btn.active, .tool-controls.active').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tool-btn.active, .tool-controls.active').forEach(el => el.classList.remove('active'));
             const toolButton = document.getElementById(`tool_${toolId}`);
             if (toolButton) toolButton.classList.add('active');
             const toolControls = document.getElementById(`controls_${toolId}`);
@@ -2559,15 +2544,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         function checkCoherence() {
             // Utilisation de la clé isolée
             const dataString = localStorage.getItem(LOCAL_STORAGE_KEY);
-            const patracConfigString = localStorage.getItem(PATRACDVR_CONFIG_KEY);
-
             const formData = JSON.parse(dataString || '{}');
-            const patracData = JSON.parse(patracConfigString || '{}');
-            
             const getVal = (id) => formData[id] || '';
             const alerts = [];
-            
-            const members = (patracData.patracdvr_rows || []).flatMap(row => row.members);
+            const members = (formData.patracdvr_rows || []).flatMap(row => row.members);
             const indiaMembers = members.filter(m => m.cellule && m.cellule.toLowerCase().startsWith('india'));
             const aoMembers = members.filter(m => m.cellule && m.cellule.toLowerCase().startsWith('ao'));
             const allAssignedMembers = [...indiaMembers, ...aoMembers];
@@ -2604,7 +2584,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                  if (!t4) alerts.push("Le TOP ACTION (T4) n'est pas défini dans la chronologie. <span class='material-symbols-outlined'>timer</span>");
             }
 
-            const unassignedCount = (patracData.patracdvr_unassigned || []).length;
+            const unassignedCount = (formData.patracdvr_unassigned || []).length;
             if (unassignedCount > 0) {
                  alerts.push(`${unassignedCount} membres ne sont PAS assignés à un véhicule/équipe. <span class='material-symbols-outlined'>groups_2</span>`);
             }
@@ -2832,7 +2812,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             initChipContainer('etat_esprit_container_2', formData.etat_esprit_list_2 || []);
             initChipContainer('volume_adversaire_container_2', formData.volume_list_2 || []);
 
-            setupQuickEditPanel(); 
+            // CORRECTION: setupQuickEditPanel est maintenant appelé dans loadFormData
+            // setupQuickEditPanel(); 
             initializeDragDropListeners(); // Initialiser les écouteurs de drop statiques
 
             // Écouteur pour les collapsibles
@@ -2842,11 +2823,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             });
             
             // Écouteur délégué pour la sélection de membre (pour le panneau desktop)
-            document.querySelector('.container').addEventListener('click', (e) => {
+            // CORRECTION: Cet écouteur est redondant avec l'écouteur attaché dans addPatracdvrMember, 
+            // mais on le garde si d'autres éléments pouvaient être affectés. On s'assure qu'il n'y ait pas de double attachement.
+            /* document.querySelector('.container').addEventListener('click', (e) => {
                 if (e.target.closest('.patracdvr-member-btn')) {
                     handleMemberSelection(e);
                 }
-            });
+            });*/
             
             // Écouteur pour le bouton de sauvegarde du panneau d'édition rapide (desktop)
             document.getElementById('saveQuickEditBtn').addEventListener('click', saveQuickEditChanges);
@@ -2858,7 +2841,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 if (confirm("Voulez-vous vraiment effacer TOUS les véhicules et membres du PATRACDVR et vider la sauvegarde locale des membres ?")) { 
                     patracdvrContainer.innerHTML = ''; 
                     unassignedContainer.innerHTML = ''; 
-                    savePatracdvrConfig(); // Sauvegarde spécifique après réinitialisation PATRACDVR
+                    saveFormData(); 
                     // Fermer le panneau d'édition si un membre est actif
                     activeMemberId = null;
                     document.getElementById('quickEditPanel').style.display = 'none';
@@ -2873,7 +2856,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 btn.className = 'add-btn add-vehicle-btn';
                 btn.textContent = `➕ ${vehicle}`;
                 btn.addEventListener('click', () => addPatracdvrRow(vehicle));
-                vehicleCreationContainer.insertBefore(btn, document.getElementById('addManualVehicleBtn'));
+                // CORRECTION: S'assurer que les boutons de véhicules pré-définis sont ajoutés au bon endroit
+                const addManualVehicleBtn = document.getElementById('addManualVehicleBtn');
+                if (addManualVehicleBtn) {
+                     vehicleCreationContainer.insertBefore(btn, addManualVehicleBtn);
+                } else {
+                     vehicleCreationContainer.appendChild(btn); // Fallback
+                }
             });
 
             document.getElementById('addManualVehicleBtn').addEventListener('click', addManualVehicle);
@@ -2910,7 +2899,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     group.querySelectorAll('.quick-edit-btn').forEach(btn => btn.classList.remove('selected'));
                     quickEditButton.classList.add('selected');
                     
-                    savePatracdvrConfig(); // Sauvegarde spécifique après modification PATRACDVR
+                    saveFormData();
                 } 
             });
 
@@ -2920,7 +2909,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     const member = document.getElementById(activeMemberId);
                     member.dataset.trigramme = e.target.value.toUpperCase();
                     updateMemberButtonVisuals(member);
-                    savePatracdvrConfig(); // Sauvegarde spécifique après modification PATRACDVR
+                    saveFormData();
                 }
             });
 
@@ -2963,7 +2952,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 }
                 target.classList.add('selected');
 
-                savePatracdvrConfig(); // Sauvegarde spécifique après modification PATRACDVR
+                saveFormData();
             });
 
             // --- Écouteurs de l'outil d'annotation ---
@@ -3021,13 +3010,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                  const draggedItem = e.target.closest('.draggable'); 
                  if (draggedItem) { 
                      draggedItem.classList.remove('dragging'); 
-                     // Sauvegarde du formulaire principal si un événement temporel est déplacé
-                     if (draggedItem.classList.contains('time-item')) {
-                         saveFormData(); 
-                     } else {
-                         // Sauvegarde PATRACDVR si un membre est déplacé
-                         savePatracdvrConfig();
-                     }
+                     saveFormData(); // Sauvegarder l'état final du drag
                  } 
              });
             
@@ -3237,15 +3220,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             }
         
             saveFormData();
-            savePatracdvrConfig(); // S'assurer que les données PATRACDVR sont à jour
-            
             // Utilisation de la clé isolée
             const formDataString = localStorage.getItem(LOCAL_STORAGE_KEY);
-            const patracConfigString = localStorage.getItem(PATRACDVR_CONFIG_KEY);
-
             if (!formDataString) { console.error("Aucune donnée à générer."); return null; }
             const formData = JSON.parse(formDataString);
-            const patracData = JSON.parse(patracConfigString || '{}');
         
             // --- Section de Compression Dynamique et de Chargement des Images ---
             const PDF_TARGET_SIZE_BYTES = 2.5 * 1024 * 1024;
@@ -3454,7 +3432,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             
             const getCompositionData = (teamPrefix) => {
                 const membersByCell = {};
-                const allMembers = (patracData.patracdvr_rows || []).flatMap(row => row.members);
+                const allMembers = (formData.patracdvr_rows || []).flatMap(row => row.members);
                 
                 allMembers.forEach(member => {
                     const cellule = member.cellule;
@@ -3709,7 +3687,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 addNewPage();
                 drawTitle("7. PATRACDVR");
                 const patracHeaders = ["Pax", "Fonction", "Cellule", "Princ.", "Sec.", "A.F.I.", "Grenades", "Équip. 1", "Équip. 2", "Tenue", "GPB"];
-                for (const row of (patracData.patracdvr_rows || [])) {
+                for (const row of (formData.patracdvr_rows || [])) {
                     if(row.vehicle && row.members && row.members.length > 0) {
                         drawSubTitle(`Véhicule: ${row.vehicle}`);
                         const patracRows = row.members.filter(m => m.trigramme).map(m => [
@@ -3768,16 +3746,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         
         async function buildPresentationHtml() {
             saveFormData();
-            savePatracdvrConfig(); // S'assurer que les données PATRACDVR sont à jour
-            
             // Utilisation de la clé isolée
             const formDataString = localStorage.getItem(LOCAL_STORAGE_KEY);
-            const patracConfigString = localStorage.getItem(PATRACDVR_CONFIG_KEY);
-
             if (!formDataString) { return "<h2>Aucune donnée à présenter.</h2>"; }
             const formData = JSON.parse(formDataString);
-            const patracData = JSON.parse(patracConfigString || '{}');
-            
             const getVal = (id) => formData[id] || '';
             const isDarkMode = document.body.classList.contains('dark-mode');
             
@@ -3853,7 +3825,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             };
 
             const getCompositionHtml = (teamPrefix) => {
-                const allMembers = (patracData.patracdvr_rows || []).flatMap(row => row.members);
+                const allMembers = (formData.patracdvr_rows || []).flatMap(row => row.members);
                 const membersByCell = {};
                 
                 allMembers.forEach(member => {
@@ -4022,7 +3994,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
             htmlContent += drawTitleHtml("7. PATRACDVR (Détail de la Composition)");
             const patracHeaders = ["Trigramme", "Fonction", "Cellule", "Princ.", "Sec.", "A.F.I.", "Grenades", "Équip. 1", "Équip. 2", "Tenue", "GPB"];
-            for (const row of (patracData.patracdvr_rows || [])) {
+            for (const row of (formData.patracdvr_rows || [])) {
                 if(row.vehicle && row.members && row.members.length > 0) {
                     htmlContent += drawSubTitleHtml(`Véhicule: ${row.vehicle}`);
                     const patracRows = row.members.filter(m => m.trigramme).map(m => [

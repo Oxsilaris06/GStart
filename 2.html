@@ -10,6 +10,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;700&family=Saira+Stencil+One&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
+/* VARIABLES (Pour faciliter l'adaptation mobile) */
+:root {
+    --slide-width-pc: 1280px;
+    --slide-height-pc: 720px;
+    --accent-blue: #5b9bd5;
+    --success-green: #259654;
+    --danger-red: #be1b09;
+}
+
 /* 1. THE SETUP - TACTICAL THEME BASED ON SOURCE CODE */
 
 * {
@@ -26,7 +35,8 @@ body {
   min-height: 100vh;
   padding: 0;
   font-family: 'Oswald', sans-serif;
-  overflow: hidden; /* Hide overflow to maintain full screen presentation view */
+  overflow-x: hidden; /* Prevent horizontal scroll on mobile */
+  overflow-y: auto;
 }
 
 .slide-container {
@@ -39,12 +49,12 @@ body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
-  height: 720px;
+  height: var(--slide-height-pc); /* PC height */
   justify-content: center;
   overflow: hidden;
   padding: 60px;
   position: absolute; /* Position absolute for stacking and centering */
-  width: 1280px;
+  width: var(--slide-width-pc); /* PC width */
   opacity: 0; /* Hidden by default */
   transition: opacity 0.5s ease-in-out;
   pointer-events: none;
@@ -76,14 +86,13 @@ body {
   z-index: 1;
 }
 
-/* 2. TYPOGRAPHY - Matching the App */
+/* 2. TYPOGRAPHY - Matching the App (PC) */
 
 /* Headings */
 .slide-container h1,
 .slide-container h2, 
 .slide-container h3 {
-  /* App Accent Blue */
-  color: #5b9bd5; 
+  color: var(--accent-blue); 
   font-family: 'Saira Stencil One', cursive; /* Stencil font for titles */
   text-transform: uppercase;
   letter-spacing: 1.5px;
@@ -100,7 +109,7 @@ body {
   margin-bottom: 40px;
   text-align: left;
   width: 100%;
-  border-bottom: 2px solid #5b9bd5;
+  border-bottom: 2px solid var(--accent-blue);
   padding-bottom: 15px;
 }
 
@@ -129,7 +138,7 @@ body {
   margin-top: 20px;
 }
 
-/* 3. LAYOUT DEFINITIONS */
+/* 3. LAYOUT DEFINITIONS (PC) */
 
 .content-area {
   align-items: center;
@@ -143,7 +152,7 @@ body {
 /* Title Layout */
 .title-layout {
   text-align: center;
-  border: 2px solid #5b9bd5;
+  border: 2px solid var(--accent-blue);
   padding: 60px;
   border-radius: 20px;
   background: rgba(42, 42, 42, 0.5);
@@ -167,12 +176,12 @@ body {
 }
 
 .section-title-layout hr {
-  background-color: #5b9bd5;
+  background-color: var(--accent-blue);
   border: none;
   height: 6px;
   margin: 30px auto;
   width: 150px;
-  box-shadow: 0 0 10px #5b9bd5;
+  box-shadow: 0 0 10px var(--accent-blue);
 }
 
 /* Two Column Layout */
@@ -207,7 +216,7 @@ body {
   content: '\f054'; /* FontAwesome Chevron Right */
   font-family: 'Font Awesome 6 Free';
   font-weight: 900;
-  color: #259654; /* Success Green */
+  color: var(--success-green); /* Success Green */
   position: absolute;
   left: 0;
   top: 2px;
@@ -232,7 +241,7 @@ body {
 }
 
 .tile .icon {
-  color: #5b9bd5;
+  color: var(--accent-blue);
   font-size: 50px;
   margin-bottom: 20px;
   text-shadow: 0 0 15px rgba(91, 155, 213, 0.4);
@@ -240,7 +249,7 @@ body {
 
 /* Quote Layout */
 .quote-layout blockquote {
-  border-left: 5px solid #be1b09; /* Danger Red for contrast/impact */
+  border-left: 5px solid var(--danger-red); /* Danger Red for contrast/impact */
   color: #e0e0e0;
   font-family: 'Saira Stencil One', cursive;
   font-size: 40px;
@@ -269,7 +278,7 @@ body {
 
 .highlight-numbers-layout > div {
   background-color: #2a2a2a;
-  border: 1px solid #5b9bd5;
+  border: 1px solid var(--accent-blue);
   border-radius: 12px;
   padding: 40px;
   text-align: center;
@@ -277,7 +286,7 @@ body {
 }
 
 .highlight-numbers-layout .number {
-  color: #259654; /* Success Green */
+  color: var(--success-green); /* Success Green */
   font-family: 'Saira Stencil One', cursive;
   font-size: 90px;
   line-height: 1;
@@ -294,28 +303,28 @@ body {
 .slide-footer {
   position: absolute;
   bottom: 20px;
-  width: 100%;
+  width: calc(100% - 120px); /* 100% - 2*padding(60px) */
   text-align: center;
   color: #444444;
   font-size: 14px;
   border-top: 1px solid #444444;
   padding-top: 10px;
-  left: 0;
+  left: 60px;
 }
 
 /* Specific Utility Classes for Colors based on App */
-.text-blue { color: #5b9bd5; }
-.text-green { color: #259654; }
-.text-red { color: #be1b09; }
+.text-blue { color: var(--accent-blue); }
+.text-green { color: var(--success-green); }
+.text-red { color: var(--danger-red); }
 
-/* 4. NAVIGATION CONTROLS */
+/* 4. NAVIGATION CONTROLS (PC) */
 .navigation {
     position: fixed;
     bottom: 20px;
     z-index: 10;
     display: flex;
     /* Center the fixed element with the same width as the slide */
-    width: 1280px; 
+    width: var(--slide-width-pc); 
     max-width: 90vw; 
     justify-content: space-between; /* Push buttons to ends */
     left: 50%;
@@ -346,6 +355,144 @@ body {
     cursor: not-allowed;
 }
 
+
+/* ========================================================== */
+/* MOBILE / TABLET ADAPTATION (MAX 1024px)          */
+/* ========================================================== */
+
+@media (max-width: 1024px) {
+    /* 1. SLIDE CONTAINER: Switch from fixed size to responsive (viewport-relative) */
+    .slide-container {
+        position: relative; /* Switch to relative positioning for flow */
+        width: 95vw; /* Take most of the viewport width */
+        min-height: 80vh; /* Ensure content fits, allows vertical scroll if needed */
+        height: auto; /* Height adapts to content */
+        padding: 20px; /* Reduced padding */
+        margin: 20px auto 100px auto; /* Add margin at the bottom for navigation buttons */
+        transform: none; /* Remove PC centering transform */
+        left: auto; /* Remove PC centering left position */
+        /* Ensure only one slide is visible, they now stack vertically */
+        display: none; 
+    }
+
+    .slide-container.active {
+        display: flex;
+    }
+    
+    /* Remove absolute positioning from body centering, let slides flow */
+    body {
+        min-height: auto;
+        justify-content: flex-start;
+    }
+
+    /* 2. TYPOGRAPHY: Reduce font sizes for readability on small screens */
+    .slide-container h1 {
+        font-size: 40px; /* PC: 72px */
+    }
+
+    .slide-container .slide-title {
+        font-size: 28px; /* PC: 48px */
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        text-align: center; /* Center section titles on mobile */
+    }
+
+    .slide-container h3 {
+        font-size: 20px; /* PC: 28px */
+        margin-bottom: 10px;
+    }
+    
+    .slide-container p,
+    .slide-container li,
+    .slide-container .subtitle {
+        font-size: 16px; /* PC: 24px */
+    }
+
+    .slide-container .subtitle {
+        font-size: 18px; /* PC: 28px */
+    }
+
+    /* 3. LAYOUT ADAPTATION: Switch multi-column layouts to vertical stacking */
+
+    /* Title Layout (Slide 1) */
+    .title-layout {
+        padding: 30px; /* Reduced padding */
+    }
+
+    /* Section Title Layout (Slide 3 & 9) */
+    .section-title-layout h2 {
+        font-size: 48px; /* PC: 80px */
+        margin-bottom: 15px;
+    }
+    
+    /* Two Column Layout (Slides 2 & 5) -> Stack columns */
+    .two-column {
+        grid-template-columns: 1fr; /* Switch to single column */
+        gap: 20px; /* Reduced gap */
+    }
+    
+    .two-column.tiled > div {
+        padding: 20px; /* Reduced padding in tiles */
+    }
+
+    /* Tiled Content (Slide 4 & 6) -> Stack tiles */
+    .tiled-content {
+        flex-direction: column; /* Stack vertically */
+        gap: 20px; /* Reduced gap */
+    }
+
+    .tile .icon {
+        font-size: 40px; /* Reduced icon size */
+        margin-bottom: 10px;
+    }
+
+    /* Quote Layout (Slide 8) */
+    .quote-layout blockquote {
+        font-size: 24px; /* Reduced quote size */
+        padding: 15px 20px;
+    }
+
+    .quote-layout cite {
+        font-size: 16px;
+    }
+
+    /* Highlight Numbers (Slide 7) -> Stack numbers */
+    .highlight-numbers-layout {
+        flex-direction: column; /* Stack vertically */
+        gap: 20px; /* Reduced gap */
+    }
+
+    .highlight-numbers-layout > div {
+        padding: 20px; /* Reduced padding */
+    }
+
+    .highlight-numbers-layout .number {
+        font-size: 60px; /* Reduced number size */
+    }
+    
+    /* Footer */
+    .slide-footer {
+        position: static; /* Let the footer flow naturally at the end of content */
+        margin-top: 20px;
+        padding-top: 10px;
+        width: 100%;
+        left: auto;
+        border-top: 1px solid #444444; /* Keep separator line */
+    }
+    
+    /* 4. NAVIGATION CONTROLS: Fix position at the bottom of the screen */
+    .navigation {
+        width: 95vw; /* Match slide width */
+        max-width: none;
+        bottom: 20px;
+        padding: 0 10px;
+    }
+    
+    .nav-button {
+        font-size: 14px; /* Reduced button text size */
+        padding: 8px 15px;
+    }
+}
     </style>
 </head>
 <body>
@@ -356,7 +503,7 @@ body {
         <h1>GÉNÉRATEUR D'OI</h1>
         <p class="subtitle">Innovation Numérique & Opérationnelle</p>
         <div style="margin-top: 30px;">
-            <p style="font-size: 20px; color: #5b9bd5;">ATELIERS DE L'INNOVATION GENDARMERIE</p>
+            <p style="font-size: 20px; color: var(--accent-blue);">ATELIERS DE L'INNOVATION GENDARMERIE</p>
             <p style="font-size: 18px; color: #95a5a6;">Réalisation : Gendarme Maheux - PSIG Gilette</p>
         </div>
     </div>
@@ -442,18 +589,18 @@ body {
                     <li>Gestion rapide et visuelle des rôles/cellules/equipements (Chef, Effrac, AO...).</li>
                 </ul>
             </div>
-            <div style="display: flex; align-items: center; justify-content: center; background: #111; border: 1px dashed #5b9bd5;">
+            <div style="display: flex; align-items: center; justify-content: center; background: #111; border: 1px dashed var(--accent-blue);">
                 <!-- CSS Representation of the Interface Element -->
-                <div style="text-align: center;">
-                    <div style="background: #2a2a2a; border: 1px solid #444; padding: 15px; margin-bottom: 10px; border-radius: 5px; width: 200px; margin: 0 auto;">
+                <div style="text-align: center; padding: 10px;">
+                    <div style="background: #2a2a2a; border: 1px solid #444; padding: 15px; margin-bottom: 10px; border-radius: 5px; width: 200px; max-width: 100%; margin: 0 auto;">
                         <i class="fa-solid fa-car-side text-blue"></i> KODIAQ
                         <div style="margin-top: 10px; display: flex; gap: 5px; justify-content: center;">
-                            <span style="background: #5b9bd5; color: #000; padding: 2px 5px; font-size: 12px; border-radius: 3px;">C.INT</span>
-                            <span style="border: 1px solid #5b9bd5; color: #e0e0e0; padding: 2px 5px; font-size: 12px; border-radius: 3px;">ABC</span>
+                            <span style="background: var(--accent-blue); color: #000; padding: 2px 5px; font-size: 12px; border-radius: 3px;">C.INT</span>
+                            <span style="border: 1px solid var(--accent-blue); color: #e0e0e0; padding: 2px 5px; font-size: 12px; border-radius: 3px;">ABC</span>
                         </div>
                     </div>
                     <i class="fa-solid fa-arrow-down" style="color: #444; margin: 10px 0;"></i>
-                    <div style="background: #2a2a2a; border: 1px dashed #444; padding: 10px; width: 200px; margin: 0 auto; color: #666;">
+                    <div style="background: #2a2a2a; border: 1px dashed #444; padding: 10px; width: 200px; max-width: 100%; margin: 0 auto; color: #666;">
                         Zone de personnel
                     </div>
                 </div>
@@ -530,7 +677,7 @@ body {
 <div class="slide-container" id="slide9">
     <div class="section-title-layout">
         <h2 style="color: #e0e0e0;">AVEZ-VOUS DES QUESTIONS ?</h2>
-        <div style="font-size: 80px; color: #5b9bd5; margin: 20px;">
+        <div style="font-size: 80px; color: var(--accent-blue); margin: 20px;">
             <i class="fa-regular fa-comments"></i>
         </div>
         <p class="subtitle">Merci de votre attention.</p>
@@ -594,17 +741,29 @@ body {
 
         // Event listener for keyboard navigation
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'ArrowRight' || event.key === ' ') {
-                // Right arrow or Space bar for next slide
-                nextSlide();
-            } else if (event.key === 'ArrowLeft') {
-                // Left arrow for previous slide
-                prevSlide();
+            // Check if the current slide is an active slide before navigating, 
+            // especially for mobile mode where slides are positioned 'relative' and flow.
+            const isPCView = window.innerWidth > 1024;
+            
+            // Allow keyboard navigation only in PC view for a clean experience
+            if (isPCView) {
+                if (event.key === 'ArrowRight' || event.key === ' ') {
+                    // Right arrow or Space bar for next slide
+                    nextSlide();
+                } else if (event.key === 'ArrowLeft') {
+                    // Left arrow for previous slide
+                    prevSlide();
+                }
             }
         });
 
         // Initialize the display
         updateSlideDisplay();
+        
+        // IMPORTANT: On mobile, the slides are stacked (position: relative). 
+        // We ensure the active slide is visible and others are hidden.
+        // We also need to re-initialize on resize if we switch between mobile/desktop view.
+        window.addEventListener('resize', updateSlideDisplay);
     });
 </script>
 </body>

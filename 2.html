@@ -109,6 +109,11 @@ body {
   letter-spacing: 1.5px;
   margin: 0;
 }
+/* CORRECTION: Retire le style gras des éléments utilisant Saira Stencil One */
+.slide-container h1,
+.slide-container h2 {
+    font-weight: 400; /* Assure que le style de la police est respecté */
+}
 
 .slide-container h1 {
   font-size: 72px;
@@ -625,7 +630,7 @@ body {
         font-size: 14px; /* Reduced button text size */
         padding: 8px 15px;
     }
-
+    
     /* Adaptation Modale Mobile */
     .quick-edit-content {
         grid-template-columns: 1fr;
@@ -738,7 +743,7 @@ body {
                     </div>
                     <div class="patracdvr-members-container">
                         <!-- Membre ABC -->
-                        <div class="patracdvr-member-btn" style="border-color: var(--accent-blue); box-shadow: 0 0 8px var(--accent-blue);">
+                        <div class="patracdvr-member-btn member-active">
                             <span class="trigramme">ABC</span>
                             <span class="fonction">India 1 / Chef inter</span>
                         </div>
@@ -958,7 +963,7 @@ body {
 <!-- Slide 10: Q&A -->
 <div class="slide-container" id="slide10">
     <div class="section-title-layout">
-        <h2 style="color: #e0e0e0;"> Vous souhaitez en savoir plus ?</h2>
+        <h2 style="color: #e0e0e0; font-weight: 400; text-shadow: none;"> Vous souhaitez en savoir plus ?</h2>
         <div style="font-size: 80px; color: var(--accent-blue); margin: 20px;">
             <i class="fa-regular fa-comments"></i>
         </div>

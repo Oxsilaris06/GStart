@@ -6,6 +6,9 @@
     <title>PC TAC - Présentation ADI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="icon" href="favicon.ico" sizes="any" type="image/png">
+    <link rel="icon" href="favicon.ico" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="favicon.ico">
     <!-- Fonts used in PC Tac App -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Oswald:wght@300;400;500;700&family=Saira+Stencil+One&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -51,26 +54,28 @@ body {
   overflow-x: hidden; /* Prevent horizontal scroll on mobile */
   overflow-y: auto;
   color: var(--text-main);
+  /* Empêche le "pull-to-refresh" (rafraîchissement au glissement) sur mobile */
+  overscroll-behavior-y: none;
 }
 
 .slide-container {
-  align-items: center;
-  background-color: #0a0a0a; 
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
-  display: flex;
-  flex-direction: column;
-  height: var(--slide-height-pc); /* PC height */
-  justify-content: center;
-  overflow: hidden;
-  padding: 60px;
-  position: absolute; /* PC positioning for centering and stacking */
-  width: var(--slide-width-pc); /* PC width */
-  opacity: 0;
-  transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
-  pointer-events: none;
-  transform: scale(0.98);
+    align-items: center;
+    background-color: #0a0a0a; 
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    height: var(--slide-height-pc); /* PC height */
+    justify-content: center;
+    overflow: hidden;
+    padding: 60px;
+    position: absolute; /* PC positioning for centering and stacking */
+    width: var(--slide-width-pc); /* PC width */
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+    pointer-events: none;
+    transform: scale(0.98);
 }
 
 .slide-container.active {
@@ -81,153 +86,153 @@ body {
 
 /* 1.1 BACKGROUND STYLING - PC TAC Grid */
 .slide-container::before {
-  content: '';
-  height: 100%;
-  left: 0;
-  position: absolute;
-  top: 0;
-  width: 100%;
-  z-index: 0;
-  background-image: 
-      linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
-  background-size: 40px 40px;
+    content: '';
+    height: 100%;
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 100%;
+    z-index: 0;
+    background-image: 
+        linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
 }
 
 .slide-container > * {
-  position: relative;
-  z-index: 1;
+    position: relative;
+    z-index: 1;
 }
 
 /* 2. TYPOGRAPHY (PC) */
 
 h1, h2 {
-  color: var(--accent-blue); 
-  font-family: 'Saira Stencil One', cursive;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  margin: 0;
-  text-shadow: 0 0 20px var(--accent-glow);
+    color: var(--accent-blue); 
+    font-family: 'Saira Stencil One', cursive;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin: 0;
+    text-shadow: 0 0 20px var(--accent-glow);
 }
 
 h1 { font-size: 80px; }
 
 .slide-title {
-  font-size: 48px;
-  margin-bottom: 40px;
-  text-align: left;
-  width: 100%;
-  border-bottom: 2px solid var(--accent-blue);
-  padding-bottom: 15px;
+    font-size: 48px;
+    margin-bottom: 40px;
+    text-align: left;
+    width: 100%;
+    border-bottom: 2px solid var(--accent-blue);
+    padding-bottom: 15px;
 }
 
 h3 {
-  font-size: 28px;
-  color: var(--text-main);
-  font-family: 'Oswald', sans-serif;
-  font-weight: 500;
-  margin-bottom: 15px;
+    font-size: 28px;
+    color: var(--text-main);
+    font-family: 'Oswald', sans-serif;
+    font-weight: 500;
+    margin-bottom: 15px;
 }
 
 p, li {
-  color: var(--text-muted);
-  font-family: 'Oswald', sans-serif;
-  font-size: 22px;
-  line-height: 1.6;
-  font-weight: 300;
+    color: var(--text-muted);
+    font-family: 'Oswald', sans-serif;
+    font-size: 22px;
+    line-height: 1.6;
+    font-weight: 300;
 }
 
 .subtitle {
-  color: var(--text-main);
-  font-size: 28px;
-  margin-top: 20px;
-  font-family: 'JetBrains Mono', monospace;
+    color: var(--text-main);
+    font-size: 28px;
+    margin-top: 20px;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 /* 3. LAYOUT DEFINITIONS (PC) */
 
 .content-area {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-  justify-content: center;
-  width: 100%;
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    justify-content: center;
+    width: 100%;
 }
 
 .title-layout {
-  text-align: center;
-  border: 1px solid var(--border-color);
-  padding: 80px;
-  border-radius: 20px;
-  background: rgba(20, 20, 20, 0.6);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 0 30px var(--accent-glow);
+    text-align: center;
+    border: 1px solid var(--border-color);
+    padding: 80px;
+    border-radius: 20px;
+    background: rgba(20, 20, 20, 0.6);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 30px var(--accent-glow);
 }
 
 .section-title-layout {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  justify-content: center;
-  text-align: center;
-  width: 100%;
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
 }
 
 .two-column {
-  align-items: flex-start;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 60px;
-  width: 100%;
+    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    width: 100%;
 }
 
 .two-column.tiled > div {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 40px;
-  height: 100%;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 40px;
+    height: 100%;
 }
 
 .two-column ul {
-  list-style: none;
-  padding: 0;
+    list-style: none;
+    padding: 0;
 }
 
 .two-column li {
-  margin-bottom: 20px;
-  padding-left: 30px;
-  position: relative;
+    margin-bottom: 20px;
+    padding-left: 30px;
+    position: relative;
 }
 
 .two-column li::before {
-  content: '\f054';
-  font-family: 'Font Awesome 6 Free';
-  font-weight: 900;
-  color: var(--accent-blue);
-  position: absolute;
-  left: 0;
-  top: 4px;
+    content: '\f054';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    color: var(--accent-blue);
+    position: absolute;
+    left: 0;
+    top: 4px;
 }
 
 /* Feature Tiles */
 .tiled-content {
-  align-items: stretch;
-  display: flex;
-  gap: 30px;
-  width: 100%;
+    align-items: stretch;
+    display: flex;
+    gap: 30px;
+    width: 100%;
 }
 
 .tile {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  flex: 1;
-  padding: 30px;
-  text-align: center;
-  transition: transform 0.3s;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    flex: 1;
+    padding: 30px;
+    text-align: center;
+    transition: transform 0.3s;
 }
 
 .tile:hover {
@@ -235,9 +240,9 @@ p, li {
 }
 
 .tile .icon {
-  color: var(--accent-blue);
-  font-size: 50px;
-  margin-bottom: 20px;
+    color: var(--accent-blue);
+    font-size: 50px;
+    margin-bottom: 20px;
 }
 
 /* Mock UI Elements for PC Tac */
@@ -273,48 +278,48 @@ p, li {
 
 /* Highlight Numbers */
 .highlight-numbers-layout {
-  display: flex;
-  gap: 40px;
-  justify-content: center;
-  width: 100%;
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    width: 100%;
 }
 
 .highlight-numbers-layout > div {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--accent-blue);
-  border-radius: 12px;
-  padding: 40px;
-  text-align: center;
-  flex: 1;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--accent-blue);
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    flex: 1;
 }
 
 .highlight-numbers-layout .number {
-  color: var(--ao-green);
-  font-family: 'Saira Stencil One', cursive;
-  font-size: 80px;
-  line-height: 1;
-  margin-bottom: 10px;
+    color: var(--ao-green);
+    font-family: 'Saira Stencil One', cursive;
+    font-size: 80px;
+    line-height: 1;
+    margin-bottom: 10px;
 }
 
 .highlight-numbers-layout .number-label {
-  color: var(--text-main);
-  font-size: 20px;
-  text-transform: uppercase;
-  font-family: 'Oswald', sans-serif;
+    color: var(--text-main);
+    font-size: 20px;
+    text-transform: uppercase;
+    font-family: 'Oswald', sans-serif;
 }
 
 /* Footer (inside the slide) */
 .slide-footer {
-  position: absolute;
-  bottom: 20px;
-  width: calc(100% - 120px);
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 14px;
-  border-top: 1px solid var(--border-color);
-  padding-top: 10px;
-  left: 60px;
-  opacity: 0.6;
+    position: absolute;
+    bottom: 20px;
+    width: calc(100% - 120px);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+    left: 60px;
+    opacity: 0.6;
 }
 
 /* 4. NAVIGATION CONTROLS (PC) */
@@ -330,17 +335,7 @@ p, li {
     left: 50%;
     transform: translateX(-50%);
 }
-
-.pagination {
-    align-self: center;
-    color: var(--text-muted);
-    font-size: 18px;
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 500;
-    margin: 0 20px;
-    width: 100px; /* Fixed width for stable centering */
-    text-align: center;
-}
+/* La pagination a été retirée, mais je laisse la structure pour les boutons */
 
 .nav-button {
     background-color: rgba(20, 20, 20, 0.9);
@@ -375,7 +370,7 @@ p, li {
 
 
 /* ========================================================== */
-/* MOBILE / TABLET ADAPTATION (MAX 1024px)          */
+/* MOBILE / TABLET ADAPTATION (MAX 1024px)       */
 /* ========================================================== */
 
 @media (max-width: 1024px) {
@@ -510,10 +505,7 @@ p, li {
         padding: 8px 15px;
     }
     
-    .pagination {
-        font-size: 14px;
-        width: 80px;
-    }
+    /* La classe .pagination est désormais inutilisée et a été retirée du HTML */
     
     /* Q&A slide icon adjustment */
     .qanda-icon {
@@ -576,7 +568,7 @@ p, li {
             <div class="log-mock-row adversaire">
                 <span class="log-time">06:00</span>
                 <span class="log-pax badge-red">ADVERSAIRE</span>
-                <span class="log-text">Visuel fenêtre A1. Arme longue identifiée.</span>
+                <span class="log-text">Visuel fenêtre A1.</br> Arme longue identifiée.</span>
             </div>
             <div class="log-mock-row inter">
                 <span class="log-time">06:05</span>
@@ -674,10 +666,10 @@ p, li {
     <div class="slide-footer">Fin de la présentation</div>
 </div>
 
-<!-- NAVIGATION CONTROLS -->
+<!-- NAVIGATION CONTROLS (Pagination removed) -->
 <div class="navigation">
     <button id="prevBtn" class="nav-button" disabled><i class="fa-solid fa-chevron-left"></i> Précédent</button>
-    <div id="pagination" class="pagination">1 / 6</div>
+    <!-- Pagination div was here and is now removed -->
     <button id="nextBtn" class="nav-button">Suivant <i class="fa-solid fa-chevron-right"></i></button>
 </div>
 
@@ -686,13 +678,13 @@ p, li {
         const slides = document.querySelectorAll('.slide-container');
         const prevBtn = document.getElementById('prevBtn');
         const nextBtn = document.getElementById('nextBtn');
-        const pagination = document.getElementById('pagination');
+        // const pagination = document.getElementById('pagination'); // Ligne retirée
         let currentSlide = 0;
         const totalSlides = slides.length;
 
         /**
-         * Updates the visibility of the slides and the state of the navigation buttons, 
-         * and updates the pagination display.
+         * Updates the visibility of the slides and the state of the navigation buttons. 
+         * The pagination display update has been removed.
          */
         function updateSlideDisplay() {
             // Determine if we are in PC view (fixed position and scale) or Mobile view (relative position and stacking)
@@ -716,8 +708,8 @@ p, li {
             prevBtn.disabled = currentSlide === 0;
             nextBtn.disabled = currentSlide === totalSlides - 1;
             
-            // Update pagination text
-            pagination.textContent = `${currentSlide + 1} / ${totalSlides}`;
+            // Ligne de mise à jour de la pagination retirée : 
+            // pagination.textContent = `${currentSlide + 1} / ${totalSlides}`;
         }
 
         /**

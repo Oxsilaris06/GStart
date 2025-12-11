@@ -28,6 +28,10 @@
     --ao-green: #22c55e;
     
     --border-color: rgba(255, 255, 255, 0.15);
+
+    /* PC Dimensions */
+    --slide-width-pc: 1280px;
+    --slide-height-pc: 720px;
 }
 
 * {
@@ -44,7 +48,8 @@ body {
   min-height: 100vh;
   padding: 0;
   font-family: 'Oswald', sans-serif;
-  overflow: hidden;
+  overflow-x: hidden; /* Prevent horizontal scroll on mobile */
+  overflow-y: auto;
   color: var(--text-main);
 }
 
@@ -56,12 +61,12 @@ body {
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
   display: flex;
   flex-direction: column;
-  height: 720px;
+  height: var(--slide-height-pc); /* PC height */
   justify-content: center;
   overflow: hidden;
   padding: 60px;
-  position: absolute;
-  width: 1280px;
+  position: absolute; /* PC positioning for centering and stacking */
+  width: var(--slide-width-pc); /* PC width */
   opacity: 0;
   transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
   pointer-events: none;
@@ -94,7 +99,7 @@ body {
   z-index: 1;
 }
 
-/* 2. TYPOGRAPHY */
+/* 2. TYPOGRAPHY (PC) */
 
 h1, h2 {
   color: var(--accent-blue); 
@@ -139,7 +144,7 @@ p, li {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* 3. LAYOUT DEFINITIONS */
+/* 3. LAYOUT DEFINITIONS (PC) */
 
 .content-area {
   align-items: center;
@@ -302,23 +307,24 @@ p, li {
 .slide-footer {
   position: absolute;
   bottom: 20px;
-  width: 100%;
+  width: calc(100% - 120px);
   text-align: center;
   color: var(--text-muted);
   font-size: 14px;
   border-top: 1px solid var(--border-color);
   padding-top: 10px;
-  left: 0;
+  left: 60px;
   opacity: 0.6;
 }
 
-/* 4. NAVIGATION CONTROLS */
+/* 4. NAVIGATION CONTROLS (PC) */
 .navigation {
     position: fixed;
     bottom: 20px;
     z-index: 10;
     display: flex;
-    width: 1280px; 
+    align-items: center;
+    width: var(--slide-width-pc); 
     max-width: 90vw; 
     justify-content: space-between;
     left: 50%;
@@ -367,6 +373,153 @@ p, li {
 .text-red { color: var(--danger-red); }
 .text-green { color: var(--ao-green); }
 
+
+/* ========================================================== */
+/* MOBILE / TABLET ADAPTATION (MAX 1024px)          */
+/* ========================================================== */
+
+@media (max-width: 1024px) {
+    /* 1. SLIDE CONTAINER: Switch from fixed size to responsive (viewport-relative) */
+    .slide-container {
+        position: relative; /* Switch to relative positioning for flow */
+        width: 95vw; /* Take most of the viewport width */
+        min-height: 80vh; /* Ensure content fits, allows vertical scroll if needed */
+        height: auto; /* Height adapts to content */
+        padding: 20px; /* Reduced padding */
+        margin: 20px auto 100px auto; /* Add margin at the bottom for navigation buttons */
+        transform: none; /* Remove PC centering transform */
+        left: auto; /* Remove PC centering left position */
+        /* Ensure only one slide is visible, they now stack vertically */
+        display: none; 
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); /* Reduced shadow for mobile */
+    }
+
+    .slide-container.active {
+        display: flex;
+    }
+    
+    /* Remove absolute positioning from body centering, let slides flow */
+    body {
+        min-height: auto;
+        justify-content: flex-start;
+    }
+
+    /* 2. TYPOGRAPHY: Reduce font sizes for readability on small screens */
+    h1 {
+        font-size: 40px; /* PC: 80px */
+    }
+
+    .slide-title {
+        font-size: 28px; /* PC: 48px */
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        text-align: center; /* Center section titles on mobile */
+    }
+
+    h3 {
+        font-size: 20px; /* PC: 28px */
+        margin-bottom: 10px;
+    }
+    
+    p, li {
+        font-size: 16px; /* PC: 22px */
+    }
+
+    .subtitle {
+        font-size: 18px; /* PC: 28px */
+    }
+
+    /* 3. LAYOUT ADAPTATION: Switch multi-column layouts to vertical stacking */
+
+    /* Title Layout (Slide 1) */
+    .title-layout {
+        padding: 30px; /* Reduced padding */
+    }
+
+    /* Two Column Layout (Slide 2) -> Stack columns */
+    .two-column {
+        grid-template-columns: 1fr; /* Switch to single column */
+        gap: 20px; /* Reduced gap */
+    }
+    
+    .two-column.tiled > div {
+        padding: 20px; /* Reduced padding in tiles */
+    }
+
+    /* Tiled Content (Slide 4) -> Stack tiles */
+    .tiled-content {
+        flex-direction: column; /* Stack vertically */
+        gap: 20px; /* Reduced gap */
+    }
+
+    .tile .icon {
+        font-size: 40px; /* Reduced icon size */
+        margin-bottom: 10px;
+    }
+    
+    /* Mock UI (Slide 3) */
+    .log-mock-row {
+        font-size: 14px;
+        padding: 8px;
+    }
+    .log-time { margin-right: 10px; }
+    .log-pax { margin-right: 10px; font-size: 10px; }
+    
+    /* Highlight Numbers (Slide 5) -> Stack numbers */
+    .highlight-numbers-layout {
+        flex-direction: column; /* Stack vertically */
+        gap: 20px; /* Reduced gap */
+    }
+
+    .highlight-numbers-layout > div {
+        padding: 20px; /* Reduced padding */
+    }
+
+    .highlight-numbers-layout .number {
+        font-size: 60px; /* PC: 80px */
+    }
+    
+    .highlight-numbers-layout .number-label {
+        font-size: 16px; /* PC: 20px */
+    }
+    
+    /* Footer */
+    .slide-footer {
+        position: static; /* Let the footer flow naturally at the end of content */
+        margin-top: 20px;
+        padding-top: 10px;
+        width: 100%;
+        left: auto;
+        border-top: 1px solid var(--border-color); /* Keep separator line */
+    }
+    
+    /* 4. NAVIGATION CONTROLS: Fix position at the bottom of the screen */
+    .navigation {
+        width: 95vw; /* Match slide width */
+        max-width: none;
+        bottom: 20px;
+        padding: 0 5px;
+        /* Ensure navigation is displayed even if body scroll is limited */
+        background-color: var(--bg-body); 
+        border-top: 1px solid var(--border-color);
+        padding-top: 10px;
+    }
+    
+    .nav-button {
+        font-size: 14px; /* Reduced button text size */
+        padding: 8px 15px;
+    }
+    
+    .pagination {
+        font-size: 14px;
+        width: 80px;
+    }
+    
+    /* Q&A slide icon adjustment */
+    .qanda-icon {
+        font-size: 60px !important;
+    }
+}
     </style>
 </head>
 <body>
@@ -437,7 +590,7 @@ p, li {
             </div>
         </div>
         
-        <div style="display: flex; gap: 20px; justify-content: center; width: 100%;">
+        <div class="tiled-content" style="gap: 20px; width: 90%;">
             <div class="tile" style="padding: 15px; max-width: 300px;">
                 <i class="fa-solid fa-clock text-blue"></i><br>Horodatage Auto
             </div>
@@ -524,7 +677,7 @@ p, li {
 <!-- NAVIGATION CONTROLS -->
 <div class="navigation">
     <button id="prevBtn" class="nav-button" disabled><i class="fa-solid fa-chevron-left"></i> Précédent</button>
-    <div id="pagination" class="pagination"></div>
+    <div id="pagination" class="pagination">1 / 6</div>
     <button id="nextBtn" class="nav-button">Suivant <i class="fa-solid fa-chevron-right"></i></button>
 </div>
 
@@ -538,19 +691,33 @@ p, li {
         const totalSlides = slides.length;
 
         /**
-         * Updates the visibility of the slides and the state of the navigation buttons.
+         * Updates the visibility of the slides and the state of the navigation buttons, 
+         * and updates the pagination display.
          */
         function updateSlideDisplay() {
+            // Determine if we are in PC view (fixed position and scale) or Mobile view (relative position and stacking)
+            const isPCView = window.innerWidth > 1024;
+            
             slides.forEach((slide, index) => {
                 slide.classList.remove('active');
                 if (index === currentSlide) {
                     slide.classList.add('active');
+                }
+                
+                // In mobile view, non-active slides must be hidden with display: none
+                if (!isPCView && index !== currentSlide) {
+                    slide.style.display = 'none';
+                } else if (!isPCView) {
+                    slide.style.display = 'flex'; // Active slide is visible
                 }
             });
 
             // Update button states
             prevBtn.disabled = currentSlide === 0;
             nextBtn.disabled = currentSlide === totalSlides - 1;
+            
+            // Update pagination text
+            pagination.textContent = `${currentSlide + 1} / ${totalSlides}`;
         }
 
         /**
@@ -560,6 +727,11 @@ p, li {
             if (currentSlide < totalSlides - 1) {
                 currentSlide++;
                 updateSlideDisplay();
+                // Scroll to the top of the new slide in mobile view
+                if (window.innerWidth <= 1024) {
+                    const activeSlide = slides[currentSlide];
+                    activeSlide.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             }
         }
 
@@ -570,6 +742,11 @@ p, li {
             if (currentSlide > 0) {
                 currentSlide--;
                 updateSlideDisplay();
+                // Scroll to the top of the new slide in mobile view
+                if (window.innerWidth <= 1024) {
+                    const activeSlide = slides[currentSlide];
+                    activeSlide.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             }
         }
 
@@ -579,17 +756,34 @@ p, li {
 
         // Event listener for keyboard navigation
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'ArrowRight' || event.key === ' ') {
-                // Right arrow or Space bar for next slide
-                nextSlide();
-            } else if (event.key === 'ArrowLeft') {
-                // Left arrow for previous slide
-                prevSlide();
+            const isPCView = window.innerWidth > 1024;
+            
+            // Allow keyboard navigation only in PC view for a clean experience
+            if (isPCView) {
+                if (event.key === 'ArrowRight' || event.key === ' ') {
+                    // Right arrow or Space bar for next slide
+                    nextSlide();
+                } else if (event.key === 'ArrowLeft') {
+                    // Left arrow for previous slide
+                    prevSlide();
+                }
             }
         });
 
         // Initialize the display
         updateSlideDisplay();
+        
+        // Handle window resize (switching between PC and Mobile view)
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                // When resizing, reset to the first slide for a clean transition
+                // and re-run updateSlideDisplay to re-apply positioning/visibility rules.
+                currentSlide = 0;
+                updateSlideDisplay();
+            }, 250);
+        });
     });
 </script>
 </body>

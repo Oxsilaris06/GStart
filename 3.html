@@ -770,10 +770,10 @@ p, li {
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                // When resizing, reset to the first slide for a clean transition
-                // and re-run updateSlideDisplay to re-apply positioning/visibility rules.
-                currentSlide = 0;
-                updateSlideDisplay();
+                // MODIFICATION : Au lieu de réinitialiser à currentSlide = 0,
+                // on appelle simplement updateSlideDisplay() pour que la diapo actuelle
+                // soit correctement affichée sans changer de page.
+                updateSlideDisplay(); 
             }, 250);
         });
     });

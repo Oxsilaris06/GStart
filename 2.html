@@ -314,7 +314,12 @@ body {
     bottom: 20px;
     z-index: 10;
     display: flex;
-    gap: 20px;
+    /* Center the fixed element with the same width as the slide */
+    width: 1280px; 
+    max-width: 90vw; 
+    justify-content: space-between; /* Push buttons to ends */
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 .nav-button {

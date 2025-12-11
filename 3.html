@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PC TAC - Présentation ADI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Fonts used in PC Tac App -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Oswald:wght@300;400;500;700&family=Saira+Stencil+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+/* 1. THE SETUP - PC TAC THEME */
+
+:root {
+    /* PC Tac specific palette */
+    --bg-body: #050505;
+    --bg-panel: rgba(22, 22, 25, 0.9);
+    --accent-blue: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.4);
+    --text-main: #e0e0e0;
+    --text-muted: #94a3b8;
+    
+    /* Status Colors */
+    --danger-red: #ef4444; 
+    --civil-yellow: #eab308;
+    --inter-blue: #3b82f6;
+    --ao-green: #22c55e;
+    
+    --border-color: rgba(255, 255, 255, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg-body);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  min-height: 100vh;
+  padding: 0;
+  font-family: 'Oswald', sans-serif;
+  overflow: hidden;
+  color: var(--text-main);
+}
+
+.slide-container {
+  align-items: center;
+  background-color: #0a0a0a; 
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  height: 720px;
+  justify-content: center;
+  overflow: hidden;
+  padding: 60px;
+  position: absolute;
+  width: 1280px;
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+  pointer-events: none;
+  transform: scale(0.98);
+}
+
+.slide-container.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+}
+
+/* 1.1 BACKGROUND STYLING - PC TAC Grid */
+.slide-container::before {
+  content: '';
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+  z-index: 0;
+  background-image: 
+      linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.slide-container > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* 2. TYPOGRAPHY */
+
+h1, h2 {
+  color: var(--accent-blue); 
+  font-family: 'Saira Stencil One', cursive;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 0;
+  text-shadow: 0 0 20px var(--accent-glow);
+}
+
+h1 { font-size: 80px; }
+
+.slide-title {
+  font-size: 48px;
+  margin-bottom: 40px;
+  text-align: left;
+  width: 100%;
+  border-bottom: 2px solid var(--accent-blue);
+  padding-bottom: 15px;
+}
+
+h3 {
+  font-size: 28px;
+  color: var(--text-main);
+  font-family: 'Oswald', sans-serif;
+  font-weight: 500;
+  margin-bottom: 15px;
+}
+
+p, li {
+  color: var(--text-muted);
+  font-family: 'Oswald', sans-serif;
+  font-size: 22px;
+  line-height: 1.6;
+  font-weight: 300;
+}
+
+.subtitle {
+  color: var(--text-main);
+  font-size: 28px;
+  margin-top: 20px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* 3. LAYOUT DEFINITIONS */
+
+.content-area {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  justify-content: center;
+  width: 100%;
+}
+
+.title-layout {
+  text-align: center;
+  border: 1px solid var(--border-color);
+  padding: 80px;
+  border-radius: 20px;
+  background: rgba(20, 20, 20, 0.6);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 30px var(--accent-glow);
+}
+
+.section-title-layout {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+}
+
+.two-column {
+  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  width: 100%;
+}
+
+.two-column.tiled > div {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 40px;
+  height: 100%;
+}
+
+.two-column ul {
+  list-style: none;
+  padding: 0;
+}
+
+.two-column li {
+  margin-bottom: 20px;
+  padding-left: 30px;
+  position: relative;
+}
+
+.two-column li::before {
+  content: '\f054';
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  color: var(--accent-blue);
+  position: absolute;
+  left: 0;
+  top: 4px;
+}
+
+/* Feature Tiles */
+.tiled-content {
+  align-items: stretch;
+  display: flex;
+  gap: 30px;
+  width: 100%;
+}
+
+.tile {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  flex: 1;
+  padding: 30px;
+  text-align: center;
+  transition: transform 0.3s;
+}
+
+.tile:hover {
+    border-color: var(--accent-blue);
+}
+
+.tile .icon {
+  color: var(--accent-blue);
+  font-size: 50px;
+  margin-bottom: 20px;
+}
+
+/* Mock UI Elements for PC Tac */
+.log-mock-row {
+    display: flex;
+    align-items: center;
+    background: rgba(255,255,255,0.05);
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    border-left: 4px solid transparent;
+}
+
+.log-mock-row.adversaire { border-left-color: var(--danger-red); }
+.log-mock-row.inter { border-left-color: var(--inter-blue); }
+
+.log-time { color: var(--accent-blue); margin-right: 15px; font-weight: bold; }
+.log-pax { 
+    padding: 2px 8px; 
+    border-radius: 4px; 
+    margin-right: 15px; 
+    font-size: 12px; 
+    text-transform: uppercase; 
+    font-weight: bold;
+    color: white;
+}
+.badge-red { background-color: var(--danger-red); }
+.badge-blue { background-color: var(--inter-blue); }
+.badge-green { background-color: var(--ao-green); }
+.log-text { color: var(--text-muted); flex-grow: 1; text-align: left; }
+
+/* Highlight Numbers */
+.highlight-numbers-layout {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+  width: 100%;
+}
+
+.highlight-numbers-layout > div {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--accent-blue);
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  flex: 1;
+}
+
+.highlight-numbers-layout .number {
+  color: var(--ao-green);
+  font-family: 'Saira Stencil One', cursive;
+  font-size: 80px;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.highlight-numbers-layout .number-label {
+  color: var(--text-main);
+  font-size: 20px;
+  text-transform: uppercase;
+  font-family: 'Oswald', sans-serif;
+}
+
+/* Footer (inside the slide) */
+.slide-footer {
+  position: absolute;
+  bottom: 20px;
+  width: 100%;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 10px;
+  left: 0;
+  opacity: 0.6;
+}
+
+/* 4. NAVIGATION CONTROLS */
+.navigation {
+    position: fixed;
+    bottom: 20px;
+    z-index: 10;
+    display: flex;
+    width: 1280px; 
+    max-width: 90vw; 
+    justify-content: space-between;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.pagination {
+    align-self: center;
+    color: var(--text-muted);
+    font-size: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    margin: 0 20px;
+    width: 100px; /* Fixed width for stable centering */
+    text-align: center;
+}
+
+.nav-button {
+    background-color: rgba(20, 20, 20, 0.9);
+    color: var(--accent-blue);
+    border: 1px solid var(--accent-blue);
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Oswald', sans-serif;
+    text-transform: uppercase;
+    font-size: 16px;
+    transition: all 0.3s;
+}
+
+.nav-button:hover:not(:disabled) {
+    background-color: var(--accent-blue);
+    color: #000;
+    box-shadow: 0 0 15px var(--accent-glow);
+}
+
+.nav-button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    border-color: var(--text-muted);
+    color: var(--text-muted);
+}
+
+/* Utility Colors */
+.text-blue { color: var(--inter-blue); }
+.text-red { color: var(--danger-red); }
+.text-green { color: var(--ao-green); }
+
+    </style>
+</head>
+<body>
+
+<!-- Slide 1: Title -->
+<div class="slide-container active" id="slide1">
+    <div class="title-layout">
+        <h1>PC TAC v3.6</h1>
+        <p class="subtitle">Gestion Opérationnelle Numérique & Sécurisée</p>
+        <div style="margin-top: 40px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+            <p style="font-size: 20px; color: var(--accent-blue);">ATELIERS DE L'INNOVATION GENDARMERIE</p>
+            <p style="font-size: 16px; color: var(--text-muted);">Réalisation : Gendarme Maheux - PSIG Gilette</p>
+        </div>
+    </div>
+    <div class="slide-footer">© G/ Maheux - PSIG Gilette</div>
+</div>
+
+<!-- Slide 2: Genèse / Problématique -->
+<div class="slide-container" id="slide2">
+    <h2 class="slide-title">LA GENÈSE : GESTION DE CRISE</h2>
+    <div class="content-area">
+        <div class="two-column tiled">
+            <div>
+                <h3><i class="fa-solid fa-triangle-exclamation text-red"></i> LA PROBLÉMATIQUE</h3>
+                <ul>
+                    <li><strong>Contexte tendu :</strong> Gestion de forcenés ou crises majeures par les PSIG.</li>
+                    <li><strong>Poste de Commandement (PCT) :</strong> Nécessité absolue pour la sécurité et la coordination.</li>
+                    <li><strong>Méthode actuelle :</strong> Fil d'ariane manuscrit sur feuille blanche ou canevas papier.</li>
+                    <li><strong>Risques :</strong> Ratures, illisibilité, perte d'information, difficulté de transmission.</li>
+                </ul>
+            </div>
+            <div>
+                <h3><i class="fa-solid fa-laptop-code text-blue"></i> LA RÉPONSE NUMÉRIQUE</h3>
+                <ul>
+                    <li><strong>Usage simple :</strong> Compatible Ubiquity (PC) ou Smartphone à défaut.</li>
+                    <li><strong>Clarté :</strong> Main courante propre, modifiable sans rature.</li>
+                    <li><strong>Standardisation :</strong> Code couleur tactique automatique (Adversaire, Inter, AO...).</li>
+                    <li><strong>Diffusion :</strong> Export PDF instantané pour la VH, le CORG ou les unités IS.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="slide-footer">Du papier à l'écran</div>
+</div>
+
+<!-- Slide 3: Fonctionnalités UI Mockup -->
+<div class="slide-container" id="slide3">
+    <h2 class="slide-title">INTERFACE INTUITIVE</h2>
+    <div class="content-area">
+        <p style="text-align: center; margin-bottom: 30px;">Une interface pensée pour l'urgence : saisie rapide et visibilité immédiate.</p>
+        
+        <div style="width: 80%; background: #000; border: 1px solid var(--border-color); padding: 20px; border-radius: 10px; max-width: 900px; margin: 0 auto 30px auto;">
+            <!-- Mock Log -->
+            <div class="log-mock-row adversaire">
+                <span class="log-time">06:00</span>
+                <span class="log-pax badge-red">ADVERSAIRE</span>
+                <span class="log-text">Visuel fenêtre A1. Arme longue identifiée.</span>
+            </div>
+            <div class="log-mock-row inter">
+                <span class="log-time">06:05</span>
+                <span class="log-pax badge-blue">INTER</span>
+                <span class="log-text">Mise en place dispositif bouclage terminée.</span>
+            </div>
+            <div class="log-mock-row">
+                <span class="log-time">06:12</span>
+                <span class="log-pax badge-green">AO</span>
+                <span class="log-text">Mouvement détecté Facade B.</span>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 20px; justify-content: center; width: 100%;">
+            <div class="tile" style="padding: 15px; max-width: 300px;">
+                <i class="fa-solid fa-clock text-blue"></i><br>Horodatage Auto
+            </div>
+            <div class="tile" style="padding: 15px; max-width: 300px;">
+                <i class="fa-solid fa-pen-to-square text-blue"></i><br>Correction Facile
+            </div>
+            <div class="tile" style="padding: 15px; max-width: 300px;">
+                <i class="fa-solid fa-file-pdf text-blue"></i><br>Export Immédiat
+            </div>
+        </div>
+    </div>
+    <div class="slide-footer">Ergonomie opérationnelle</div>
+</div>
+
+<!-- Slide 4: Tech & Securité -->
+<div class="slide-container" id="slide4">
+    <h2 class="slide-title">POINTS FORTS TECHNIQUES</h2>
+    <div class="content-area">
+        <div class="tiled-content">
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-shield-halved text-green"></i></div>
+                <h3>LOCAL STORAGE</h3>
+                <p>Sécurité maximale : aucune donnée ne sort du terminal. Tout est stocké localement dans le navigateur. Pas de serveur, pas de cloud.</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-qrcode text-blue"></i></div>
+                <h3>TRANSFERT QR</h3>
+                <p>Innovation majeure : Transfert de la main courante d'un appareil à l'autre via QR Code animé, <strong>sans aucune connexion réseau</strong> (Mode Avion).</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-user-secret text-red"></i></div>
+                <h3>MODE TP</h3>
+                <p>Adaptabilité : Bascule entre un mode Forcené (Adversaire/Inter) et un mode "Tueries Planifiés" pour identifier des intervenants spécifiques (Négociateur, Antenne GIGN...).</p>
+            </div>
+        </div>
+    </div>
+    <div class="slide-footer">Architecture technique</div>
+</div>
+
+<!-- Slide 5: Genèse & Méthode -->
+<div class="slide-container" id="slide5">
+    <h2 class="slide-title">CRÉATION & DÉPLOIEMENT</h2>
+    <div class="content-area">
+        <p class="subtitle" style="text-align: center;">Méthode "Vibe Coding" + Web Dev</p>
+        
+        <div class="highlight-numbers-layout" style="margin-top: 50px;">
+            <div>
+                <div class="number">100%</div>
+                <div class="number-label">Opérationnel<br>PSIG Gilette</div>
+            </div>
+            <div>
+                <div class="number">PACA</div>
+                <div class="number-label">En test<br>Régional</div>
+            </div>
+            <div>
+                <div class="number"><i class="fa-solid fa-check"></i></div>
+                <div class="number-label">Répond au<br>Besoin</div>
+            </div>
+        </div>
+        
+        <p style="margin-top: 40px; font-style: italic; color: var(--text-main); font-size: 26px;">
+            "Un outil créé par le terrain, pour sécuriser l'intervention."
+        </p>
+    </div>
+    <div class="slide-footer">L'innovation au service de l'action</div>
+</div>
+
+<!-- Slide 6: Q&A -->
+<div class="slide-container" id="slide6">
+    <div class="section-title-layout">
+        <h2 style="color: var(--text-main);">AVEZ-VOUS DES QUESTIONS ?</h2>
+        <div class="qanda-icon" style="font-size: 80px; color: var(--accent-blue); margin: 30px;">
+            <i class="fa-regular fa-comments"></i>
+        </div>
+        <p class="subtitle" style="font-family: 'Oswald', sans-serif;">Merci de votre attention.</p>
+        
+        <div style="margin-top: 40px; border: 1px dashed var(--border-color); padding: 20px; border-radius: 8px;">
+            <p style="font-size: 18px; margin: 0; color: var(--text-main);">Contact : Gendarme Maheux (PSIG Gilette)</p>
+        </div>
+    </div>
+    <div class="slide-footer">Fin de la présentation</div>
+</div>
+
+<!-- NAVIGATION CONTROLS -->
+<div class="navigation">
+    <button id="prevBtn" class="nav-button" disabled><i class="fa-solid fa-chevron-left"></i> Précédent</button>
+    <div id="pagination" class="pagination"></div>
+    <button id="nextBtn" class="nav-button">Suivant <i class="fa-solid fa-chevron-right"></i></button>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const slides = document.querySelectorAll('.slide-container');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const pagination = document.getElementById('pagination');
+        let currentSlide = 0;
+        const totalSlides = slides.length;
+
+        /**
+         * Updates the visibility of the slides and the state of the navigation buttons.
+         */
+        function updateSlideDisplay() {
+            slides.forEach((slide, index) => {
+                slide.classList.remove('active');
+                if (index === currentSlide) {
+                    slide.classList.add('active');
+                }
+            });
+
+            // Update button states
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === totalSlides - 1;
+            
+            // Update pagination text
+            pagination.textContent = `Diapo ${currentSlide + 1}/${totalSlides}`;
+        }
+
+        /**
+         * Navigates to the next slide.
+         */
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlideDisplay();
+            }
+        }
+
+        /**
+         * Navigates to the previous slide.
+         */
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlideDisplay();
+            }
+        }
+
+        // Event listeners for buttons
+        nextBtn.addEventListener('click', nextSlide);
+        prevBtn.addEventListener('click', prevSlide);
+
+        // Event listener for keyboard navigation
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowRight' || event.key === ' ') {
+                // Right arrow or Space bar for next slide
+                nextSlide();
+            } else if (event.key === 'ArrowLeft') {
+                // Left arrow for previous slide
+                prevSlide();
+            }
+        });
+
+        // Initialize the display
+        updateSlideDisplay();
+    });
+</script>
+</body>
+</html>

@@ -275,13 +275,15 @@ p, li {
 .badge-blue { background-color: var(--inter-blue); }
 .badge-green { background-color: var(--ao-green); }
 
-/* Modification ici pour forcer le retour à la ligne */
+/* Modification pour un retour à la ligne plus "intelligent" */
 .log-text { 
     color: var(--text-muted); 
     flex-grow: 1; 
     text-align: left; 
-    overflow-wrap: break-word; /* Standard CSS pour le retour à la ligne forcé */
-    word-break: break-word; /* Assure la compatibilité sur certains navigateurs/OS mobiles */
+    /* Utilise overflow-wrap pour couper les mots UNIQUEMENT s'ils débordent (plus doux que word-break) */
+    overflow-wrap: break-word; 
+    /* S'assurer que le comportement par défaut de coupure de mots est utilisé pour le reste */
+    word-break: normal; 
 }
 
 /* Highlight Numbers */

@@ -147,7 +147,7 @@
         
         /* Conteneur PAX - Bascule */
         #pax_mode_toggle_container {
-            /* NOUVEAU POSITIONNEMENT: Haut droite du formulaire */
+            /* NOUVEL EMPLACEMENT: Haut droite du formulaire */
             position: absolute; 
             top: 15px; /* Décalage du padding du form */
             right: 15px; 
@@ -358,14 +358,39 @@
         
         /* Dock Flottant */
        .dock-menu { 
-            position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); 
-            display: flex; gap: 10px; padding: 10px; z-index: 1000; 
+            position: fixed; 
+            bottom: 10px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            display: flex; 
+            gap: 10px; 
+            padding: 10px; 
+            z-index: 1000; 
             background-color: rgba(30, 30, 30, 0.7); 
             border: 1px solid var(--border-color); 
-            border-radius: 35px; backdrop-filter: blur(10px); 
+            border-radius: 35px; 
+            backdrop-filter: blur(10px); 
             transition: all 0.3s ease-in-out; 
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            
+            /* --- AJOUTS POUR SCROLL HORIZONTAL (mobile) --- */
+            max-width: 95vw; /* Assurez-vous qu'il ne dépasse pas le viewport */
+            width: auto; /* Permet à la largeur de se régler au contenu + padding */
+            overflow-x: auto; /* Permet le défilement horizontal */
+            scrollbar-width: none; /* Cache la barre de défilement pour Firefox */
+            justify-content: flex-start; /* Aligner les éléments à gauche par défaut */
+            
         }
+        .dock-menu::-webkit-scrollbar { /* Cache la barre de défilement pour Webkit (Chrome, Safari) */
+            display: none;
+        }
+        .dock-menu:not(.collapsed) { 
+            /* Centrer le contenu quand il n'y a pas de scroll nécessaire (sur PC/tablette) */
+            /* Ceci est géré par la logique `width: auto` et `transform: translateX(-50%)` */
+            /* Si la largeur du contenu est inférieure à max-width: 95vw, les items restent centrés */
+        }
+
+
         body.light-mode .dock-menu {
              background-color: rgba(255, 255, 255, 0.7); 
              box-shadow: 0 0 20px rgba(0,0,0,0.1);
@@ -381,10 +406,18 @@
             transition: all 0.2s; text-decoration: none; flex-shrink: 0; 
         }
         .dock-menu-item:hover { transform: scale(1.1); }
+        
+        /* Modification pour le mode collapsed: il doit rester centré */
         .dock-menu.collapsed { 
-            width: 55px; height: 55px; padding: 5px; 
-            border-radius: 50%; border: none; 
+            width: 55px; 
+            height: 55px; 
+            padding: 5px; 
+            border-radius: 50%; 
+            border: none; 
             background-color: transparent; 
+            /* S'assurer que le scroll est désactivé en mode réduit */
+            overflow-x: hidden; 
+            justify-content: center;
         }
         .dock-menu.collapsed .dock-menu-item:not(#dockToggleBtn) { 
             opacity: 0; width: 0; margin-left: -10px; visibility: hidden; 
@@ -399,8 +432,10 @@
                 width: auto; 
                 padding: 6px; 
                 gap: 8px; 
-                justify-content: center; 
                 min-width: unset;
+                /* Enlever l'alignement flex-start par défaut pour que le transform centré fonctionne */
+                /* justify-content: center; -- On le laisse car le transform X va centrer le conteneur scrollable */
+                justify-content: flex-start; /* Garder flex-start pour le scrollable */
             }
             .dock-menu-item {
                 width: 38px; 

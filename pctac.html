@@ -11,6 +11,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One:wght@400;500&display=swap" rel="stylesheet">
     <!-- Utilisation des Material Symbols Outlined -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    
+    <!-- Librairies QR Code (Ajoutées) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+
     <style>
         /* Définition des couleurs spécifiques pour PC Tac */
        :root {
@@ -430,6 +435,8 @@
             max-width: 90vw;
             width: 400px;
             display: none;
+            max-height: 90vh; /* Ajouté pour le transfert */
+            overflow-y: auto; /* Ajouté pour le transfert */
         }
 
         .custom-modal-backdrop {
@@ -469,6 +476,42 @@
             color: var(--text-primary);
             border: 1px solid var(--border-color);
         }
+        
+        /* --- Styles Spécifiques au Transfert QR (Copie de pctac) --- */
+        .transfer-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .transfer-tab-btn {
+            flex: 1; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color);
+            color: var(--text-primary); cursor: pointer; border-radius: 4px; font-family: 'Oswald', sans-serif;
+        }
+        .transfer-tab-btn.active { background: var(--accent-blue); color: white; border-color: transparent; }
+        
+        .transfer-content { display: none; }
+        .transfer-content.active { display: block; }
+        
+        #qrcode-container {
+            background: white; padding: 20px; border-radius: 6px; margin: 20px auto;
+            display: inline-block; max-width: 100%;
+        }
+        #qrcode-container img { margin: 0 auto; display: block; max-width: 100%; height: auto; }
+        
+        #qr-reader {
+            width: 100%; margin: 20px auto; border: 2px solid var(--accent-blue);
+            border-radius: 6px; overflow: hidden; background: black;
+            height: 300px; /* Taille pour le scanner */
+        }
+
+        /* Nav controls for QR */
+        #qr-nav-controls {
+            display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 15px;
+            background: var(--bg-interactive); padding: 10px; border-radius: 8px;
+        }
+        .qr-nav-btn {
+            background: var(--bg-body); border: 1px solid var(--border-color); color: var(--text-primary);
+            width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+        .qr-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .qr-nav-btn:hover:not(:disabled) { background: var(--accent-blue); color: white; }
+        #qr-counter { font-family: 'Oswald', sans-serif; font-weight: bold; font-size: 1.1em; min-width: 60px; text-align: center; }
     </style>
 </head>
 <body class="dark-mode">
@@ -483,6 +526,40 @@
         <div class="modal-buttons">
             <button id="confirmResetBtn">Oui, Réinitialiser</button>
             <button id="cancelResetBtn">Annuler</button>
+        </div>
+    </div>
+    
+    <!-- Modal Transfert (QR séquentiel local) -->
+    <div class="custom-modal" id="transferModal">
+        <h3 style="color: var(--accent-blue); margin-bottom: 15px;">Export/Import (QR Local)</h3>
+        
+        <div class="transfer-tabs">
+            <button class="transfer-tab-btn active" data-tab="send">Exporter (QR Séquentiel)</button>
+            <button class="transfer-tab-btn" data-tab="receive">Importer (Scan)</button>
+        </div>
+        
+        <!-- Contenu Envoyer -->
+        <div id="transfer-send" class="transfer-content active">
+            <div id="qrcode-container"></div>
+            
+            <!-- Navigation QR Code -->
+            <div id="qr-nav-controls" style="display: none;">
+                <button class="qr-nav-btn" id="prevQrBtn"><span class="material-symbols-outlined">arrow_back</span></button>
+                <span id="qr-counter">1/1</span>
+                <button class="qr-nav-btn" id="nextQrBtn"><span class="material-symbols-outlined">arrow_forward</span></button>
+            </div>
+            
+            <p id="qr-status-text" style="color: var(--text-secondary); font-size: 0.85em; margin-top: 10px;"></p>
+        </div>
+        
+        <!-- Contenu Recevoir -->
+        <div id="transfer-receive" class="transfer-content">
+            <div id="qr-reader"></div>
+            <p style="color: var(--text-secondary); font-size: 0.9em;">Scanner les QR codes séquentiellement pour importer.</p>
+        </div>
+
+        <div class="modal-buttons">
+            <button id="closeTransferBtn" style="background: var(--accent-blue); color: white;">Terminer</button>
         </div>
     </div>
     
@@ -596,6 +673,9 @@
             <span class="material-symbols-outlined">alt_route</span>
         </a>
         
+        <!-- NOUVEAU BOUTON : Transfert QR Local -->
+        <div class="dock-menu-item" id="transferDockBtn" title="Transfert QR Local"><span class="material-symbols-outlined">qr_code_2</span></div>
+        
         <!-- Bouton Export JSON -->
         <div class="dock-menu-item" id="exportJsonDockBtn" title="Exporter les données au format JSON">
             <span class="material-symbols-outlined">save</span>
@@ -667,6 +747,16 @@
         const jsonImportInput = document.getElementById('jsonImportInput'); 
         const exportJsonDockBtn = document.getElementById('exportJsonDockBtn'); 
         const importJsonDockBtn = document.getElementById('importJsonDockBtn'); 
+        
+        // --- Nouveaux éléments Transfert QR local (déplacés de pctac) ---
+        const transferDockBtn = document.getElementById('transferDockBtn');
+        const transferModal = document.getElementById('transferModal');
+        const closeTransferBtn = document.getElementById('closeTransferBtn');
+        const transferTabs = document.querySelectorAll('.transfer-tab-btn');
+        let html5QrCodeLocal; 
+        let qrChunks = [];
+        let currentQrIndex = 0;
+        const QR_BATCH_SIZE = 8; // Nombre d'entrées par QR
         
         // Variable pour suivre si l'utilisateur a modifié l'heure manuellement
         let isTimeInputManuallyChanged = false;
@@ -811,7 +901,6 @@
                 paxName = paxInput.value;
                 paxColorHex = ''; 
                 if (!paxName) {
-                    // Utiliser une alerte personnalisée ou une validation visuelle en production, mais ici on garde alert pour la simplicité
                     alert("Veuillez sélectionner un type de PAX standard.");
                     return;
                 }
@@ -877,7 +966,7 @@
              const r = (bigint >> 16) & 255;
              const g = (bigint >> 8) & 255;
              const b = bigint & 255;
-             return { r: r / 255, g: g / 255, b: b / 255 };
+             return { r: r / 255, g: r / 255, b: b / 255 }; // Correction pour le PDF, mais pas pertinent pour cet usage ici.
         }
         
         // Fonction pour sélectionner la couleur dans la palette
@@ -1103,8 +1192,12 @@
                             remarques: entry.remarques || '',
                         }));
                         
-                        renderLogTable(validatedEntries);
-                        alert(`Importation JSON réussie : ${validatedEntries.length} entrées chargées.`);
+                        // Fusionner avec les données existantes
+                        const currentLogs = loadLogData();
+                        const mergedLogs = [...currentLogs, ...validatedEntries];
+
+                        renderLogTable(mergedLogs);
+                        alert(`Importation JSON réussie : ${validatedEntries.length} entrées ajoutées au log actuel.`);
                         
                     } else {
                         throw new Error("Fichier JSON invalide. Assurez-vous qu'il provient d'une exportation PC Tac.");
@@ -1297,12 +1390,18 @@
                     paxColorHex = entry.paxColor || FREE_MODE_COLORS[0].hex;
                     paxText = entry.pax;
                     
-                    const {r, g, b} = getHexToRgb(paxColorHex); 
+                    const r = parseInt(paxColorHex.slice(1, 3), 16) / 255;
+                    const g = parseInt(paxColorHex.slice(3, 5), 16) / 255;
+                    const b = parseInt(paxColorHex.slice(5, 7), 16) / 255; 
                     const luminosity = (0.299 * r + 0.587 * g + 0.114 * b);
                     paxTextColor = luminosity > 0.5 ? pdfRgb(0, 0, 0) : pdfRgb(1, 1, 1);
                 }
                 
-                const { r, g, b } = getHexToRgb(paxColorHex); 
+                const { r, g, b } = { 
+                    r: parseInt(paxColorHex.slice(1, 3), 16) / 255,
+                    g: parseInt(paxColorHex.slice(3, 5), 16) / 255,
+                    b: parseInt(paxColorHex.slice(5, 7), 16) / 255
+                };
                 const paxPdfColor = pdfRgb(r, g, b); 
                 
                 const colWidthsPx = colWidths.map(ratio => context.pageWidth * ratio - 4);
@@ -1526,9 +1625,164 @@
             remarquesInput.value = '';
             alert("Toutes les données du Log PC Tac ont été réinitialisées.");
         }
+        
+        // --- 7. LOGIQUE TRANSFERT QR SÉQUENTIEL (Copie/Adaptation de pctac) ---
 
+        function chunkArray(array, size) {
+            const chunks = [];
+            for (let i = 0; i < array.length; i += size) {
+                chunks.push(array.slice(i, i + size));
+            }
+            return chunks;
+        }
 
-        // --- 7. Initialisation ---
+        function openTransferModal() {
+            document.getElementById('modalBackdrop').style.display = 'block';
+            transferModal.style.display = 'block';
+            switchTransferTab('send');
+        }
+        function closeTransferModal() {
+            document.getElementById('modalBackdrop').style.display = 'none';
+            transferModal.style.display = 'none';
+            if(html5QrCodeLocal) { 
+                html5QrCodeLocal.stop().catch(err => console.log("Stop failed", err));
+                html5QrCodeLocal = null;
+            }
+        }
+        function switchTransferTab(tabName) {
+            transferTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
+            document.querySelectorAll('.transfer-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`transfer-${tabName}`).classList.add('active');
+            
+            if(tabName === 'send') {
+                if(html5QrCodeLocal) { html5QrCodeLocal.stop().then(() => html5QrCodeLocal = null); }
+                prepareQRPagination(); 
+            } else {
+                startScanner();
+            }
+        }
+        
+        function prepareQRPagination() {
+            const logs = getLogData();
+            const container = document.getElementById('qrcode-container');
+            const statusText = document.getElementById('qr-status-text');
+            const navControls = document.getElementById('qr-nav-controls');
+            
+            container.innerHTML = '';
+            
+            if (logs.length === 0) {
+                container.textContent = "Aucune donnée à transférer.";
+                statusText.textContent = "";
+                navControls.style.display = 'none'; 
+                return;
+            }
+
+            // On mappe en format compressé
+            // Format: [id, heure, pax, paxMode, paxColor, lieu, fenetrePorte, remarques]
+            let compressedData = logs.map(l => [l.id, l.heure, l.pax, l.paxMode, l.paxColor, l.lieu, l.fenetrePorte, l.remarques]);
+            
+            qrChunks = chunkArray(compressedData, QR_BATCH_SIZE);
+            currentQrIndex = 0;
+            
+            if (qrChunks.length > 1) {
+                navControls.style.display = 'flex'; 
+            } else {
+                navControls.style.display = 'none'; 
+            }
+            
+            showQR(currentQrIndex);
+        }
+
+        function showQR(index) {
+            const container = document.getElementById('qrcode-container');
+            const statusText = document.getElementById('qr-status-text');
+            const counter = document.getElementById('qr-counter');
+            const prevBtn = document.getElementById('prevQrBtn');
+            const nextBtn = document.getElementById('nextQrBtn');
+            
+            container.innerHTML = ''; 
+            
+            // Le titre d'intervention n'existe pas dans pctacadi, on utilise un placeholder vide
+            let transferPayload = { 
+                t: "", 
+                d: qrChunks[index] 
+            };
+            let jsonString = JSON.stringify(transferPayload);
+            
+            new QRCode(container, {
+                text: jsonString,
+                width: 256,
+                height: 256,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.M
+            });
+            
+            // Mise à jour UI Navigation
+            if (qrChunks.length > 1) {
+                statusText.textContent = `Page ${index + 1} sur ${qrChunks.length} - ${qrChunks[index].length} entrées.`;
+                counter.textContent = `${index + 1} / ${qrChunks.length}`;
+                prevBtn.disabled = index === 0;
+                nextBtn.disabled = index === qrChunks.length - 1;
+            } else {
+                statusText.textContent = `${qrChunks[0].length} entrées prêtes au transfert.`;
+            }
+        }
+
+        function startScanner() {
+            if (html5QrCodeLocal) return; 
+            html5QrCodeLocal = new Html5Qrcode("qr-reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            html5QrCodeLocal.start({ facingMode: "environment" }, config, onScanSuccess)
+            .catch(err => {
+                document.getElementById('qr-reader').textContent = "Erreur caméra: " + err;
+            });
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            try {
+                const data = JSON.parse(decodedText);
+                if (data.d && Array.isArray(data.d)) {
+                    
+                    const currentLogs = getLogData();
+                    const currentIds = new Set(currentLogs.map(l => l.id));
+                    let addedCount = 0;
+
+                    // Format reçu: [id, heure, pax, paxMode, paxColor, lieu, fenetrePorte, remarques]
+                    data.d.forEach(item => {
+                        const id = item[0];
+                        // Vérifier si l'entrée n'existe pas déjà par ID
+                        if (!currentIds.has(id)) {
+                            // Reconstruction de l'objet log
+                            currentLogs.push({
+                                id: id,
+                                heure: item[1],
+                                pax: item[2],
+                                paxMode: item[3],
+                                paxColor: item[4],
+                                lieu: item[5],
+                                fenetrePorte: item[6],
+                                remarques: item[7]
+                            });
+                            addedCount++;
+                        }
+                    });
+                    
+                    if (addedCount > 0) {
+                        renderLogTable(currentLogs);
+                        alert(`Paquet reçu : ${addedCount} entrées ajoutées.`);
+                    } else {
+                        // Utiliser alert() comme dans le fichier original
+                        alert("Données déjà présentes ou paquet vide."); 
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+                // Ignorer les erreurs de parsing QR non pertinents
+            }
+        }
+        
+        // --- 8. Initialisation ---
 
         document.addEventListener('DOMContentLoaded', () => {
             
@@ -1579,6 +1833,27 @@
             document.getElementById('confirmResetBtn').addEventListener('click', handleResetData);
             document.getElementById('cancelResetBtn').addEventListener('click', hideResetModal);
             document.getElementById('modalBackdrop').addEventListener('click', hideResetModal);
+
+            // Événements Transfert QR Séquentiel
+            transferDockBtn.addEventListener('click', openTransferModal);
+            closeTransferBtn.addEventListener('click', closeTransferModal);
+            transferTabs.forEach(btn => btn.addEventListener('click', (e) => switchTransferTab(e.target.dataset.tab)));
+            
+            document.getElementById('prevQrBtn').addEventListener('click', () => {
+                if (currentQrIndex > 0) { currentQrIndex--; showQR(currentQrIndex); }
+            });
+            document.getElementById('nextQrBtn').addEventListener('click', () => {
+                if (currentQrIndex < qrChunks.length - 1) { currentQrIndex++; showQR(currentQrIndex); }
+            });
+            
+            // Empêcher la fermeture de la modale de réinitialisation si l'utilisateur clique sur le fond mais que la modale de transfert est ouverte
+            document.getElementById('modalBackdrop').addEventListener('click', (e) => { 
+                if (e.target.id === 'modalBackdrop') { 
+                    hideResetModal(); 
+                    closeTransferModal(); 
+                } 
+            });
+
         });
         
         // Exposer les fonctions pour les événements onclick (HTML inline)

@@ -4,7 +4,7 @@
 	<link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OI</title>
+    <title>OI - Générateur Opérationnel</title>
 	<link rel="icon" href="favicon.ico" sizes="any" type="image/png">
     <link rel="icon" href="favicon.ico" type="image/svg+xml">
     <link rel="apple-touch-icon" href="favicon.ico">
@@ -44,7 +44,7 @@
         }
         h1 { 
             font-size: 2.2em; margin-bottom: 20px; color: var(--accent-blue); 
-            font-family: 'Saira+Stencil+One', sans-serif; text-align: center; 
+            font-family: 'Saira Stencil One', sans-serif; text-align: center; 
             letter-spacing: 1.5px; font-weight: 400; 
         }
         h2 { font-size: 1.4em; color: var(--accent-blue); border-bottom: 2px solid var(--accent-blue); padding-bottom: 10px; margin-top: 20px; }
@@ -141,7 +141,7 @@
         .photo-input, #pdfBackgroundInput { display: none; }
         .file-upload-label { background-color: var(--accent-blue); color: white !important; padding: 10px 14px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; font-family: 'Oswald', sans-serif; font-weight: normal; display: inline-block; text-align: center; flex-shrink: 0; }
         .file-upload-label:hover { background-color: var(--accent-hover); }
-        .image-preview { max-width: 150px; max-height: 100px; margin-top: 10px; border-radius: 4px; border: 1px solid var(--border-color); }
+        .image-preview { max-width: 150px; max-height: 100px; margin-top: 10px; border-radius: 4px; border: 1px solid var(--border-color); pointer-events: none; }
         .image-preview-item {
             position: relative;
             display: flex;
@@ -164,7 +164,7 @@
         
         #patracdvr_container, #unassigned_members_container { 
             display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; min-height: 70px; 
-            border: 1px dashed var(--border-color); border-radius: 5px; align-content: flex-start;
+            border: 1px dashed var(--border-color); border-radius: 5px; align-content: flex-start; 
         }
         
         .patracdvr-member-btn { 
@@ -175,7 +175,8 @@
         .patracdvr-member-btn:hover { border-color: var(--accent-hover); }
         .patracdvr-member-btn.member-active { border-color: var(--accent-blue); box-shadow: 0 0 8px var(--accent-blue); }
         .patracdvr-member-btn .trigramme { font-weight: bold; }
-        .patracdvr-member-btn .fonction { font-size: 0.8em; color: var(--text-secondary); display: block; }
+        .patracdvr-member-btn .fonction { font-size: 0.8em; color: var(--text-secondary); display: block; max-width: 150px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .patracdvr-member-btn .dir-info { font-size: 0.7em; color: var(--success-green); display: block; }
         
         .patracdvr-vehicle-row {
             position: relative;
@@ -217,6 +218,9 @@
             font-size: 0.9em;
             font-weight: bold;
             color: var(--accent-blue);
+            cursor: pointer;
+            text-decoration: underline;
+            text-decoration-style: dotted;
         }
         .vehicle-header .remove-btn {
             padding: 2px 5px;
@@ -310,6 +314,10 @@
         .annotation-actions button { flex: 1; justify-content: center; }
         .annotation-canvas-container { order: 1; flex-grow: 1; display: flex; align-items: center; justify-content: center; background: #000; padding: 5px; overflow: auto; min-height: 0; }
         #annotationCanvas { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+        .color-picker { display: flex; gap: 5px; align-items: center; margin-left:10px; }
+        .color-circle { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+        .color-circle.active { border-color: white; box-shadow: 0 0 5px white; }
 
          #presentationModal {
             width: 95vw; max-width: 1200px; height: 95vh; 
@@ -412,7 +420,7 @@
             }
             #quickEditPanel { 
                 display: flex; 
-                flex-direction: column;
+                flex-direction: column; 
                 gap: 15px;
             }
             .quick-edit-content { 
@@ -470,9 +478,6 @@
         </div>
     </dialog>
     
-    <!-- Bouton de thème original supprimé car il est maintenant dans le dock -->
-    <!-- <button id="darkModeToggle" title="Changer le thème"><span class="material-symbols-outlined" id="darkModeIcon">nightlight</span></button> -->
-
     <dialog id="quickEditModal">
         <div class="modal-form">
             <h3 id="quick_modal_title">Édition rapide</h3>
@@ -489,37 +494,52 @@
                  <div id="contextual_tools">
                      <div class="toolbar-contextual-tools">
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
-                            <label for="rotation_input" style="font-size: 0.8em; margin:0;">Rotation (Degrés)</label>
-                            <input type="number" id="rotation_input" min="0" max="360" step="1" value="0" style="max-width: 80px; text-align: center; padding: 5px; height: 35px; margin: 0;" onchange="updateAnnotationRotation()">
+                            <label for="rotation_input" style="font-size: 0.8em; margin:0;">Rotation</label>
+                            <input type="number" id="rotation_input" min="0" max="360" step="1" value="0" style="max-width: 60px; text-align: center; padding: 5px; height: 30px; margin: 0;" onchange="updateAnnotationRotation()">
                         </div>
+                        
+                        <!-- NOUVEAU: Contrôles de redimensionnement -->
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                            <label for="resize_w" style="font-size: 0.8em; margin:0;">Largeur</label>
+                            <input type="range" id="resize_w" min="20" max="800" step="5" style="width: 80px;" oninput="resizeSelected(this.value, null)">
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                            <label for="resize_h" style="font-size: 0.8em; margin:0;">Hauteur</label>
+                            <input type="range" id="resize_h" min="20" max="800" step="5" style="width: 80px;" oninput="resizeSelected(null, this.value)">
+                        </div>
+
                         <button id="edit_text_btn" class="tool-btn"><span class="material-symbols-outlined">text_fields</span>Texte</button>
-                         <button id="delete_btn" class="tool-btn" style="background-color: var(--danger-red); color: white;"><span class="material-symbols-outlined">delete</span>Supprimer</button>
+                         <button id="delete_btn" class="tool-btn" style="background-color: var(--danger-red); color: white;"><span class="material-symbols-outlined">delete</span>Suppr.</button>
                      </div>
                  </div>
                  <div class="toolbar-main-tools">
                      <button id="tool_move" class="tool-btn active"><span class="material-symbols-outlined">pan_tool</span>Déplacer</button>
-                     <button id="tool_location" class="tool-btn"><span class="material-symbols-outlined">pin_drop</span>Emplacement</button>
-                     <button id="tool_arrow" class="tool-btn"><span class="material-symbols-outlined">call_made</span>Désigner</button>
-                     <button id="tool_box" class="tool-btn"><span class="material-symbols-outlined">crop_free</span>Encadrer</button>
+                     <button id="tool_location" class="tool-btn"><span class="material-symbols-outlined">pin_drop</span>Zone</button>
+                     <button id="tool_arrow" class="tool-btn"><span class="material-symbols-outlined">call_made</span>Flèche</button>
+                     <button id="tool_box" class="tool-btn"><span class="material-symbols-outlined">crop_free</span>Cadre</button>
+                     <!-- NOUVEAU: Outil Texte Libre -->
+                     <button id="tool_text" class="tool-btn"><span class="material-symbols-outlined">title</span>Texte</button>
                  </div>
+                 
+                 <!-- NOUVEAU: Sélecteur de couleur -->
+                 <div class="color-picker" style="display:flex; justify-content:center; gap:8px; padding:10px 0;">
+                    <div class="color-circle active" style="background:#c0392b" onclick="setAnnotationColor('#c0392b', this)"></div>
+                    <div class="color-circle" style="background:#2ecc71" onclick="setAnnotationColor('#2ecc71', this)"></div>
+                    <div class="color-circle" style="background:#3498db" onclick="setAnnotationColor('#3498db', this)"></div>
+                    <div class="color-circle" style="background:#f1c40f" onclick="setAnnotationColor('#f1c40f', this)"></div>
+                    <div class="color-circle" style="background:#ffffff; border:1px solid #777;" onclick="setAnnotationColor('#ffffff', this)"></div>
+                 </div>
+
                  <div id="controls_location" class="tool-controls">
                      <label for="circle_text">Texte:</label>
                      <input type="text" id="circle_text" value="Zone">
-                     <label for="circle_opacity">Transparence:</label>
+                     <label for="circle_opacity">Transp.:</label>
                      <input type="range" id="circle_opacity" min="0.1" max="1" step="0.1" value="0.5">
                  </div>
-                 <div id="controls_arrow" class="tool-controls">
-                     <label for="arrow_thickness">Épaisseur:</label>
-                     <input type="range" id="arrow_thickness" min="1" max="25" step="1" value="5">
-                 </div>
-                 <div id="controls_box" class="tool-controls">
-                     <label for="box_thickness">Épaisseur:</label>
-                     <input type="range" id="box_thickness" min="1" max="20" step="1" value="5">
-                 </div>
                  <div class="annotation-actions">
-                     <button id="tool_reset" class="tool-btn"><span class="material-symbols-outlined">delete_sweep</span>Effacer tout</button>
+                     <button id="tool_reset" class="tool-btn"><span class="material-symbols-outlined">delete_sweep</span>Tout effacer</button>
                      <button id="annotation_cancel" class="tool-btn">Annuler</button>
-                     <button id="annotation_save" class="tool-btn" style="background-color: #27ae60; color: white;"><span class="material-symbols-outlined">save</span>Sauvegarder</button>
+                     <button id="annotation_save" class="tool-btn" style="background-color: #27ae60; color: white;"><span class="material-symbols-outlined">save</span>Sauver</button>
                  </div>
             </div>
             <div class="annotation-canvas-container">
@@ -554,8 +574,6 @@
 
                 <div class="wizard-step">
                     <h2>2. Adversaire(s)</h2>
-                    
-                    <!-- ADVERSAIRE PRINCIPAL (OBJECTIF 1) -->
                     <div class="collapsible-container open">
                         <div class="collapsible-header"><h3>Adversaire Principal (Objectif 1)</h3><span class="material-symbols-outlined">expand_more</span></div>
                         <div class="collapsible-content">
@@ -587,7 +605,6 @@
                         </div>
                     </div>
                     
-                    <!-- ADVERSAIRE SECONDAIRE (OBJECTIF 2) -->
                     <div class="collapsible-container">
                         <div class="collapsible-header"><h3>Adversaire Secondaire (Objectif 2)</h3><span class="material-symbols-outlined">expand_more</span></div>
                         <div class="collapsible-content">
@@ -625,10 +642,10 @@
                 
                 <div class="wizard-step">
                     <h2>3. Environnement</h2>
-                     <label>Ami(e)s (Unités en soutien):</label><input type="text" id="amies">
-                     <label>Terrain / Météo:</label><input type="text" id="terrain_info">
-                     <label>Population:</label><input type="text" id="population">
-                     <label for="cadre_juridique">Cadre juridique:</label><input type="text" id="cadre_juridique">
+                      <label>Ami(e)s (Unités en soutien):</label><input type="text" id="amies">
+                      <label>Terrain / Météo:</label><input type="text" id="terrain_info">
+                      <label>Population:</label><input type="text" id="population">
+                      <label for="cadre_juridique">Cadre juridique:</label><input type="text" id="cadre_juridique">
                 </div>
 
                 <div class="wizard-step">
@@ -643,26 +660,24 @@ CONDUITE AU LIEU DE GAV.</textarea>
                 </div>
 
                 <div class="wizard-step">
-                     <h2>5. Exécution</h2>
-                     <label for="date_execution">Date d'exécution:</label><input type="date" id="date_execution">
-                     <label for="heure_execution">Heure d'exécution (H):</label><input type="time" id="heure_execution" value="06:00">
-                     <!-- CHAMP DE TEXTE LIBRE POUR LA PHRASE DE MISSION -->
-                     <label for="action_body_text">Corps de la mission (Exécution):</label>
-                     <textarea id="action_body_text" rows="4">En vue d'appréhender le(s) mis en cause et empêcher la déperdition des preuves,
+                      <h2>5. Exécution</h2>
+                      <label for="date_execution">Date d'exécution:</label><input type="date" id="date_execution">
+                      <label for="heure_execution">Heure d'exécution (H):</label><input type="time" id="heure_execution" value="06:00">
+                      <label for="action_body_text">Corps de la mission (Exécution):</label>
+                      <textarea id="action_body_text" rows="4">En vue d'appréhender le(s) mis en cause et empêcher la déperdition des preuves,
 Je veux, le (date) à partir de (heure), pour une action (type d'action) investir le domicile
 présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui-ci.</textarea>
-                     <!-- Fin de la modification -->
-                     <h3>Chronologie</h3><div id="time_events_container"></div><button type="button" class="add-btn" onclick="addTimeEvent()">➕</button>
-                     <h3>Hypothèses</h3>
-                     <label for="hypothese_h1">H1:</label><input type="text" id="hypothese_h1" value="Target présente LE1">
-                     <label for="hypothese_h2">H2:</label><input type="text" id="hypothese_h2" value="Target présente LE2">
-                     <label for="hypothese_h3">H3:</label><input type="text" id="hypothese_h3" value="Target absente LE 1 et 2">
+                      <h3>Chronologie</h3><div id="time_events_container"></div><button type="button" class="add-btn" onclick="addTimeEvent()">➕</button>
+                      <h3>Hypothèses</h3>
+                      <label for="hypothese_h1">H1:</label><input type="text" id="hypothese_h1" value="Target présente LE1">
+                      <label for="hypothese_h2">H2:</label><input type="text" id="hypothese_h2" value="Target présente LE2">
+                      <label for="hypothese_h3">H3:</label><input type="text" id="hypothese_h3" value="Target absente LE 1 et 2">
                 </div>
 
                 <div class="wizard-step">
-                     <h2>6. Articulation (MOIPC/ZMSPCP)</h2>
-                     <label for="place_chef">Place du Chef (Générale):</label><input type="text" id="place_chef">
-                     <div class="collapsible-container">
+                      <h2>6. Articulation (MOIPC/ZMSPCP)</h2>
+                      <label for="place_chef">Place du Chef (Générale):</label><input type="text" id="place_chef">
+                      <div class="collapsible-container">
                           <div class="collapsible-header"><h3>Équipe INDIA (INTER)</h3><span class="material-symbols-outlined">expand_more</span></div>
                           <div class="collapsible-content">
                                  <label for="india_mission">Mission:</label><textarea id="india_mission" rows="3">RECONNAÎTRE LE DOMICILE EN VUE D'APPRÉHENDER L'OBJECTIF</textarea>
@@ -688,8 +703,8 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
 - Si rébellion, usage du strict niveau de force nécessaire.
 - Si retranchement, CR + réarticulation pour fixer l'adversaire.</textarea>
                           </div>
-                     </div>
-                     <div class="collapsible-container">
+                      </div>
+                      <div class="collapsible-container">
                           <div class="collapsible-header"><h3>Équipe Appui/Observation (AO) - ZMSPCP</h3><span class="material-symbols-outlined">expand_more</span></div>
                           <div class="collapsible-content">
                              
@@ -716,7 +731,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
 - Si retranchement, CR + réarticulation pour fixer l'adversaire.</textarea>
                                  <label for="ao_place_chef">Place du Chef (P):</label><input type="text" id="ao_place_chef">
                           </div>
-                     </div>
+                      </div>
                 </div>
                 
                 <div class="wizard-step">
@@ -724,7 +739,6 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                     <div style="margin-bottom: 20px; padding: 15px; border: 1px solid var(--border-color); border-radius: 5px;">
                         
                         <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;">
-                            <!-- CONSERVATION DU BOUTON DE RÉINITIALISATION DE LA CONFIG LOCALE -->
                             <button type="button" id="resetPatracdvrBtn" class="remove-btn" title="Réinitialiser PATRACDVR" style="flex-grow: 1; max-width: 150px;">
                                 <span class="material-symbols-outlined">delete_forever</span> Réinitialiser
                             </button>
@@ -734,15 +748,21 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                     <div id="quickEditPanel" style="display:none;">
                         <div class="member-info-header">
                             <h4 style="margin: 0;">Membre: <span id="selectedMemberTrigramme" style="font-size: 1.1em; font-weight: bold;">Aucun</span></h4>
-                            <div style="flex-grow: 1;">
+                            <div style="flex-grow: 1; margin-left: 15px;">
                                 <label for="quick_edit_trigramme_input" style="font-size: 0.8em; margin-bottom: 2px;">Modifier Trigramme:</label>
                                 <input type="text" id="quick_edit_trigramme_input" placeholder="Nouveau trigramme" style="padding: 8px; margin-bottom: 0; min-height: 38px; font-size: 1em;">
                             </div>
                         </div>
                         
+                        <!-- NOUVEAU: Champ DIR Radio -->
+                        <div style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                            <label for="quick_edit_dir_input" style="color:var(--accent-blue);">DIR (Dossier Individuel Radio):</label>
+                            <input type="text" id="quick_edit_dir_input" placeholder="Ex: 42, 101..." style="margin-bottom: 0;">
+                        </div>
+                        
                         <div class="quick-edit-content"></div>
                          <div class="quick-edit-buttons">
-                              <button type="button" id="saveQuickEditBtn" class="add-btn">Sauvegarder les changements</button>
+                             <button type="button" id="saveQuickEditBtn" class="add-btn">Sauvegarder les changements</button>
                          </div>
                     </div>
 
@@ -752,7 +772,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                         <button type="button" class="add-btn add-vehicle-btn" id="addManualMemberBtn">➕ Membre Manuel</button>
                         </div>
 
-                    <h4 style="margin-top: 20px;">Composition des véhicules</h4>
+                    <h4 style="margin-top: 20px;">Composition des véhicules (Cliquer sur le nom pour renommer)</h4>
                     <div id="patracdvr_container"></div>
                     
                     <h4 style="margin-top: 20px;">Personnel à attribuer</h4>
@@ -766,7 +786,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
 
                 <div class="wizard-step">
                     <h2>8. Gestion des Photos</h2>
-                    <p>Utilisez cette section pour ajouter et annoter toutes les photos.</p>
+                    <p>Utilisez cette section pour ajouter et annoter toutes les photos. Glissez-déposez les photos pour les réorganiser.</p>
                 
                     <!-- ADVERSAIRE PRINCIPAL -->
                     <div class="collapsible-container">
@@ -828,28 +848,24 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                                 <h4>Itinéraire Extérieur (INDIA)</h4>
                                 <button type="button" class="add-btn" style="width:100%; justify-content: center;" onclick="document.getElementById('photo_container_itineraire_exterieur_input').click()">➕ Ajouter Photo(s)</button>
                                 <input type="file" id="photo_container_itineraire_exterieur_input" class="photo-input" accept="image/jpeg, image/png" multiple onchange="handleFileChange(this, 'photo_container_itineraire_exterieur_preview_container', false)">
-                                <!-- CORRECTION: Changer le conteneur d'upload ici -->
                                 <div id="photo_container_itineraire_exterieur_preview_container" class="image-preview-container"></div>
                             </div>
                              <div class="photo-upload-section">
                                 <h4>Itinéraire Intérieur (INDIA)</h4>
                                 <button type="button" class="add-btn" style="width:100%; justify-content: center;" onclick="document.getElementById('photo_container_itineraire_interieur_input').click()">➕ Ajouter Photo(s)</button>
                                 <input type="file" id="photo_container_itineraire_interieur_input" class="photo-input" accept="image/jpeg, image/png" multiple onchange="handleFileChange(this, 'photo_container_itineraire_interieur_preview_container', false)">
-                                <!-- CORRECTION: Changer le conteneur d'upload ici -->
                                 <div id="photo_container_itineraire_interieur_preview_container" class="image-preview-container"></div>
                             </div>
                              <div class="photo-upload-section">
                                 <h4>Baptême Terrain (AO)</h4>
                                 <button type="button" class="add-btn" style="width:100%; justify-content: center;" onclick="document.getElementById('photo_container_bapteme_terrain_input').click()">➕ Ajouter Photo(s)</button>
                                 <input type="file" id="photo_container_bapteme_terrain_input" class="photo-input" accept="image/jpeg, image/png" multiple onchange="handleFileChange(this, 'photo_container_bapteme_terrain_preview_container', false)">
-                                <!-- CORRECTION: Changer le conteneur d'upload ici -->
                                 <div id="photo_container_bapteme_terrain_preview_container" class="image-preview-container"></div>
                             </div>
                             <div class="photo-upload-section">
                                 <h4>Emplacement (AO)</h4>
                                 <button type="button" class="add-btn" style="width:100%; justify-content: center;" onclick="document.getElementById('photo_container_emplacement_ao_input').click()">➕ Ajouter Photo(s)</button>
                                 <input type="file" id="photo_container_emplacement_ao_input" class="photo-input" accept="image/jpeg, image/png" multiple onchange="handleFileChange(this, 'photo_container_emplacement_ao_preview_container', false)">
-                                <!-- CORRECTION: Changer le conteneur d'upload ici -->
                                 <div id="photo_container_emplacement_ao_preview_container" class="image-preview-container"></div>
                             </div>
                         </div>
@@ -953,15 +969,15 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 </script>
     <script>
         // Configuration des membres par défaut (pour initialisation si localStorage vide)
+        // NOUVEAU: Ajout de "Conducteur", "Chef de bord", "Casque Lourd", "Casque MO"
         let memberConfig = {
-            fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "DE", "Cyno", "Inter","Effrac", "AO", "Sans"],
-            // CORRECTION: Ajout de 'AO8' dans la liste des cellules si c'était votre modification manuelle.
+            fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "Conducteur", "Chef de bord", "DE", "Cyno", "Inter","Effrac", "AO", "Sans"],
             cellules: ["AO1", "AO2", "AO3", "AO4", "AO5", "AO6", "AO7", "AO8", "India 1", "India 2", "India 3", "India 4", "India 5", "Effrac", "Sans"], 
             principales: ["UMP9", "G36", "FAP", "Sans"],
             afis: ["PIE", "LBD40", "LBD44", "Sans"],
             secondaires: ["PSA"],
             grenades: ["GENL", "MP7", "Sans"],
-            equipements: ["Sans", "BBAL", "Belier","Lacry", "IL", "Lot 5.11"],
+            equipements: ["Sans", "Casque Lourd", "Casque MO", "BBAL", "Belier","Lacry", "IL", "Lot 5.11"],
             equipements2: ["Sans", "Cam pieton", "Échelle", "Stop stick", "Lacry", "Cale", "IL", "Pass"],
             tenues: ["UBAS", "4S", "Bleu", "Civile", "Ghillie", "Treillis"],
             gpbs: ["GPBL", "GPBPD", "Sans"]
@@ -974,6 +990,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         const BACKGROUND_IMAGE_ID = 'pdf_background_img_system'; // ID de référence pour le cache de compression
 
         let activeMemberId = null;
+        let currentAnnotationColor = '#c0392b'; // Couleur par défaut (rouge)
 
         let currentStep = 0;
         let visitedSteps = new Set();
@@ -989,7 +1006,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         const downloadPdfBtn = document.getElementById('downloadPdfBtn'); 
         const coherenceAlertsContainer = document.getElementById('coherence_alerts_container');
         const recapFinalisation = document.getElementById('recap_finalisation');
-        // REMOVED: pdfBackgroundInput was removed
 
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -1167,7 +1183,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         objectUrlsCache[previewImgId] = objectURL;
 
                         const interactiveItem = document.createElement('div');
-                        interactiveItem.className = 'image-preview-item';
+                        interactiveItem.className = 'image-preview-item draggable'; // NOUVEAU: Draggable
+                        interactiveItem.draggable = true;
+                        interactiveItem.id = previewImgId + "_item"; // Unique ID for drag item
+                        
                         interactiveItem.innerHTML = `
                             <img id="${previewImgId}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations="[]">
                             <div style="display: flex; gap: 5px; margin-top: 5px;">
@@ -1286,7 +1305,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                          newBtn.type = 'button';
                          newBtn.className = 'chip-btn selected';
                          newBtn.textContent = customValue;
-                         newBtn.addEventListener('click', btn.onclick); // Utiliser le même gestionnaire de clic
+                         newBtn.addEventListener('click', function() { this.classList.toggle('selected'); saveFormData(); });
                          
                          // Insérer avant le champ de saisie pour respecter l'ordre
                          container.insertBefore(newBtn, this);
@@ -1356,19 +1375,29 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             container.appendChild(item);
         }
 
+        // NOUVEAU: Fonction pour renommer un véhicule
+        function renameVehicle(element) {
+            const currentName = element.textContent;
+            const newName = prompt("Renommer le véhicule :", currentName);
+            if (newName && newName.trim() !== "") {
+                element.textContent = newName.trim();
+                const row = element.closest('.patracdvr-vehicle-row');
+                if (row) {
+                    row.dataset.vehicleName = newName.trim();
+                    saveFormData();
+                }
+            }
+        }
+
         function addPatracdvrRow(vehicleName, members = []) {
             const container = document.getElementById('patracdvr_container');
-            if (container.querySelector(`[data-vehicle-name="${vehicleName}"]`)) {
-                alert(`Le véhicule "${vehicleName}" existe déjà. Veuillez choisir un nom unique.`);
-                return;
-            }
             const row = document.createElement('div');
             row.className = 'patracdvr-vehicle-row';
             row.dataset.vehicleName = vehicleName;
 
             row.innerHTML = `
                 <div class="vehicle-header">
-                    <span class="vehicle-name">${vehicleName}</span>
+                    <span class="vehicle-name" onclick="renameVehicle(this)" title="Cliquer pour renommer">${vehicleName}</span>
                     <button type="button" class="remove-btn" title="Supprimer le véhicule">❌</button>
                 </div>
                 <div class="patracdvr-members-container"></div>`;
@@ -1438,12 +1467,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         fonction: 'Sans',
                         principales: 'Sans', 
                         secondaires: 'PSA', 
-                        afis: 'Sans',       
-                        grenades: 'Sans',   
+                        afis: 'Sans',        
+                        grenades: 'Sans',    
                         equipement: 'Sans',
                         equipement2: 'Sans',
                         tenues: 'UBAS',
-                        gpb: 'GPBL'
+                        gpb: 'GPBL',
+                        dir: '' // Initialisation DIR
                     };
                     const newMemberBtn = addPatracdvrMember(unassignedContainer, initialData);
                     
@@ -1476,6 +1506,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 equipement2: 'Sans',
                 tenues: 'UBAS',
                 gpb: 'GPBL', 
+                dir: '', // NOUVEAU Champ DIR
                 ...data
             };
             Object.keys(memberData).forEach(key => btn.dataset[key] = memberData[key]);
@@ -1491,15 +1522,31 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             
             return btn; // Retourner le bouton créé pour la manipulation immédiate
         }
+
         function updateMemberButtonVisuals(btn) {
             const trigramme = btn.dataset.trigramme || 'N/A';
             const fonction = btn.dataset.fonction || '';
             const cellule = btn.dataset.cellule || '';
+            const dir = btn.dataset.dir || '';
+
             const cellDisplay = cellule !== 'Sans' ? cellule : '';
-            const functionDisplay = fonction !== 'Sans' ? ` / ${fonction}` : '';
+            // NOUVEAU: Affichage DIR
+            const dirDisplay = dir ? `<br><span class="dir-info">DIR: ${dir}</span>` : '';
+            
+            // Gestion multi-fonctions pour l'affichage (troncature si trop long)
+            let functionDisplay = '';
+            if(fonction !== 'Sans') {
+                const funcs = fonction.split(', ');
+                if(funcs.length > 1) {
+                    functionDisplay = ` / ${funcs[0]} +${funcs.length-1}`;
+                } else {
+                    functionDisplay = ` / ${fonction}`;
+                }
+            }
+            
             const separation = (cellDisplay && functionDisplay) ? '' : ''; 
             
-            btn.innerHTML = `<span class="trigramme">${trigramme}</span><span class="fonction">${cellDisplay}${separation}${functionDisplay}</span>`;
+            btn.innerHTML = `<span class="trigramme">${trigramme}</span><span class="fonction">${cellDisplay}${separation}${functionDisplay}</span>${dirDisplay}`;
             
             // Si le membre est dans le conteneur "Personnel à attribuer", on masque la fonction/cellule.
             if (btn.closest('#unassigned_members_container')) {
@@ -1562,6 +1609,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             'GPB': { key: 'gpbs', attribute: 'gpb' }
         };
         
+        // NOUVEAU: Liste des attributs supportant la multi-sélection
+        const multiSelectAttributes = ['fonction', 'equipement', 'equipement2', 'afis'];
+
         function setupQuickEditPanel() {
             const contentContainer = document.querySelector('#quickEditPanel .quick-edit-content');
             contentContainer.innerHTML = '';
@@ -1637,11 +1687,22 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             const trigrammeDisplay = member.dataset.trigramme || 'N/A';
             document.getElementById('selectedMemberTrigramme').textContent = trigrammeDisplay;
             document.getElementById('quick_edit_trigramme_input').value = trigrammeDisplay;
+            
+            // NOUVEAU: Remplir le champ DIR
+            document.getElementById('quick_edit_dir_input').value = member.dataset.dir || '';
 
             document.querySelectorAll('#quickEditPanel .quick-edit-btn').forEach(btn => {
                 const attribute = btn.dataset.attribute;
                 const value = btn.dataset.value;
-                btn.classList.toggle('selected', member.dataset[attribute] === value);
+                const memberValue = member.dataset[attribute];
+                
+                // NOUVEAU: Logique de sélection visuelle pour multi-select vs single
+                if (multiSelectAttributes.includes(attribute)) {
+                    const currentValues = memberValue ? memberValue.split(', ') : [];
+                    btn.classList.toggle('selected', currentValues.includes(value));
+                } else {
+                    btn.classList.toggle('selected', memberValue === value);
+                }
             });
         }
 
@@ -1666,11 +1727,28 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                        style="padding: 8px; margin-bottom: 0; min-height: 38px; font-size: 1em;">
             `;
             content.appendChild(trigrammeDiv);
+            
+            // NOUVEAU: Ajouter le champ DIR
+            const dirDiv = document.createElement('div');
+            dirDiv.className = 'quick-edit-category';
+            dirDiv.innerHTML = `
+                <h5>DIR (Radio)</h5>
+                <input type="text" id="modal_quick_edit_dir_input" placeholder="N° Dossier Radio" 
+                       value="${member.dataset.dir || ''}" 
+                       style="padding: 8px; margin-bottom: 0; min-height: 38px; font-size: 1em;">
+            `;
+            content.appendChild(dirDiv);
+
             // Écouteur pour la mise à jour immédiate du trigramme (dans la modale uniquement)
             document.getElementById('modal_quick_edit_trigramme_input').addEventListener('input', (e) => {
                  member.dataset.trigramme = e.target.value.toUpperCase();
                  title.textContent = `Édition Rapide: ${member.dataset.trigramme || 'N/A'}`;
-                 // CONFORMITÉ: Sauvegarde après modification du trigramme
+                 saveFormData();
+            });
+            
+            // Écouteur pour la mise à jour immédiate du DIR (dans la modale uniquement)
+            document.getElementById('modal_quick_edit_dir_input').addEventListener('input', (e) => {
+                 member.dataset.dir = e.target.value;
                  saveFormData();
             });
 
@@ -1681,12 +1759,19 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             const quickEditPanelContent = document.querySelector('#quickEditPanel .quick-edit-content');
             content.appendChild(quickEditPanelContent.cloneNode(true));
             
-            // Mettre à jour l'état de sélection (copie des datasets dans les boutons dupliqués)
+            // Mettre à jour l'état de sélection
             const modalButtons = content.querySelectorAll('.quick-edit-btn');
             modalButtons.forEach(btn => {
                  const attribute = btn.dataset.attribute;
                  const value = btn.dataset.value;
-                 btn.classList.toggle('selected', member.dataset[attribute] === value);
+                 const memberValue = member.dataset[attribute];
+                 
+                 if (multiSelectAttributes.includes(attribute)) {
+                    const currentValues = memberValue ? memberValue.split(', ') : [];
+                    btn.classList.toggle('selected', currentValues.includes(value));
+                } else {
+                    btn.classList.toggle('selected', memberValue === value);
+                }
             });
             
             modal.showModal();
@@ -1696,22 +1781,15 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
              const member = document.getElementById(activeMemberId);
              if (!member) return;
              
-             // Mise à jour du trigramme (saisi dans le champ du panneau)
+             // Mise à jour du trigramme
              const newTrigramme = document.getElementById('quick_edit_trigramme_input').value.toUpperCase();
              member.dataset.trigramme = newTrigramme;
              document.getElementById('selectedMemberTrigramme').textContent = newTrigramme;
              
-             // Mise à jour des autres propriétés (boutons sélectionnés)
-             document.querySelectorAll('#quickEditPanel .quick-edit-btn.selected').forEach(btn => {
-                 const attribute = btn.dataset.attribute;
-                 const value = btn.dataset.value;
-                 member.dataset[attribute] = value;
-                 
-                 // Logique de cohérence de base
-                 if (attribute === 'cellule' && value === 'Sans') {
-                     member.dataset.fonction = 'Sans';
-                 }
-             });
+             // NOUVEAU: Mise à jour DIR
+             member.dataset.dir = document.getElementById('quick_edit_dir_input').value;
+             
+             // Les boutons sont mis à jour dynamiquement via le click handler
              
              updateMemberButtonVisuals(member);
              // CONFORMITÉ: Sauvegarde après modification du panneau
@@ -1787,9 +1865,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
 
                 
-                // Sauvegarde des données détaillées des membres PATRACDVR
+                // Sauvegarde des données détaillées des membres PATRACDVR (incluant DIR)
                 const memberDatasetsToSave = ['trigramme', 'fonction', 'cellule', 'equipement', 'equipement2', 'tenue', 'gpb', 
-                                              'principales', 'secondaires', 'afis', 'grenades']; 
+                                              'principales', 'secondaires', 'afis', 'grenades', 'dir']; 
 
                 data.patracdvr_unassigned = Array.from(unassignedContainer.querySelectorAll('.patracdvr-member-btn')).map(btn => {
                     const memberData = {};
@@ -1863,7 +1941,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                                     objectUrlsCache[imgData.id] = objectURL;
         
                                     const interactiveItem = document.createElement('div');
-                                    interactiveItem.className = 'image-preview-item';
+                                    interactiveItem.className = 'image-preview-item draggable'; // NOUVEAU: Draggable
+                                    interactiveItem.draggable = true;
+                                    interactiveItem.id = imgData.id + "_item"; // ID Unique pour drag
+
                                     interactiveItem.innerHTML = `
                                         <img id="${imgData.id}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations='${imgData.annotations || '[]'}'>
                                         <div style="display: flex; gap: 5px; margin-top: 5px;">
@@ -1951,6 +2032,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             
             // Vérifier que c'est un membre PATRACDVR qui est dragué
             const draggedId = e.dataTransfer.getData('text/plain');
+            // Pour le drop de photos, on ne gère pas le survol spécifique ici, géré dans dragover
             const draggedItem = document.getElementById(draggedId);
             
             if (draggedItem && draggedItem.classList.contains('patracdvr-member-btn')) {
@@ -1968,7 +2050,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             const draggedId = e.dataTransfer.getData('text/plain');
             const draggedItem = document.getElementById(draggedId);
 
-            if (draggedItem && draggedItem.classList.contains('patracdvr-member-btn')) {
+            if (!draggedItem) return;
+
+            // Gestion Drop Membres
+            if (draggedItem.classList.contains('patracdvr-member-btn')) {
                 if(targetContainer.id !== 'trashCan') {
                     // Pour insérer le membre à l'endroit approprié dans le conteneur
                     const afterElement = getDragAfterElement(targetContainer, e.clientY);
@@ -1978,6 +2063,25 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     } else { 
                         targetContainer.insertBefore(draggedItem, afterElement); 
                     }
+                }
+            }
+            // NOUVEAU: Gestion Drop Photos (Réorganisation)
+            else if (draggedItem.classList.contains('image-preview-item') && targetContainer.classList.contains('image-preview-container')) {
+                 const draggableElements = [...targetContainer.querySelectorAll('.image-preview-item:not(.dragging)')];
+                 const afterElement = draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = e.clientX - box.left - box.width / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+
+                if (afterElement == null) {
+                    targetContainer.appendChild(draggedItem);
+                } else {
+                    targetContainer.insertBefore(draggedItem, afterElement);
                 }
             }
         }
@@ -2033,6 +2137,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 
                 // CONFORMITÉ: Sauvegarde après le changement de conteneur/statut
                 saveFormData();
+            } else if (draggedItem && draggedItem.classList.contains('image-preview-item')) {
+                // Pour les photos, le DOM est déjà mis à jour par dragOver
+                saveFormData();
             }
         }
 
@@ -2049,13 +2156,36 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             const contextualTools = document.getElementById('contextual_tools');
             if (selection) {
                 contextualTools.classList.add('active');
-                // Seulement l'outil location permet le texte
+                // Seulement l'outil location permet le texte via ce bouton (mais on a aussi Text libre maintenant)
                 contextualTools.classList.toggle('location-selected', selection.type === 'location'); 
                 rotationInput.value = Math.round((selection.rotation || 0) * 180 / Math.PI) % 360;
                 if (rotationInput.value < 0) rotationInput.value = 360 + parseInt(rotationInput.value);
+                
+                // Mise à jour des sliders de redimensionnement
+                const wSlider = document.getElementById('resize_w');
+                const hSlider = document.getElementById('resize_h');
+                if(wSlider && selection.width) wSlider.value = selection.width;
+                if(hSlider && selection.height) hSlider.value = selection.height;
+                // Pour arrow, c'est plus complexe, on ignore pour l'instant
+                
             } else {
                 contextualTools.classList.remove('active');
             }
+        }
+        
+        // NOUVEAU: Fonction de redimensionnement via slider
+        function resizeSelected(w, h) {
+            if(!selectedAnnotation) return;
+            // Pour box, width/height
+            if(selectedAnnotation.type === 'box') {
+                if(w) selectedAnnotation.width = parseInt(w);
+                if(h) selectedAnnotation.height = parseInt(h);
+            }
+            // Pour location, radius
+            if(selectedAnnotation.type === 'location' && w) {
+                selectedAnnotation.radius = parseInt(w) / 2;
+            }
+            redrawCanvas();
         }
         
         function updateAnnotationRotation() {
@@ -2079,6 +2209,19 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             canvas.style.cursor = toolId === 'move' ? 'grab' : 'crosshair'; 
             selectedAnnotation = null;
             setContextualTools(null);
+            
+            document.getElementById('active_tool_display').innerText = "Outil: " + (toolId === 'move' ? 'Déplacer' : toolId);
+        }
+        
+        // NOUVEAU: Set Color
+        function setAnnotationColor(color, element) {
+            currentAnnotationColor = color;
+            document.querySelectorAll('.color-circle').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            if(selectedAnnotation) {
+                selectedAnnotation.color = color; // Appliquer la couleur à la sélection
+                redrawCanvas();
+            }
         }
 
         async function openAnnotationModal(previewImgId) {
@@ -2104,6 +2247,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 canvas.width = baseImage.naturalWidth;
                 canvas.height = baseImage.naturalHeight;
                 annotations = JSON.parse(previewImg.dataset.annotations || '[]');
+                // Migration: ajouter couleur si manquante
+                annotations.forEach(a => { if(!a.color) a.color = '#c0392b'; });
+                
                 setActiveTool('move');
                 redrawCanvas();
                 annotationModal.dataset.targetPreviewId = previewImgId;
@@ -2115,7 +2261,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 console.error("Erreur de chargement de l'image dans `baseImage`:", e);
             };
         
-            baseImage.src = objectURL;
+            baseImage.src = objectUrlsCache[previewImgId] || previewImg.src; // Fallback
         }
 
         function redrawCanvas() {
@@ -2135,6 +2281,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             ctx.setLineDash([5, 5]);
             ctx.strokeStyle = 'white';
             ctx.lineWidth = 3;
+            ctx.shadowColor = "black";
+            ctx.shadowBlur = 5;
             let centerX, centerY;
             let x, y, width, height;
 
@@ -2163,6 +2311,14 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 height = maxY - minY + 20;
                 centerX = (annotation.startX + annotation.endX) / 2;
                 centerY = (annotation.startY + annotation.endY) / 2;
+            } else if (annotation.type === 'text') {
+                ctx.font = "bold 30px Oswald";
+                width = ctx.measureText(annotation.text).width + 20;
+                height = 40; 
+                x = annotation.x - 10;
+                y = annotation.y - 30; // approx ascent
+                centerX = x + width/2;
+                centerY = y + height/2;
             }
 
             if (annotation.rotation) {
@@ -2177,8 +2333,11 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
         function drawAnnotation(annotation) {
             ctx.save();
+            // Utilisation de la couleur stockée ou rouge par défaut
+            const color = annotation.color || '#c0392b';
+            
             let centerX, centerY;
-            if (annotation.type === 'location') {
+            if (annotation.type === 'location' || annotation.type === 'text') {
                 centerX = annotation.x;
                 centerY = annotation.y;
             } else if (annotation.type === 'box') {
@@ -2198,16 +2357,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             switch (annotation.type) {
                 case 'location': {
                     const radius = annotation.radius || 0;
-                    if (radius < 2) {
-                        ctx.restore();
-                        return;
-                    }
+                    if (radius < 2) { ctx.restore(); return; }
                     ctx.beginPath();
                     ctx.arc(annotation.x, annotation.y, radius, 0, 2 * Math.PI);
-                    ctx.fillStyle = `rgba(91, 155, 213, ${annotation.opacity || 0.5})`;
+                    ctx.fillStyle = `rgba(91, 155, 213, ${annotation.opacity || 0.5})`; // Garder bleu standard pour le fond
                     ctx.fill();
-                    ctx.strokeStyle = '#5b9bd5';
-                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = color; // Couleur personnalisée pour le bord
+                    ctx.lineWidth = 3;
                     ctx.stroke();
                     if (annotation.text) {
                         ctx.fillStyle = 'black';
@@ -2219,24 +2375,33 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     break;
                 }
                 case 'arrow': {
-                    drawArrow(annotation.startX, annotation.startY, annotation.endX, annotation.endY, annotation.thickness || 5);
+                    drawArrow(annotation.startX, annotation.startY, annotation.endX, annotation.endY, annotation.thickness || 5, color);
                     break;
                 }
                 case 'box': {
-                    ctx.strokeStyle = '#c0392b';
+                    ctx.strokeStyle = color;
                     ctx.lineWidth = annotation.thickness || 5;
                     ctx.strokeRect(annotation.x, annotation.y, annotation.width, annotation.height);
+                    break;
+                }
+                case 'text': {
+                    ctx.font = "bold 30px Oswald";
+                    ctx.fillStyle = color;
+                    ctx.strokeStyle = "black";
+                    ctx.lineWidth = 2;
+                    ctx.strokeText(annotation.text, annotation.x, annotation.y);
+                    ctx.fillText(annotation.text, annotation.x, annotation.y);
                     break;
                 }
             }
             ctx.restore();
         }
 
-        function drawArrow(fromx, fromy, tox, toy, lineWidth) {
+        function drawArrow(fromx, fromy, tox, toy, lineWidth, color) {
             if (fromx === tox && fromy === toy) return;
             
-            ctx.strokeStyle = '#c0392b';
-            ctx.fillStyle = '#c0392b';
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
             ctx.lineWidth = lineWidth;
             
             const dx = tox - fromx;
@@ -2299,11 +2464,11 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 const angle = annotation.rotation || 0;
                 let centerX, centerY;
                 
-                if (annotation.type === 'location') { centerX = annotation.x; centerY = annotation.y; } 
+                if (annotation.type === 'location' || annotation.type === 'text') { centerX = annotation.x; centerY = annotation.y; } 
                 else if (annotation.type === 'box') { centerX = annotation.x + annotation.width / 2; centerY = annotation.y + annotation.height / 2; } 
                 else if (annotation.type === 'arrow') { centerX = (annotation.startX + annotation.endX) / 2; centerY = (annotation.startY + annotation.endY) / 2; }
 
-                // Pour des annotations simples (non textuelles), le centre de rotation est le centre de l'objet
+                // Pour des annotations simples, le centre de rotation est le centre de l'objet
                 const rotatedPos = getRotatedPoint(x, y, centerX, centerY, angle);
                 const testX = rotatedPos.x;
                 const testY = rotatedPos.y;
@@ -2318,6 +2483,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     case 'box':
                         isInside = testX >= annotation.x - tolerance && testX <= annotation.x + annotation.width + tolerance &&
                             testY >= annotation.y - tolerance && testY <= annotation.y + annotation.height + tolerance;
+                        break;
+                    case 'text':
+                        // Simple bounding box approx
+                        ctx.font = "bold 30px Oswald";
+                        const w = ctx.measureText(annotation.text).width;
+                        const h = 30;
+                        isInside = testX >= annotation.x && testX <= annotation.x + w && testY >= annotation.y - h && testY <= annotation.y;
                         break;
                     case 'arrow':
                         const dx = annotation.endX - annotation.startX;
@@ -2351,6 +2523,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             const pos = getEventPos(canvas, e);
             startX = pos.x;
             startY = pos.y;
+            
             if (currentTool === 'move') {
                 selectedAnnotation = getAnnotationAtPosition(pos.x, pos.y);
                 setContextualTools(selectedAnnotation);
@@ -2358,6 +2531,20 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     isMovingAnnotation = true; 
                     document.body.style.overflow = 'hidden';
                     redrawCanvas(); 
+                }
+            } else if (currentTool === 'text') {
+                // NOUVEAU: Outil Texte Click
+                const text = prompt("Texte à insérer :");
+                if(text) {
+                    annotations.push({
+                        type: 'text',
+                        x: startX,
+                        y: startY,
+                        text: text,
+                        color: currentAnnotationColor,
+                        rotation: 0
+                    });
+                    redrawCanvas();
                 }
             } else {
                 isDrawing = true;
@@ -2369,7 +2556,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     startY: startY,
                     endX: startX,
                     endY: startY,
-                    rotation: 0
+                    rotation: 0,
+                    color: currentAnnotationColor // Store color
                 };
             }
         }
@@ -2389,7 +2577,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     selectedAnnotation.endX += deltaX;
                     selectedAnnotation.endY += deltaY;
                 } else {
-                    // Pour box et location, x/y représente le coin ou le centre, on les déplace directement.
+                    // Pour box, location et text
                     selectedAnnotation.x += deltaX;
                     selectedAnnotation.y += deltaY;
                 }
@@ -2416,6 +2604,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 redrawCanvas();
             } else if (isDrawing) {
                 isDrawing = false;
+                if(!currentAnnotation) return;
+                
                 const final = { ...currentAnnotation };
                 if (final.type === 'box') {
                     // Normaliser les coordonnées pour la boîte
@@ -2438,7 +2628,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     final.opacity = document.getElementById('circle_opacity').value;
                     if (final.radius < 5) return;
                 }
-                annotations.push(final);
+                
+                // Ne pas ajouter si c'était juste un clic sans mouvement pour les formes
+                if(final.type !== 'text') annotations.push(final);
+                
                 currentAnnotation = null;
                 selectedAnnotation = final; 
                 setContextualTools(selectedAnnotation);
@@ -2480,8 +2673,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         
         function drawAnnotationOnContext(context, canvasWidth, canvasHeight, annotation) {
             context.save();
+            const color = annotation.color || '#c0392b';
             let centerX, centerY;
-            if (annotation.type === 'location') {
+            if (annotation.type === 'location' || annotation.type === 'text') {
                 centerX = annotation.x;
                 centerY = annotation.y;
             } else if (annotation.type === 'box') {
@@ -2504,7 +2698,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     if (radius < 2) { context.restore(); return; }
                     context.beginPath(); context.arc(annotation.x, annotation.y, radius, 0, 2 * Math.PI);
                     context.fillStyle = `rgba(91, 155, 213, ${annotation.opacity || 0.5})`; context.fill();
-                    context.strokeStyle = '#5b9bd5'; context.lineWidth = 2; context.stroke();
+                    context.strokeStyle = color; context.lineWidth = 3; context.stroke();
                     if (annotation.text) {
                         context.fillStyle = 'black'; context.font = `bold ${Math.max(12, radius / 2)}px Oswald`;
                         context.textAlign = 'center'; context.textBaseline = 'middle';
@@ -2515,7 +2709,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 case 'arrow': {
                     const drawArrowLocal = (fromx, fromy, tox, toy, lineWidth) => {
                          if (fromx === tox && fromy === toy) return;
-                         context.strokeStyle = '#c0392b'; context.fillStyle = '#c0392b'; context.lineWidth = lineWidth;
+                         context.strokeStyle = color; context.fillStyle = color; context.lineWidth = lineWidth;
                          const headlen = Math.max(lineWidth * 3, 10); 
                          const dx = tox - fromx; const dy = toy - fromy;
                          const angle = Math.atan2(dy, dx);
@@ -2532,8 +2726,17 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     break;
                 }
                 case 'box': {
-                    context.strokeStyle = '#c0392b'; context.lineWidth = annotation.thickness || 5;
+                    context.strokeStyle = color; context.lineWidth = annotation.thickness || 5;
                     context.strokeRect(annotation.x, annotation.y, annotation.width, annotation.height);
+                    break;
+                }
+                case 'text': {
+                    context.font = "bold 30px Oswald";
+                    context.fillStyle = color;
+                    context.strokeStyle = "black";
+                    context.lineWidth = 2;
+                    context.strokeText(annotation.text, annotation.x, annotation.y);
+                    context.fillText(annotation.text, annotation.x, annotation.y);
                     break;
                 }
             }
@@ -2571,7 +2774,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 }
             });
 
-            const chefInter = allAssignedMembers.find(m => m.fonction === 'Chef inter');
+            const chefInter = allAssignedMembers.find(m => m.fonction && m.fonction.includes('Chef inter'));
             if (chefInter && !chefInter.cellule.toLowerCase().startsWith('india')) {
                  alerts.push(`Le Chef inter (${chefInter.trigramme}) est assigné à la cellule ${chefInter.cellule} au lieu d'India. <span class='material-symbols-outlined'>group</span>`);
             }
@@ -2649,44 +2852,18 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     saveFormData(); // Sauvegarder l'ordre après le déplacement
                 }
             });
+            
+            // NOUVEAU: Écouteurs pour les galeries d'images (dragover pour permettre le drop)
+            document.querySelectorAll('.image-preview-container').forEach(container => {
+                container.addEventListener('dragover', handleDragOver);
+                container.addEventListener('drop', handleDrop);
+            });
         }
         
         // --- NOUVEAU: Logique Fullscreen et Thème ---
 
         function isFullscreen() {
             return document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
-        }
-
-        // Nouvelle fonction pour forcer l'affichage plein écran après la première interaction utilisateur
-        function requestFullscreenOnStart() {
-            // Tente de mettre la page en plein écran (l'API nécessite une interaction utilisateur)
-            if (!isFullscreen()) {
-                const element = document.documentElement;
-                if (element.requestFullscreen) {
-                    element.requestFullscreen();
-                } else if (element.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
-                    element.webkitRequestFullscreen();
-                } else if (element.mozRequestFullScreen) { /* Firefox */
-                    element.mozRequestFullScreen();
-                } else if (element.msRequestFullscreen) { /* IE/Edge */
-                    element.msRequestFullscreen();
-                }
-            }
-        }
-        
-        // Gestionnaire pour la première interaction
-        function handleFirstInteraction(e) {
-            // On ne veut pas que la bascule de thème ou le bouton lui-même déclenchent le plein écran de manière intempestive
-            if (e.target.closest('#darkModeToggle') || e.target.closest('#fullscreenToggle') || e.target.closest('#dockToggleBtn')) {
-                return;
-            }
-            
-            // Déclenche le plein écran
-            requestFullscreenOnStart();
-            
-            // Supprimer l'écouteur après la première interaction réussie
-            document.body.removeEventListener('click', handleFirstInteraction);
-            document.body.removeEventListener('touchend', handleFirstInteraction);
         }
 
         function toggleFullscreen() {
@@ -2797,13 +2974,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                  }
             }
             
-            // **********************************************
-            // * NOUVEAU: Activation "intelligente" Fullscreen *
-            // **********************************************
-            // Ajout des écouteurs pour la première interaction
-            document.body.addEventListener('click', handleFirstInteraction);
-            document.body.addEventListener('touchend', handleFirstInteraction);
-            
             // Réinitialisation/Chargement des chips après loadFormData
             const formData = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || {};
             initChipContainer('etat_esprit_container', formData.etat_esprit_list || []);
@@ -2821,20 +2991,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 if (header) { const container = header.parentElement; if (container && container.classList.contains('collapsible-container')) { container.classList.toggle('open'); } }
             });
             
-            // Écouteur délégué pour la sélection de membre (pour le panneau desktop)
-            // CORRECTION: Cet écouteur est redondant avec l'écouteur attaché dans addPatracdvrMember, 
-            // mais on le garde si d'autres éléments pouvaient être affectés. On s'assure qu'il n'y ait pas de double attachement.
-            /* document.querySelector('.container').addEventListener('click', (e) => {
-                if (e.target.closest('.patracdvr-member-btn')) {
-                    handleMemberSelection(e);
-                }
-            });*/
-            
             // Écouteur pour le bouton de sauvegarde du panneau d'édition rapide (desktop)
             document.getElementById('saveQuickEditBtn').addEventListener('click', saveQuickEditChanges);
 
-            // Ancienne logique de toggle theme déplacée dans le dock (handleThemeToggle)
-            
             resetPatracdvrBtn.addEventListener('click', () => { 
                 // Utilisation d'un `confirm` natif
                 if (confirm("Voulez-vous vraiment effacer TOUS les véhicules et membres du PATRACDVR et vider la sauvegarde locale des membres ?")) { 
@@ -2867,7 +3026,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             document.getElementById('addManualVehicleBtn').addEventListener('click', addManualVehicle);
             document.getElementById('addManualMemberBtn').addEventListener('click', addManualMember);
 
-            // Écouteur délégué pour les clics dans le panneau d'édition rapide (desktop)
+            // NOUVEAU: Écouteur délégué pour le panneau Quick Edit avec MULTI-SELECT
             document.getElementById('quickEditPanel').addEventListener('click', (event) => {
                 event.stopPropagation();
                 const target = event.target;
@@ -2879,24 +3038,55 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     const attribute = quickEditButton.dataset.attribute;
                     const value = quickEditButton.dataset.value;
                     
-                    // Appliquer la valeur au dataset
-                    activeMember.dataset[attribute] = value;
-                    
-                    // Logique de cohérence de base
-                    if (attribute === 'cellule' && value === 'Sans') {
-                        activeMember.dataset.fonction = 'Sans';
-                    }
-                    if (attribute === 'fonction' && value !== 'Sans' && activeMember.dataset.cellule === 'Sans') {
-                        activeMember.dataset.cellule = 'India 1'; 
+                    if (multiSelectAttributes.includes(attribute)) {
+                        // Logique Multi-Select
+                        let currentValues = activeMember.dataset[attribute] ? activeMember.dataset[attribute].split(', ') : [];
+                        // Si "Sans" est sélectionné, on vide. Si une valeur est ajoutée, on enlève "Sans".
+                        if (value === 'Sans') {
+                            currentValues = ['Sans'];
+                        } else {
+                            if (currentValues.includes('Sans')) currentValues = [];
+                            if (currentValues.includes(value)) {
+                                currentValues = currentValues.filter(v => v !== value);
+                            } else {
+                                currentValues.push(value);
+                            }
+                        }
+                        if (currentValues.length === 0) currentValues = ['Sans'];
+                        activeMember.dataset[attribute] = currentValues.join(', ');
+                        
+                        // Mise à jour visuelle du bouton
+                        quickEditButton.classList.toggle('selected', currentValues.includes(value));
+                        // Décocher "Sans" si autre chose sélectionné
+                        if(value !== 'Sans') {
+                             const group = quickEditButton.parentElement;
+                             const sansBtn = Array.from(group.children).find(b => b.textContent === 'Sans');
+                             if(sansBtn) sansBtn.classList.remove('selected');
+                        } else {
+                             const group = quickEditButton.parentElement;
+                             Array.from(group.children).forEach(b => { if(b !== quickEditButton) b.classList.remove('selected'); });
+                        }
+
+                    } else {
+                        // Logique Single Select (ex: Tenue, Cellule)
+                        activeMember.dataset[attribute] = value;
+                        
+                        // Logique de cohérence de base
+                        if (attribute === 'cellule' && value === 'Sans') {
+                            activeMember.dataset.fonction = 'Sans';
+                        }
+                        if (attribute === 'fonction' && value !== 'Sans' && activeMember.dataset.cellule === 'Sans') {
+                            activeMember.dataset.cellule = 'India 1'; 
+                        }
+                        
+                        // Mise à jour la sélection visuelle dans le panneau
+                        const group = quickEditButton.parentElement;
+                        group.querySelectorAll('.quick-edit-btn').forEach(btn => btn.classList.remove('selected'));
+                        quickEditButton.classList.add('selected');
                     }
                     
                     // Mettre à jour les visuels
                     updateMemberButtonVisuals(activeMember);
-                    
-                    // Mettre à jour la sélection visuelle dans le panneau
-                    const group = quickEditButton.parentElement;
-                    group.querySelectorAll('.quick-edit-btn').forEach(btn => btn.classList.remove('selected'));
-                    quickEditButton.classList.add('selected');
                     
                     // CONFORMITÉ: Sauvegarde après modification du quick edit panel
                     saveFormData();
@@ -2905,12 +3095,17 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
             // Écouteur pour la mise à jour du trigramme (dans le panneau desktop)
             document.getElementById('quickEditPanel').addEventListener('input', (e) => {
-                if (e.target.id === 'quick_edit_trigramme_input' && activeMemberId) {
+                if (activeMemberId) {
                     const member = document.getElementById(activeMemberId);
-                    member.dataset.trigramme = e.target.value.toUpperCase();
-                    updateMemberButtonVisuals(member);
-                    // CONFORMITÉ: Sauvegarde après modification du trigramme
-                    saveFormData();
+                    if (e.target.id === 'quick_edit_trigramme_input') {
+                        member.dataset.trigramme = e.target.value.toUpperCase();
+                        updateMemberButtonVisuals(member);
+                        saveFormData();
+                    } else if (e.target.id === 'quick_edit_dir_input') { // NOUVEAU: DIR
+                        member.dataset.dir = e.target.value;
+                        updateMemberButtonVisuals(member);
+                        saveFormData();
+                    }
                 }
             });
 
@@ -2925,7 +3120,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                      activeMemberId = null;
                  }
             });
-            // Écouteur délégué pour les clics dans la modale (mobile)
+            // Écouteur délégué pour les clics dans la modale (mobile) - Adapté pour Multi-select
             quickEditModal.addEventListener('click', (event) => {
                 const target = event.target.closest('.quick-edit-btn');
                 if (!target || !activeMemberId) return;
@@ -2936,24 +3131,48 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 const attribute = target.dataset.attribute;
                 const value = target.dataset.value;
 
-                activeMember.dataset[attribute] = value;
-                
-                if (attribute === 'cellule' && value === 'Sans') {
-                    activeMember.dataset.fonction = 'Sans';
-                }
-                if (attribute === 'fonction' && value !== 'Sans' && activeMember.dataset.cellule === 'Sans') {
-                    activeMember.dataset.cellule = 'India 1';
+                if (multiSelectAttributes.includes(attribute)) {
+                        // Logique Multi-Select
+                        let currentValues = activeMember.dataset[attribute] ? activeMember.dataset[attribute].split(', ') : [];
+                        if (value === 'Sans') {
+                            currentValues = ['Sans'];
+                        } else {
+                            if (currentValues.includes('Sans')) currentValues = [];
+                            if (currentValues.includes(value)) {
+                                currentValues = currentValues.filter(v => v !== value);
+                            } else {
+                                currentValues.push(value);
+                            }
+                        }
+                        if (currentValues.length === 0) currentValues = ['Sans'];
+                        activeMember.dataset[attribute] = currentValues.join(', ');
+                        
+                        target.classList.toggle('selected', currentValues.includes(value));
+                         if(value !== 'Sans') {
+                             const group = target.parentElement;
+                             const sansBtn = Array.from(group.children).find(b => b.textContent === 'Sans');
+                             if(sansBtn) sansBtn.classList.remove('selected');
+                        } else {
+                             const group = target.parentElement;
+                             Array.from(group.children).forEach(b => { if(b !== target) b.classList.remove('selected'); });
+                        }
+
+                } else {
+                    activeMember.dataset[attribute] = value;
+                    if (attribute === 'cellule' && value === 'Sans') {
+                        activeMember.dataset.fonction = 'Sans';
+                    }
+                    if (attribute === 'fonction' && value !== 'Sans' && activeMember.dataset.cellule === 'Sans') {
+                        activeMember.dataset.cellule = 'India 1';
+                    }
+                    const group = target.closest('.quick-edit-options');
+                    if(group) {
+                        group.querySelectorAll('.quick-edit-btn').forEach(btn => btn.classList.remove('selected'));
+                    }
+                    target.classList.add('selected');
                 }
                 
                 updateMemberButtonVisuals(activeMember);
-                
-                const group = target.closest('.quick-edit-options');
-                if(group) {
-                    group.querySelectorAll('.quick-edit-btn').forEach(btn => btn.classList.remove('selected'));
-                }
-                target.classList.add('selected');
-
-                // CONFORMITÉ: Sauvegarde après modification de la modale
                 saveFormData();
             });
 
@@ -2965,14 +3184,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             canvas.addEventListener('touchend', handleDrawEnd);
             
             document.querySelectorAll('.toolbar-main-tools .tool-btn').forEach(btn => {
-                btn.addEventListener('click', () => { const toolId = btn.id.split('_')[1]; if (['move', 'location', 'arrow', 'box'].includes(toolId)) setActiveTool(toolId); });
+                btn.addEventListener('click', () => { const toolId = btn.id.split('_')[1]; if (['move', 'location', 'arrow', 'box', 'text'].includes(toolId)) setActiveTool(toolId); });
             });
             document.getElementById('tool_reset').addEventListener('click', () => { 
                 annotations = []; 
                 selectedAnnotation = null; 
                 setContextualTools(null); 
-                redrawCanvas();
-                // CONFORMITÉ: Sauvegarde après effacement de toutes les annotations
+                redrawCanvas(); 
                 document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
                 saveFormData();
             });
@@ -2981,10 +3199,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 const targetId = annotationModal.dataset.targetPreviewId; 
                 const previewImg = document.getElementById(targetId);
                 if(previewImg) {
-                    // S'assurer que les annotations de l'élément sélectionné sont enregistrées avant de sauvegarder le formulaire complet
                     if (selectedAnnotation) {
-                        annotations = annotations.filter(ann => ann !== selectedAnnotation);
-                        annotations.push(selectedAnnotation);
+                        // S'assurer de désélectionner pour enlever le cadre de sélection avant de sauver ? Non, on sauve les données brutes.
                     }
                     previewImg.dataset.annotations = JSON.stringify(annotations);
                 }
@@ -3000,19 +3216,17 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     selectedAnnotation = null; 
                     setContextualTools(null); 
                     redrawCanvas(); 
-                    // CONFORMITÉ: Sauvegarde après suppression d'une annotation
                     document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
                     saveFormData();
                 } 
             });
             // Utilisation de `prompt` natif pour la saisie de texte simple
             document.getElementById('edit_text_btn').addEventListener('click', () => { 
-                if(selectedAnnotation && selectedAnnotation.type === 'location'){ 
+                if(selectedAnnotation && (selectedAnnotation.type === 'location' || selectedAnnotation.type === 'text')){ 
                     const newText = prompt('Modifier texte:', selectedAnnotation.text); 
                     if(newText !== null){ 
                         selectedAnnotation.text = newText; 
                         redrawCanvas(); 
-                        // CONFORMITÉ: Sauvegarde après édition de texte
                         document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
                         saveFormData();
                     } 
@@ -3021,7 +3235,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             
             // CORRECTION: Utiliser la délégation d'événement sur le document pour dragstart/dragend
             document.addEventListener('dragstart', e => { 
-                const target = e.target.closest('.patracdvr-member-btn, .time-item');
+                const target = e.target.closest('.patracdvr-member-btn, .time-item, .image-preview-item');
                 if (target && target.classList.contains('draggable')) { 
                     e.dataTransfer.setData('text/plain', target.id);
                     // Utiliser setTimeout pour que la classe 'dragging' soit appliquée après le début du drag (meilleure compatibilité)
@@ -3710,17 +3924,26 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 
                 addNewPage();
                 drawTitle("7. PATRACDVR");
-                const patracHeaders = ["Pax", "Fonction", "Cellule", "Princ.", "Sec.", "A.F.I.", "Grenades", "Équip. 1", "Équip. 2", "Tenue", "GPB"];
+                // NOUVEAU: Ajout de colonne DIR dans le tableau
+                const patracHeaders = ["Pax", "Fonction", "Cellule", "DIR", "Princ.", "Sec.", "A.F.I.", "Gren.", "Équip.", "Tenue", "GPB"];
                 for (const row of (formData.patracdvr_rows || [])) {
                     if(row.vehicle && row.members && row.members.length > 0) {
                         drawSubTitle(`Véhicule: ${row.vehicle}`);
                         const patracRows = row.members.filter(m => m.trigramme).map(m => [
-                            m.trigramme, m.fonction, m.cellule, 
-                            m.principales, m.secondaires, m.afis, m.grenades, 
-                            m.equipement, m.equipement2, m.tenue, m.gpb
+                            m.trigramme, 
+                            m.fonction, 
+                            m.cellule, 
+                            m.dir || '', 
+                            m.principales, 
+                            m.secondaires, 
+                            m.afis, 
+                            m.grenades, 
+                            `${m.equipement}, ${m.equipement2}`.replace('Sans, Sans', 'Sans').replace(', Sans', ''),
+                            m.tenue, 
+                            m.gpb
                         ]);
                         if (patracRows.length > 0) { 
-                             drawTable(patracHeaders, patracRows, [60, 60, 60, 70, 60, 60, 60, 60, 60, 60, 60], context.margin); 
+                             drawTable(patracHeaders, patracRows, [50, 60, 50, 40, 60, 50, 50, 50, 70, 50, 50], context.margin); 
                         }
                     }
                 }
@@ -3899,9 +4122,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         const objectURL = URL.createObjectURL(finalImageBlob);
                         
                         blockHtml += `<div style="text-align: center; margin-bottom: 15px;">
-                                        <h4 style="color:${accentColor}; margin-bottom: 5px;">Photo Principale</h4>
-                                        <img src="${objectURL}" alt="Photo de l'objectif ${adversaryIndex}" style="max-height: 250px; width: auto; border-radius: 4px;" onload="URL.revokeObjectURL(this.src)">
-                                      </div>`;
+                                                <h4 style="color:${accentColor}; margin-bottom: 5px;">Photo Principale</h4>
+                                                <img src="${objectURL}" alt="Photo de l'objectif ${adversaryIndex}" style="max-height: 250px; width: auto; border-radius: 4px;" onload="URL.revokeObjectURL(this.src)">
+                                              </div>`;
                     }
                 }
                 
@@ -4017,14 +4240,18 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             htmlContent += await drawImagesHtmlFromCategory('photo_container_emplacement_ao_preview_container', 'Emplacement AO');
 
             htmlContent += drawTitleHtml("7. PATRACDVR (Détail de la Composition)");
-            const patracHeaders = ["Trigramme", "Fonction", "Cellule", "Princ.", "Sec.", "A.F.I.", "Grenades", "Équip. 1", "Équip. 2", "Tenue", "GPB"];
+            const patracHeaders = ["Trigramme", "Fonction", "Cellule", "DIR", "Princ.", "Sec.", "A.F.I.", "Grenades", "Équip.", "Tenue", "GPB"];
             for (const row of (formData.patracdvr_rows || [])) {
                 if(row.vehicle && row.members && row.members.length > 0) {
                     htmlContent += drawSubTitleHtml(`Véhicule: ${row.vehicle}`);
                     const patracRows = row.members.filter(m => m.trigramme).map(m => [
-                         m.trigramme, m.fonction, m.cellule, 
+                         m.trigramme, 
+                         m.fonction, 
+                         m.cellule, 
+                         m.dir || '',
                          m.principales, m.secondaires, m.afis, m.grenades, 
-                         m.equipement, m.equipement2, m.tenue, m.gpb
+                         `${m.equipement}, ${m.equipement2}`.replace('Sans, Sans', 'Sans').replace(', Sans', ''), 
+                         m.tenue, m.gpb
                     ]);
                     if (patracRows.length > 0) { htmlContent += drawTableHtml(patracHeaders, patracRows); }
                 }

@@ -2245,7 +2245,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             selectedAnnotation = null;
             setContextualTools(null);
             
-            document.getElementById('active_tool_display').innerText = "Outil: " + (toolId === 'move' ? 'Déplacer' : toolId);
             const activeToolDisplay = document.getElementById('active_tool_display');
             if (activeToolDisplay) activeToolDisplay.innerText = "Outil: " + (toolId === 'move' ? 'Déplacer' : toolId);
         }

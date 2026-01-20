@@ -2261,27 +2261,41 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             
             // FIX: Réinitialiser l'objet Image pour garantir le déclenchement de onload à chaque ouverture
             baseImage = new Image();
+            baseImage.crossOrigin = "Anonymous"; // Sécurité pour le canvas
         
             let objectURL = objectUrlsCache[previewImgId];
 
             if (!objectURL) {
-                 // Tenter de recharger le blob si l'URL a été révoquée
-                 const imageBlob = await dbManager.getItem(previewImgId);
-                 if (imageBlob) {
-                     objectURL = URL.createObjectURL(imageBlob);
+                 // Fallback: Essayer de récupérer l'URL depuis l'élément img s'il s'agit d'un blob existant
+                 if (previewImg.src && previewImg.src.startsWith('blob:')) {
+                     objectURL = previewImg.src;
                      objectUrlsCache[previewImgId] = objectURL;
-                     previewImg.src = objectURL;
                  } else {
-                     alert("Impossible de charger l'image pour l'annotation. Données non trouvées.");
-                     return;
-                 }
+                     // Tenter de recharger le blob depuis la DB
+                     try {
+                         const imageBlob = await dbManager.getItem(previewImgId);
+                         if (imageBlob) {
+                             objectURL = URL.createObjectURL(imageBlob);
+                             objectUrlsCache[previewImgId] = objectURL;
+                             previewImg.src = objectURL;
+                         } else {
+                             alert("Impossible de charger l'image pour l'annotation. Données non trouvées.");
+                             return;
+                         }
+                     } catch (e) {
+                         console.error("Erreur DB:", e);
+                         alert("Erreur lors de la récupération de l'image.");
+                         return;
+                     }
+                }
             }
 
             baseImage.onload = () => {
                 canvas.width = baseImage.naturalWidth;
                 canvas.height = baseImage.naturalHeight;
                 try {
-                    annotations = JSON.parse(previewImg.dataset.annotations || '[]');
+                    const rawAnnotations = previewImg.dataset.annotations;
+                    annotations = rawAnnotations ? JSON.parse(rawAnnotations) : [];
                 } catch (e) {
                     console.error("Erreur parsing annotations:", e);
                     annotations = [];

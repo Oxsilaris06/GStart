@@ -1972,6 +1972,18 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                                 if (imageBlob) {
                                     const objectURL = URL.createObjectURL(imageBlob);
                                     objectUrlsCache[imgData.id] = objectURL;
+                                    
+                                    // NOUVEAU: Générer l'aperçu annoté si nécessaire
+                                    let previewUrl = objectURL;
+                                    const annotations = JSON.parse(imgData.annotations || '[]');
+                                    if (annotations.length > 0) {
+                                        try {
+                                            const annotatedBlob = await createAnnotatedImageBlob(imageBlob, annotations);
+                                            previewUrl = URL.createObjectURL(annotatedBlob);
+                                        } catch (e) {
+                                            console.error("Erreur génération preview annotée", e);
+                                        }
+                                    }
         
                                     const interactiveItem = document.createElement('div');
                                     interactiveItem.className = 'image-preview-item draggable'; // NOUVEAU: Draggable
@@ -1980,6 +1992,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
                                     interactiveItem.innerHTML = `
                                         <img id="${imgData.id}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations='${(imgData.annotations || '[]').replace(/'/g, "&apos;") }'>
+                                        <img id="${imgData.id}" class="image-preview" src="${previewUrl}" style="display:block;" data-annotations='${(imgData.annotations || '[]').replace(/'/g, "&apos;") }'>
                                         <div style="display: flex; gap: 5px; margin-top: 5px;">
                                             <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="openAnnotationModal('${imgData.id}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
                                             <button type="button" class="remove-btn" style="padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="removeImage('${imgData.id}', this.closest('.image-preview-item'))">&times;</button>
@@ -3297,6 +3310,30 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         // S'assurer de désélectionner pour enlever le cadre de sélection avant de sauver ? Non, on sauve les données brutes.
                     }
                     previewImg.dataset.annotations = JSON.stringify(annotations);
+                    
+                    // NOUVEAU: Mettre à jour l'aperçu visuel immédiatement
+                    if (annotations.length > 0) {
+                        // Désélectionner pour le rendu propre
+                        selectedAnnotation = null;
+                        setContextualTools(null);
+                        redrawCanvas();
+                        
+                        canvas.toBlob(blob => {
+                            if (blob) {
+                                const newUrl = URL.createObjectURL(blob);
+                                // Si l'ancienne src était un blob généré (et pas l'original), on peut le révoquer pour nettoyer
+                                if (previewImg.src.startsWith('blob:') && previewImg.src !== objectUrlsCache[targetId]) {
+                                    URL.revokeObjectURL(previewImg.src);
+                                }
+                                previewImg.src = newUrl;
+                            }
+                        });
+                    } else {
+                        // Si plus d'annotations, remettre l'image originale
+                        if (objectUrlsCache[targetId]) {
+                             previewImg.src = objectUrlsCache[targetId];
+                        }
+                    }
                 }
                 saveFormData(); 
                 annotationModal.close();

@@ -4,7 +4,7 @@
 	<link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OI - ADI</title>
+    <title>OI - ADI </title>
 	<link rel="icon" href="favicon.ico" sizes="any" type="image/png">
     <link rel="icon" href="favicon.ico" type="image/svg+xml">
     <link rel="apple-touch-icon" href="favicon.ico">
@@ -782,7 +782,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                         <!-- NOUVEAU: Champ DIR Radio -->
                         <div style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
                             <label for="quick_edit_dir_input" style="color:var(--accent-blue);">DIR (CANAL):</label>
-                            <input type="text" id="quick_edit_dir_input" placeholder="Ex: 3450" style="margin-bottom: 0;">
+                            <input type="text" id="quick_edit_dir_input" placeholder="Ex: 42, 101..." style="margin-bottom: 0;">
                         </div>
                         
                         <div class="quick-edit-content"></div>
@@ -920,6 +920,23 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                                 <input type="file" id="photo_container_cellule_effraction_input" class="photo-input" accept="image/jpeg, image/png" multiple onchange="handleFileChange(this, 'photo_container_cellule_effraction_preview_container', false)">
                                 <div id="photo_container_cellule_effraction_preview_container" class="image-preview-container"></div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- FOND PDF PERSONNALISÉ -->
+                    <div class="collapsible-container">
+                        <div class="collapsible-header">
+                            <h3>Fond PDF Personnalisé</h3>
+                            <span class="material-symbols-outlined">expand_more</span>
+                        </div>
+                        <div class="collapsible-content" style="display: flex; flex-direction: column; gap: 15px;">
+                            <p>Vous pouvez remplacer le fond par défaut (Grille Tactique) par une image de votre choix.</p>
+                            <div style="display: flex; gap: 10px;">
+                                <button type="button" class="add-btn" onclick="document.getElementById('custom_bg_input').click()">📂 Choisir Image</button>
+                                <button type="button" class="remove-btn" onclick="removeCustomBackground()">🗑️ Rétablir Défaut</button>
+                            </div>
+                            <input type="file" id="custom_bg_input" class="photo-input" accept="image/jpeg, image/png, image/jpg" onchange="handleCustomBackgroundChange(this)">
+                            <div id="custom_bg_preview_container" class="image-preview-container" style="margin-top: 10px;"></div>
                         </div>
                     </div>
                 </div>
@@ -1300,6 +1317,53 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             }
         }
 
+        // --- Gestion du Fond Personnalisé ---
+        async function handleCustomBackgroundChange(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                try {
+                    await dbManager.putItem('custom_pdf_background', file);
+                    updateCustomBgPreview();
+                    alert("Fond personnalisé enregistré.");
+                } catch (e) {
+                    console.error(e);
+                    alert("Erreur lors de l'enregistrement du fond.");
+                }
+            }
+            input.value = '';
+        }
+
+        async function removeCustomBackground() {
+            try {
+                await dbManager.deleteItem('custom_pdf_background');
+                updateCustomBgPreview();
+                alert("Fond personnalisé supprimé. Le fond par défaut sera utilisé.");
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function updateCustomBgPreview() {
+            const container = document.getElementById('custom_bg_preview_container');
+            if (!container) return;
+            container.innerHTML = '';
+            try {
+                const blob = await dbManager.getItem('custom_pdf_background');
+                if (blob) {
+                    const url = URL.createObjectURL(blob);
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.className = 'image-preview';
+                    img.style.maxWidth = '200px';
+                    img.onload = () => URL.revokeObjectURL(url);
+                    container.appendChild(img);
+                } else {
+                    container.innerHTML = '<p style="font-style:italic; color:var(--text-secondary);">Aucun fond personnalisé. Fond par défaut actif.</p>';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
 
         function addDynamicField(containerId, value = '') {
             const container = document.getElementById(containerId);
@@ -2040,6 +2104,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 setupQuickEditPanel(); 
         
                 updateArticulationDisplay();
+                await updateCustomBgPreview(); // Charger l'aperçu du fond
                 return true;
         
             } catch (e) {
@@ -3659,9 +3724,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             const PDF_TARGET_SIZE_BYTES = 2.5 * 1024 * 1024;
             const TEXT_OVERHEAD_ESTIMATE = 150 * 1024; 
             
-            const isDarkMode = document.body.classList.contains('dark-mode');
-            const backgroundImagePath = isDarkMode ? BACKGROUND_IMAGE_DARK : BACKGROUND_IMAGE_LIGHT;
-            
             const allImagesMeta = [];
             if (formData.dynamic_photos) {
                 for (const category in formData.dynamic_photos) {
@@ -3669,8 +3731,19 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 }
             }
             
-            // NOUVEAU: Ajout de l'image de fond système à la liste à compresser, avec un ID unique
-            allImagesMeta.push({ id: BACKGROUND_IMAGE_ID, path: backgroundImagePath, isSystemBackground: true, annotationsJson: '[]' });
+            // Gestion du fond (Personnalisé ou Système)
+            const customBgBlob = await dbManager.getItem('custom_pdf_background');
+            let bgImageIdToUse = BACKGROUND_IMAGE_ID;
+
+            if (customBgBlob) {
+                bgImageIdToUse = 'custom_pdf_background';
+                // On l'ajoute comme une image normale (chargée depuis la DB), pas comme système
+                allImagesMeta.push({ id: 'custom_pdf_background', annotationsJson: '[]' });
+            } else {
+                const isDarkMode = document.body.classList.contains('dark-mode');
+                const backgroundImagePath = isDarkMode ? BACKGROUND_IMAGE_DARK : BACKGROUND_IMAGE_LIGHT;
+                allImagesMeta.push({ id: BACKGROUND_IMAGE_ID, path: backgroundImagePath, isSystemBackground: true, annotationsJson: '[]' });
+            }
 
 
             let quality = 0.9;
@@ -3732,6 +3805,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             // --- Fin de la Section de Compression ---
 
             const getVal = (id) => formData[id] || '';
+            const isDarkMode = document.body.classList.contains('dark-mode');
             const context = {
                 pdfDoc, helveticaFont, helveticaBoldFont,
                 currentPage: null, y: 0, pageWidth: 0, pageHeight: 0, margin: 40,
@@ -3742,11 +3816,15 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             let backgroundImage = null;
             
             // NOUVEAU: Chargement de l'image de fond compressée
-            if (compressedImages[BACKGROUND_IMAGE_ID]) {
+            if (compressedImages[bgImageIdToUse]) {
                 try {
-                    const imageBytes = compressedImages[BACKGROUND_IMAGE_ID];
-                    // L'image de fond est censée être un PNG
-                    backgroundImage = await pdfDoc.embedPng(imageBytes);
+                    const imageBytes = compressedImages[bgImageIdToUse];
+                    // Tenter d'intégrer en PNG ou JPG selon le format
+                    try {
+                        backgroundImage = await pdfDoc.embedPng(imageBytes);
+                    } catch (e) {
+                        backgroundImage = await pdfDoc.embedJpg(imageBytes);
+                    }
                 } catch (e) { 
                     console.warn("L'image de fond n'a pas pu être intégrée (même après compression).", e);
                 }
@@ -4257,7 +4335,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     imageHtml += `<div style="text-align: center; margin: 20px 0; border: 1px solid ${accentColor}; padding: 10px; background-color: ${isDarkMode ? '#1e1e1e' : '#ffffff'};">`;
                     imageHtml += `<h4 style="color: ${accentColor}; margin-bottom: 10px; font-size: 1.1em;">${finalTitle}</h4>`;
                     // Utiliser onload pour révoquer l'URL après le chargement
-                    imageHtml += `<img src="${objectURL}" alt="${finalTitle}" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,${isDarkMode ? 0.4 : 0.1});" onload="URL.revokeObjectURL(this.src)">`; 
+                    imageHtml += `<img src="${objectURL}" alt="${finalTitle}" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,${isDarkMode ? 0.4 : 0.1});">`; 
                     imageHtml += `</div>`;
                 }
                 return imageHtml;
@@ -4315,7 +4393,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         
                         blockHtml += `<div style="text-align: center; margin-bottom: 15px;">
                                                 <h4 style="color:${accentColor}; margin-bottom: 5px;">Photo Principale</h4>
-                                                <img src="${objectURL}" alt="Photo de l'objectif ${adversaryIndex}" style="max-height: 250px; width: auto; border-radius: 4px;" onload="URL.revokeObjectURL(this.src)">
+                                                <img src="${objectURL}" alt="Photo de l'objectif ${adversaryIndex}" style="max-height: 250px; width: auto; border-radius: 4px;">
                                               </div>`;
                     }
                 }

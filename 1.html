@@ -4,7 +4,7 @@
 	<link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OI - Générateur Opérationnel</title>
+    <title>OI - ADI</title>
 	<link rel="icon" href="favicon.ico" sizes="any" type="image/png">
     <link rel="icon" href="favicon.ico" type="image/svg+xml">
     <link rel="apple-touch-icon" href="favicon.ico">
@@ -469,6 +469,7 @@
 </head>
 <body class="dark-mode">
 
+    <input type="file" id="sessionFileInput" accept=".json" style="display: none;">
     <dialog id="presentationModal">
         <div id="presentation-content">
             </div>
@@ -780,8 +781,8 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                         
                         <!-- NOUVEAU: Champ DIR Radio -->
                         <div style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                            <label for="quick_edit_dir_input" style="color:var(--accent-blue);">DIR (Dossier Individuel Radio):</label>
-                            <input type="text" id="quick_edit_dir_input" placeholder="Ex: 42, 101..." style="margin-bottom: 0;">
+                            <label for="quick_edit_dir_input" style="color:var(--accent-blue);">DIR (CANAL):</label>
+                            <input type="text" id="quick_edit_dir_input" placeholder="Ex: 3450" style="margin-bottom: 0;">
                         </div>
                         
                         <div class="quick-edit-content"></div>
@@ -974,6 +975,13 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
     <a href="pctac.html" class="dock-menu-item" id="pctacLink" title="Accéder à PCTAC">
         <span class="material-symbols-outlined">alt_route</span>
     </a>
+    
+    <div class="dock-menu-item" id="importSessionBtn" title="Importer Session">
+        <span class="material-symbols-outlined">file_upload</span>
+    </div>
+    <div class="dock-menu-item" id="exportSessionBtn" title="Exporter Session">
+        <span class="material-symbols-outlined">file_download</span>
+    </div>
     
     <div class="dock-menu-item" id="darkModeToggle" title="Changer le thème">
         <span class="material-symbols-outlined" id="darkModeIcon">nightlight</span>
@@ -3080,6 +3088,54 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                  }
             }
             
+            // Gestion Import/Export Session
+            const importSessionBtn = document.getElementById('importSessionBtn');
+            const exportSessionBtn = document.getElementById('exportSessionBtn');
+            const sessionFileInput = document.getElementById('sessionFileInput');
+
+            if (importSessionBtn && sessionFileInput) {
+                importSessionBtn.addEventListener('click', () => sessionFileInput.click());
+                sessionFileInput.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const json = event.target.result;
+                            JSON.parse(json); // Validation JSON
+                            localStorage.setItem(LOCAL_STORAGE_KEY, json);
+                            alert("Session importée avec succès. Rechargement...");
+                            location.reload();
+                        } catch (err) {
+                            alert("Erreur: Fichier de session invalide.");
+                            console.error(err);
+                        }
+                    };
+                    reader.readAsText(file);
+                    e.target.value = '';
+                });
+            }
+
+            if (exportSessionBtn) {
+                exportSessionBtn.addEventListener('click', () => {
+                    saveFormData();
+                    const data = localStorage.getItem(LOCAL_STORAGE_KEY);
+                    if (data) {
+                        const blob = new Blob([data], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `OI_Session_${new Date().toISOString().slice(0,10)}.json`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    } else {
+                        alert("Aucune donnée à exporter.");
+                    }
+                });
+            }
+
             // Réinitialisation/Chargement des chips après loadFormData
             const formData = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || {};
             initChipContainer('etat_esprit_container', formData.etat_esprit_list || []);

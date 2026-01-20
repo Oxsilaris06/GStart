@@ -3185,9 +3185,26 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
             if (resetAllBtn) {
                 resetAllBtn.addEventListener('click', async () => {
-                    if (confirm("Attention: Toutes les données et photos seront définitivement effacées.")) {
+                    if (confirm("Attention: Toutes les données et photos seront définitivement effacées (Sauf le PATRACDVR).")) {
+                        // Sauvegarder le PATRACDVR actuel
+                        const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+                        let patracdvrData = {};
+                        if (savedData) {
+                            try {
+                                const parsed = JSON.parse(savedData);
+                                if (parsed.patracdvr_rows) patracdvrData.patracdvr_rows = parsed.patracdvr_rows;
+                                if (parsed.patracdvr_unassigned) patracdvrData.patracdvr_unassigned = parsed.patracdvr_unassigned;
+                            } catch(e) { console.error(e); }
+                        }
+
                         localStorage.removeItem(LOCAL_STORAGE_KEY);
                         await dbManager.clearAllImages();
+                        
+                        // Restaurer le PATRACDVR
+                        if (Object.keys(patracdvrData).length > 0) {
+                            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(patracdvrData));
+                        }
+                        
                         location.reload();
                     }
                     resetOptionsModal.close();

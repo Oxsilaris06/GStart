@@ -515,6 +515,10 @@
                             <label for="stroke_width_edit" style="font-size: 0.8em; margin:0;">Épaisseur</label>
                             <input type="range" id="stroke_width_edit" min="1" max="20" step="1" value="5" style="width: 80px;" oninput="updateStrokeWidth(this.value)">
                         </div>
+                        <div id="text_size_control" style="display: none; flex-direction: column; align-items: center; gap: 5px;">
+                            <label for="text_size_edit" style="font-size: 0.8em; margin:0;">Taille Texte</label>
+                            <input type="range" id="text_size_edit" min="10" max="200" step="5" value="30" style="width: 80px;" oninput="updateTextSize(this.value)">
+                        </div>
 
                         <button id="edit_text_btn" class="tool-btn"><span class="material-symbols-outlined">text_fields</span>Texte</button>
                          <button id="delete_btn" class="tool-btn" style="background-color: var(--danger-red); color: white;"><span class="material-symbols-outlined">delete</span>Suppr.</button>
@@ -551,6 +555,10 @@
                  <div id="controls_box" class="tool-controls">
                      <label for="box_thickness">Épaisseur:</label>
                      <input type="range" id="box_thickness" min="1" max="20" value="5">
+                 </div>
+                 <div id="controls_text" class="tool-controls">
+                     <label for="text_size_tool">Taille:</label>
+                     <input type="range" id="text_size_tool" min="10" max="200" step="5" value="30">
                  </div>
                  <div class="annotation-actions">
                      <button id="tool_reset" class="tool-btn"><span class="material-symbols-outlined">delete_sweep</span>Tout effacer</button>
@@ -2193,6 +2201,14 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 const strokeSlider = document.getElementById('stroke_width_edit');
                 if(strokeSlider && selection.thickness) strokeSlider.value = selection.thickness;
                 // Pour arrow, c'est plus complexe, on ignore pour l'instant
+
+                const textSizeControl = document.getElementById('text_size_control');
+                if(textSizeControl) textSizeControl.style.display = selection.type === 'text' ? 'flex' : 'none';
+
+                if (selection.type === 'text') {
+                     const textSizeSlider = document.getElementById('text_size_edit');
+                     if(textSizeSlider) textSizeSlider.value = selection.size || 30;
+                }
                 
             } else {
                 contextualTools.classList.remove('active');
@@ -2217,6 +2233,15 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         function updateStrokeWidth(val) {
             if (selectedAnnotation) {
                 selectedAnnotation.thickness = parseInt(val);
+                redrawCanvas();
+                document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
+                saveFormData();
+            }
+        }
+        
+        function updateTextSize(val) {
+            if (selectedAnnotation && selectedAnnotation.type === 'text') {
+                selectedAnnotation.size = parseInt(val);
                 redrawCanvas();
                 document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
                 saveFormData();
@@ -2373,11 +2398,12 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 centerX = (annotation.startX + annotation.endX) / 2;
                 centerY = (annotation.startY + annotation.endY) / 2;
             } else if (annotation.type === 'text') {
-                ctx.font = "bold 30px Oswald";
+                const size = annotation.size || 30;
+                ctx.font = `bold ${size}px Oswald`;
                 width = ctx.measureText(annotation.text).width + 20;
-                height = 40; 
+                height = size + 10; 
                 x = annotation.x - 10;
-                y = annotation.y - 30; // approx ascent
+                y = annotation.y - size; // approx ascent
                 centerX = x + width/2;
                 centerY = y + height/2;
             }
@@ -2447,7 +2473,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     break;
                 }
                 case 'text': {
-                    ctx.font = "bold 30px Oswald";
+                    const size = annotation.size || 30;
+                    ctx.font = `bold ${size}px Oswald`;
                     ctx.fillStyle = color;
                     ctx.strokeStyle = "black";
                     ctx.lineWidth = 2;
@@ -2548,9 +2575,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         break;
                     case 'text':
                         // Simple bounding box approx
-                        ctx.font = "bold 30px Oswald";
+                        const size = annotation.size || 30;
+                        ctx.font = `bold ${size}px Oswald`;
                         const w = ctx.measureText(annotation.text).width;
-                        const h = 30;
+                        const h = size;
                         isInside = testX >= annotation.x && testX <= annotation.x + w && testY >= annotation.y - h && testY <= annotation.y;
                         break;
                     case 'arrow':
@@ -2598,6 +2626,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 // NOUVEAU: Outil Texte Click
                 const text = prompt("Texte à insérer :");
                 if(text) {
+                    const sizeInput = document.getElementById('text_size_tool');
+                    const size = sizeInput ? parseInt(sizeInput.value) : 30;
                     annotations.push({
                         type: 'text',
                         x: startX,
@@ -2605,6 +2635,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         text: text,
                         color: currentAnnotationColor,
                         rotation: 0
+                        size: size
                     });
                     redrawCanvas();
                 }
@@ -2794,7 +2825,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     break;
                 }
                 case 'text': {
-                    context.font = "bold 30px Oswald";
+                    const size = annotation.size || 30;
+                    context.font = `bold ${size}px Oswald`;
                     context.fillStyle = color;
                     context.strokeStyle = "black";
                     context.lineWidth = 2;

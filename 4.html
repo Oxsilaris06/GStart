@@ -2030,10 +2030,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             e.preventDefault();
             const targetContainer = e.currentTarget;
             
-            // Vérifier que c'est un membre PATRACDVR qui est dragué
-            const draggedId = e.dataTransfer.getData('text/plain');
-            // Pour le drop de photos, on ne gère pas le survol spécifique ici, géré dans dragover
-            const draggedItem = document.getElementById(draggedId);
             // FIX: Utilisation de .dragging car dataTransfer.getData n'est pas accessible ici
             const draggedItem = document.querySelector('.dragging');
             
@@ -2049,8 +2045,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         function handleDragOver(e) {
             e.preventDefault(); 
             const targetContainer = e.currentTarget;
-            const draggedId = e.dataTransfer.getData('text/plain');
-            const draggedItem = document.getElementById(draggedId);
             // FIX: Utilisation de .dragging car dataTransfer.getData n'est pas accessible ici
             const draggedItem = document.querySelector('.dragging');
 
@@ -2840,8 +2834,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             // Écouteur global pour le dragover des éléments de temps (à l'intérieur de leur conteneur)
             document.getElementById('time_events_container').addEventListener('dragover', e => {
                 e.preventDefault();
-                const draggedId = e.dataTransfer.getData('text/plain');
-                const draggedItem = document.getElementById(draggedId);
                 const draggedItem = document.querySelector('.dragging');
                 const targetContainer = e.currentTarget;
                 

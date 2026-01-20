@@ -233,15 +233,16 @@
         }
         
         /* Modals: Simplified */
-        #quickEditModal { color: var(--text-primary); background: var(--bg-container); width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; margin: 0; border: none; border-radius: 0; padding: 15px; }
-        #quickEditModal::backdrop { background: rgba(0, 0, 0, 0.85); }
-        #quickEditModal .modal-form { display: flex; flex-direction: column; height: 100%; }
-        #quickEditModal .modal-content { flex: 1 1 auto; overflow-y: auto; padding: 0 5px; }
-        #quickEditModal .modal-actions { flex-shrink: 0; display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
-        #quickEditModal .modal-actions button { flex: 1; }
-        #quick_modal_closeBtn { background-color: var(--bg-interactive); color: var(--text-primary); border: 1px solid var(--border-color); }
+         #quickEditModal, #settingsModal, #resetOptionsModal { color: var(--text-primary); background: var(--bg-container); width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; margin: 0; border: none; border-radius: 0; padding: 15px; }
+        #quickEditModal::backdrop, #settingsModal::backdrop, #resetOptionsModal::backdrop { background: rgba(0, 0, 0, 0.85); }
+        #quickEditModal .modal-form, #settingsModal .modal-form, #resetOptionsModal .modal-form { display: flex; flex-direction: column; height: 100%; }
+        #quickEditModal .modal-content, #settingsModal .modal-content, #resetOptionsModal .modal-content { flex: 1 1 auto; overflow-y: auto; padding: 0 5px; }
+        #quickEditModal .modal-actions, #settingsModal .modal-actions, #resetOptionsModal .modal-actions { flex-shrink: 0; display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
+        #quickEditModal .modal-actions button, #settingsModal .modal-actions button, #resetOptionsModal .modal-actions button { flex: 1; }
+        #quick_modal_closeBtn, #settings_closeBtn, #cancelResetBtn { background-color: var(--bg-interactive); color: var(--text-primary); border: 1px solid var(--border-color); }
+        #settings_saveBtn { background-color: var(--success-green); color: white; }
 
-        #quickEditPanel { 
+        #quickEditPanel {  
             padding: 15px; border: 1px solid var(--border-color); border-radius: 5px; margin-top: 20px; background-color: var(--bg-body); 
             display: flex;
             flex-direction: column;
@@ -483,6 +484,22 @@
         </div>
     </dialog>
     
+    <dialog id="resetOptionsModal">
+        <div class="modal-form">
+            <h3>Réinitialisation</h3>
+            <div class="modal-content" style="text-align: center; display: flex; flex-direction: column; gap: 20px; justify-content: center;">
+                <p>Que souhaitez-vous réinitialiser ?</p>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button type="button" id="resetPageBtn" class="wizard-nav-btn" style="background-color: var(--accent-blue); min-width: 120px; color: white;">Page Active</button>
+                    <button type="button" id="resetAllBtn" class="wizard-nav-btn" style="background-color: var(--danger-red); min-width: 120px; color: white;">Tout</button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="cancelResetBtn">Annuler</button>
+            </div>
+        </div>
+    </dialog>
+
     <dialog id="quickEditModal">
         <div class="modal-form">
             <h3 id="quick_modal_title">Édition rapide</h3>
@@ -998,6 +1015,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
     </div>
     <div class="dock-menu-item" id="exportSessionBtn" title="Exporter Session">
         <span class="material-symbols-outlined">file_download</span>
+    </div>
+    <div class="dock-menu-item" id="resetMenuBtn" title="Réinitialiser">
+        <span class="material-symbols-outlined">restart_alt</span>
     </div>
     
     <div class="dock-menu-item" id="darkModeToggle" title="Changer le thème">
@@ -3151,6 +3171,56 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                      dock.classList.add('collapsed');
                      document.querySelector('#dockToggleBtn .material-symbols-outlined').textContent = 'expand_less';
                  }
+            }
+            
+            // Gestion du Reset via le Dock
+            const resetOptionsModal = document.getElementById('resetOptionsModal');
+            const resetMenuBtn = document.getElementById('resetMenuBtn');
+            const cancelResetBtn = document.getElementById('cancelResetBtn');
+            const resetAllBtn = document.getElementById('resetAllBtn');
+            const resetPageBtn = document.getElementById('resetPageBtn');
+
+            if (resetMenuBtn) resetMenuBtn.addEventListener('click', () => resetOptionsModal.showModal());
+            if (cancelResetBtn) cancelResetBtn.addEventListener('click', () => resetOptionsModal.close());
+
+            if (resetAllBtn) {
+                resetAllBtn.addEventListener('click', async () => {
+                    if (confirm("Attention: Toutes les données et photos seront définitivement effacées.")) {
+                        localStorage.removeItem(LOCAL_STORAGE_KEY);
+                        await dbManager.clearAllImages();
+                        location.reload();
+                    }
+                    resetOptionsModal.close();
+                });
+            }
+
+            if (resetPageBtn) {
+                resetPageBtn.addEventListener('click', async () => {
+                    if (confirm("Réinitialiser uniquement les champs de la page active ?")) {
+                        const activeStep = document.querySelector('.wizard-step.active');
+                        if (activeStep) {
+                            activeStep.querySelectorAll('input:not([type="file"]), textarea, select').forEach(el => {
+                                if (el.type === 'checkbox' || el.type === 'radio') el.checked = false;
+                                else el.value = '';
+                            });
+                            activeStep.querySelectorAll('.dynamic-list-item').forEach(el => el.remove());
+                            activeStep.querySelectorAll('.chip-btn.selected').forEach(el => el.classList.remove('selected'));
+                            
+                            const images = activeStep.querySelectorAll('.image-preview-item img');
+                            for (const img of images) { await removeImage(img.id, img.closest('.image-preview-item')); }
+                            
+                            if (activeStep.querySelector('#patracdvr_container')) {
+                                document.getElementById('patracdvr_container').innerHTML = '';
+                                document.getElementById('unassigned_members_container').innerHTML = '';
+                                activeMemberId = null;
+                                document.getElementById('quickEditPanel').style.display = 'none';
+                            }
+                            saveFormData();
+                            updateArticulationDisplay();
+                        }
+                    }
+                    resetOptionsModal.close();
+                });
             }
             
             // Gestion Import/Export Session

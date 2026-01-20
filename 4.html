@@ -1991,7 +1991,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                                     interactiveItem.id = imgData.id + "_item"; // ID Unique pour drag
 
                                     interactiveItem.innerHTML = `
-                                        <img id="${imgData.id}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations='${(imgData.annotations || '[]').replace(/'/g, "&apos;") }'>
                                         <img id="${imgData.id}" class="image-preview" src="${previewUrl}" style="display:block;" data-annotations='${(imgData.annotations || '[]').replace(/'/g, "&apos;") }'>
                                         <div style="display: flex; gap: 5px; margin-top: 5px;">
                                             <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="openAnnotationModal('${imgData.id}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>

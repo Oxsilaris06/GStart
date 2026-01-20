@@ -158,6 +158,10 @@
         .photo-display-area .image-preview {
             margin: 0;
         }
+        
+        .image-preview-container {
+            display: flex; flex-wrap: wrap; gap: 10px;
+        }
 
         .draggable { cursor: grab; user-select: none; }
         .draggable.dragging { opacity: 0.5; cursor: grabbing; }
@@ -507,6 +511,14 @@
                             <label for="resize_h" style="font-size: 0.8em; margin:0;">Hauteur</label>
                             <input type="range" id="resize_h" min="20" max="800" step="5" style="width: 80px;" oninput="resizeSelected(null, this.value)">
                         </div>
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                            <label for="stroke_width_edit" style="font-size: 0.8em; margin:0;">Épaisseur</label>
+                            <input type="range" id="stroke_width_edit" min="1" max="20" step="1" value="5" style="width: 80px;" oninput="updateStrokeWidth(this.value)">
+                        </div>
+                        <div id="text_size_control" style="display: none; flex-direction: column; align-items: center; gap: 5px;">
+                            <label for="text_size_edit" style="font-size: 0.8em; margin:0;">Taille Texte</label>
+                            <input type="range" id="text_size_edit" min="10" max="200" step="5" value="30" style="width: 80px;" oninput="updateTextSize(this.value)">
+                        </div>
 
                         <button id="edit_text_btn" class="tool-btn"><span class="material-symbols-outlined">text_fields</span>Texte</button>
                          <button id="delete_btn" class="tool-btn" style="background-color: var(--danger-red); color: white;"><span class="material-symbols-outlined">delete</span>Suppr.</button>
@@ -535,6 +547,18 @@
                      <input type="text" id="circle_text" value="Zone">
                      <label for="circle_opacity">Transp.:</label>
                      <input type="range" id="circle_opacity" min="0.1" max="1" step="0.1" value="0.5">
+                 </div>
+                 <div id="controls_arrow" class="tool-controls">
+                     <label for="arrow_thickness">Épaisseur:</label>
+                     <input type="range" id="arrow_thickness" min="1" max="20" value="5">
+                 </div>
+                 <div id="controls_box" class="tool-controls">
+                     <label for="box_thickness">Épaisseur:</label>
+                     <input type="range" id="box_thickness" min="1" max="20" value="5">
+                 </div>
+                 <div id="controls_text" class="tool-controls">
+                     <label for="text_size_tool">Taille:</label>
+                     <input type="range" id="text_size_tool" min="10" max="200" step="5" value="30">
                  </div>
                  <div class="annotation-actions">
                      <button id="tool_reset" class="tool-btn"><span class="material-symbols-outlined">delete_sweep</span>Tout effacer</button>
@@ -756,7 +780,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                         
                         <!-- NOUVEAU: Champ DIR Radio -->
                         <div style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                            <label for="quick_edit_dir_input" style="color:var(--accent-blue);">DIR (CANAL):</label>
+                            <label for="quick_edit_dir_input" style="color:var(--accent-blue);">DIR (Dossier Individuel Radio):</label>
                             <input type="text" id="quick_edit_dir_input" placeholder="Ex: 42, 101..." style="margin-bottom: 0;">
                         </div>
                         
@@ -992,6 +1016,15 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         let activeMemberId = null;
         let currentAnnotationColor = '#c0392b'; // Couleur par défaut (rouge)
 
+        function hexToRgb(hex) {
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
         let currentStep = 0;
         let visitedSteps = new Set();
         const steps = Array.from(document.querySelectorAll(".wizard-step"));
@@ -1190,8 +1223,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         interactiveItem.innerHTML = `
                             <img id="${previewImgId}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations="[]">
                             <div style="display: flex; gap: 5px; margin-top: 5px;">
-                                <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onclick="openAnnotationModal('${previewImgId}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
-                                <button type="button" class="remove-btn" style="padding: 4px 8px;" onclick="removeImage('${previewImgId}', this.closest('.image-preview-item'))">&times;</button>
+                                <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="openAnnotationModal('${previewImgId}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
+                                <button type="button" class="remove-btn" style="padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="removeImage('${previewImgId}', this.closest('.image-preview-item'))">&times;</button>
                             </div>`;
                         previewContainer.appendChild(interactiveItem);
         
@@ -1371,7 +1404,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             const optionsHtml = ['T0','T1','T2','T3','T4','T5'].map(t => 
                 `<option value="${t}" ${t === type ? 'selected' : ''}>${t}</option>`
             ).join('');
-            item.innerHTML = `<select class="time-type-select" onchange="saveFormData()">${optionsHtml}</select><input type="time" class="time-hour-input" value="${hour}" onchange="saveFormData()"><input type="text" class="time-description-input" placeholder="Description" value="${desc || ''}" oninput="saveFormData()"><button type="button" class="remove-btn" onclick="this.parentElement.remove(); saveFormData();">❌</button>`;
+            item.innerHTML = `<select class="time-type-select" onchange="saveFormData()">${optionsHtml}</select><input type="time" class="time-hour-input" value="${hour}" onchange="saveFormData()"><input type="text" class="time-description-input" placeholder="Description" value="${desc || ''}" oninput="saveFormData()"><button type="button" class="remove-btn" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="this.parentElement.remove(); saveFormData();">❌</button>`;
             container.appendChild(item);
         }
 
@@ -1939,6 +1972,18 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                                 if (imageBlob) {
                                     const objectURL = URL.createObjectURL(imageBlob);
                                     objectUrlsCache[imgData.id] = objectURL;
+                                    
+                                    // NOUVEAU: Générer l'aperçu annoté si nécessaire
+                                    let previewUrl = objectURL;
+                                    const annotations = JSON.parse(imgData.annotations || '[]');
+                                    if (annotations.length > 0) {
+                                        try {
+                                            const annotatedBlob = await createAnnotatedImageBlob(imageBlob, annotations);
+                                            previewUrl = URL.createObjectURL(annotatedBlob);
+                                        } catch (e) {
+                                            console.error("Erreur génération preview annotée", e);
+                                        }
+                                    }
         
                                     const interactiveItem = document.createElement('div');
                                     interactiveItem.className = 'image-preview-item draggable'; // NOUVEAU: Draggable
@@ -1946,10 +1991,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                                     interactiveItem.id = imgData.id + "_item"; // ID Unique pour drag
 
                                     interactiveItem.innerHTML = `
-                                        <img id="${imgData.id}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations='${imgData.annotations || '[]'}'>
+                                        <img id="${imgData.id}" class="image-preview" src="${previewUrl}" style="display:block;" data-annotations='${(imgData.annotations || '[]').replace(/'/g, "&apos;") }'>
                                         <div style="display: flex; gap: 5px; margin-top: 5px;">
-                                            <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onclick="openAnnotationModal('${imgData.id}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
-                                            <button type="button" class="remove-btn" style="padding: 4px 8px;" onclick="removeImage('${imgData.id}', this.closest('.image-preview-item'))">&times;</button>
+                                            <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="openAnnotationModal('${imgData.id}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
+                                            <button type="button" class="remove-btn" style="padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="removeImage('${imgData.id}', this.closest('.image-preview-item'))">&times;</button>
                                         </div>`;
                                     previewContainer.appendChild(interactiveItem);
                                 } else {
@@ -2030,10 +2075,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             e.preventDefault();
             const targetContainer = e.currentTarget;
             
-            // Vérifier que c'est un membre PATRACDVR qui est dragué
-            const draggedId = e.dataTransfer.getData('text/plain');
-            // Pour le drop de photos, on ne gère pas le survol spécifique ici, géré dans dragover
-            const draggedItem = document.getElementById(draggedId);
+            // FIX: Utilisation de .dragging car dataTransfer.getData n'est pas accessible ici
+            const draggedItem = document.querySelector('.dragging');
             
             if (draggedItem && draggedItem.classList.contains('patracdvr-member-btn')) {
                 if(targetContainer.id === 'trashCan') {
@@ -2047,8 +2090,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         function handleDragOver(e) {
             e.preventDefault(); 
             const targetContainer = e.currentTarget;
-            const draggedId = e.dataTransfer.getData('text/plain');
-            const draggedItem = document.getElementById(draggedId);
+            // FIX: Utilisation de .dragging car dataTransfer.getData n'est pas accessible ici
+            const draggedItem = document.querySelector('.dragging');
 
             if (!draggedItem) return;
 
@@ -2146,7 +2189,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         const annotationModal = document.getElementById('annotationModal');
         const canvas = document.getElementById('annotationCanvas');
         const ctx = canvas.getContext('2d');
-        const baseImage = new Image();
+        let baseImage = new Image();
         let annotations = [], currentTool = 'move', isDrawing = false, isDragging = false, startX, startY;
         let currentAnnotation = null, selectedAnnotation = null, dragOffsetX, dragOffsetY;
         const rotationInput = document.getElementById('rotation_input');
@@ -2166,7 +2209,18 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 const hSlider = document.getElementById('resize_h');
                 if(wSlider && selection.width) wSlider.value = selection.width;
                 if(hSlider && selection.height) hSlider.value = selection.height;
+                
+                const strokeSlider = document.getElementById('stroke_width_edit');
+                if(strokeSlider && selection.thickness) strokeSlider.value = selection.thickness;
                 // Pour arrow, c'est plus complexe, on ignore pour l'instant
+
+                const textSizeControl = document.getElementById('text_size_control');
+                if(textSizeControl) textSizeControl.style.display = selection.type === 'text' ? 'flex' : 'none';
+
+                if (selection.type === 'text') {
+                     const textSizeSlider = document.getElementById('text_size_edit');
+                     if(textSizeSlider) textSizeSlider.value = selection.size || 30;
+                }
                 
             } else {
                 contextualTools.classList.remove('active');
@@ -2186,6 +2240,24 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 selectedAnnotation.radius = parseInt(w) / 2;
             }
             redrawCanvas();
+        }
+        
+        function updateStrokeWidth(val) {
+            if (selectedAnnotation) {
+                selectedAnnotation.thickness = parseInt(val);
+                redrawCanvas();
+                document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
+                saveFormData();
+            }
+        }
+        
+        function updateTextSize(val) {
+            if (selectedAnnotation && selectedAnnotation.type === 'text') {
+                selectedAnnotation.size = parseInt(val);
+                redrawCanvas();
+                document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
+                saveFormData();
+            }
         }
         
         function updateAnnotationRotation() {
@@ -2210,7 +2282,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             selectedAnnotation = null;
             setContextualTools(null);
             
-            document.getElementById('active_tool_display').innerText = "Outil: " + (toolId === 'move' ? 'Déplacer' : toolId);
+            const activeToolDisplay = document.getElementById('active_tool_display');
+            if (activeToolDisplay) activeToolDisplay.innerText = "Outil: " + (toolId === 'move' ? 'Déplacer' : toolId);
         }
         
         // NOUVEAU: Set Color
@@ -2228,40 +2301,65 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             const previewImg = document.getElementById(previewImgId);
             if (!previewImg) return;
         
-            const objectURL = objectUrlsCache[previewImgId];
+            let objectURL = objectUrlsCache[previewImgId];
 
             if (!objectURL) {
-                 // Tenter de recharger le blob si l'URL a été révoquée
-                 const imageBlob = await dbManager.getItem(previewImgId);
-                 if (imageBlob) {
-                     const newUrl = URL.createObjectURL(imageBlob);
-                     objectUrlsCache[previewImgId] = newUrl;
-                     previewImg.src = newUrl;
+                 // Fallback: Essayer de récupérer l'URL depuis l'élément img s'il s'agit d'un blob existant
+                 if (previewImg.src && previewImg.src.startsWith('blob:')) {
+                     objectURL = previewImg.src;
+                     objectUrlsCache[previewImgId] = objectURL;
                  } else {
-                     alert("Impossible de charger l'image pour l'annotation. Données non trouvées.");
-                     return;
-                 }
+                     // Tenter de recharger le blob depuis la DB
+                     try {
+                         const imageBlob = await dbManager.getItem(previewImgId);
+                         if (imageBlob) {
+                             objectURL = URL.createObjectURL(imageBlob);
+                             objectUrlsCache[previewImgId] = objectURL;
+                             previewImg.src = objectURL;
+                         } else {
+                             alert("Impossible de charger l'image pour l'annotation. Données non trouvées.");
+                             return;
+                         }
+                     } catch (e) {
+                         console.error("Erreur DB:", e);
+                         alert("Erreur lors de la récupération de l'image.");
+                         return;
+                     }
+                }
             }
+
+            // Reset baseImage to ensure onload fires every time
+            baseImage = new Image();
 
             baseImage.onload = () => {
                 canvas.width = baseImage.naturalWidth;
                 canvas.height = baseImage.naturalHeight;
-                annotations = JSON.parse(previewImg.dataset.annotations || '[]');
+                try {
+                    const rawAnnotations = previewImg.dataset.annotations;
+                    annotations = rawAnnotations ? JSON.parse(rawAnnotations) : [];
+                } catch (e) {
+                    console.error("Erreur parsing annotations:", e);
+                    annotations = [];
+                }
                 // Migration: ajouter couleur si manquante
                 annotations.forEach(a => { if(!a.color) a.color = '#c0392b'; });
                 
                 setActiveTool('move');
                 redrawCanvas();
                 annotationModal.dataset.targetPreviewId = previewImgId;
-                annotationModal.showModal();
+                try {
+                    annotationModal.showModal();
+                } catch(e) {
+                    if (!annotationModal.open) annotationModal.showModal();
+                }
             };
         
             baseImage.onerror = (e) => {
                 alert("Impossible de charger l'image pour l'annotation. Erreur de source.");
-                console.error("Erreur de chargement de l'image dans `baseImage`:", e);
+                console.error("Erreur de chargement de l'image:", e);
             };
         
-            baseImage.src = objectUrlsCache[previewImgId] || previewImg.src; // Fallback
+            baseImage.src = objectURL;
         }
 
         function redrawCanvas() {
@@ -2312,11 +2410,12 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 centerX = (annotation.startX + annotation.endX) / 2;
                 centerY = (annotation.startY + annotation.endY) / 2;
             } else if (annotation.type === 'text') {
-                ctx.font = "bold 30px Oswald";
+                const size = annotation.size || 30;
+                ctx.font = `bold ${size}px Oswald`;
                 width = ctx.measureText(annotation.text).width + 20;
-                height = 40; 
+                height = size + 10; 
                 x = annotation.x - 10;
-                y = annotation.y - 30; // approx ascent
+                y = annotation.y - size; // approx ascent
                 centerX = x + width/2;
                 centerY = y + height/2;
             }
@@ -2360,7 +2459,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     if (radius < 2) { ctx.restore(); return; }
                     ctx.beginPath();
                     ctx.arc(annotation.x, annotation.y, radius, 0, 2 * Math.PI);
-                    ctx.fillStyle = `rgba(91, 155, 213, ${annotation.opacity || 0.5})`; // Garder bleu standard pour le fond
+                    const rgb = hexToRgb(color) || {r:91, g:155, b:213};
+                    ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${annotation.opacity || 0.5})`;
                     ctx.fill();
                     ctx.strokeStyle = color; // Couleur personnalisée pour le bord
                     ctx.lineWidth = 3;
@@ -2385,7 +2485,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     break;
                 }
                 case 'text': {
-                    ctx.font = "bold 30px Oswald";
+                    const size = annotation.size || 30;
+                    ctx.font = `bold ${size}px Oswald`;
                     ctx.fillStyle = color;
                     ctx.strokeStyle = "black";
                     ctx.lineWidth = 2;
@@ -2486,9 +2587,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         break;
                     case 'text':
                         // Simple bounding box approx
-                        ctx.font = "bold 30px Oswald";
+                        const size = annotation.size || 30;
+                        ctx.font = `bold ${size}px Oswald`;
                         const w = ctx.measureText(annotation.text).width;
-                        const h = 30;
+                        const h = size;
                         isInside = testX >= annotation.x && testX <= annotation.x + w && testY >= annotation.y - h && testY <= annotation.y;
                         break;
                     case 'arrow':
@@ -2536,13 +2638,16 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 // NOUVEAU: Outil Texte Click
                 const text = prompt("Texte à insérer :");
                 if(text) {
+                    const sizeInput = document.getElementById('text_size_tool');
+                    const size = sizeInput ? parseInt(sizeInput.value) : 30;
                     annotations.push({
                         type: 'text',
                         x: startX,
                         y: startY,
                         text: text,
                         color: currentAnnotationColor,
-                        rotation: 0
+                        rotation: 0,
+                        size: size
                     });
                     redrawCanvas();
                 }
@@ -2697,7 +2802,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     const radius = annotation.radius || 0;
                     if (radius < 2) { context.restore(); return; }
                     context.beginPath(); context.arc(annotation.x, annotation.y, radius, 0, 2 * Math.PI);
-                    context.fillStyle = `rgba(91, 155, 213, ${annotation.opacity || 0.5})`; context.fill();
+                    const rgb = hexToRgb(color) || {r:91, g:155, b:213};
+                    context.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${annotation.opacity || 0.5})`; context.fill();
                     context.strokeStyle = color; context.lineWidth = 3; context.stroke();
                     if (annotation.text) {
                         context.fillStyle = 'black'; context.font = `bold ${Math.max(12, radius / 2)}px Oswald`;
@@ -2731,7 +2837,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     break;
                 }
                 case 'text': {
-                    context.font = "bold 30px Oswald";
+                    const size = annotation.size || 30;
+                    context.font = `bold ${size}px Oswald`;
                     context.fillStyle = color;
                     context.strokeStyle = "black";
                     context.lineWidth = 2;
@@ -2836,8 +2943,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             // Écouteur global pour le dragover des éléments de temps (à l'intérieur de leur conteneur)
             document.getElementById('time_events_container').addEventListener('dragover', e => {
                 e.preventDefault();
-                const draggedId = e.dataTransfer.getData('text/plain');
-                const draggedItem = document.getElementById(draggedId);
+                const draggedItem = document.querySelector('.dragging');
                 const targetContainer = e.currentTarget;
                 
                 if (draggedItem && draggedItem.classList.contains('time-item')) {
@@ -3203,6 +3309,30 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         // S'assurer de désélectionner pour enlever le cadre de sélection avant de sauver ? Non, on sauve les données brutes.
                     }
                     previewImg.dataset.annotations = JSON.stringify(annotations);
+                    
+                    // NOUVEAU: Mettre à jour l'aperçu visuel immédiatement
+                    if (annotations.length > 0) {
+                        // Désélectionner pour le rendu propre
+                        selectedAnnotation = null;
+                        setContextualTools(null);
+                        redrawCanvas();
+                        
+                        canvas.toBlob(blob => {
+                            if (blob) {
+                                const newUrl = URL.createObjectURL(blob);
+                                // Si l'ancienne src était un blob généré (et pas l'original), on peut le révoquer pour nettoyer
+                                if (previewImg.src.startsWith('blob:') && previewImg.src !== objectUrlsCache[targetId]) {
+                                    URL.revokeObjectURL(previewImg.src);
+                                }
+                                previewImg.src = newUrl;
+                            }
+                        });
+                    } else {
+                        // Si plus d'annotations, remettre l'image originale
+                        if (objectUrlsCache[targetId]) {
+                             previewImg.src = objectUrlsCache[targetId];
+                        }
+                    }
                 }
                 saveFormData(); 
                 annotationModal.close();
@@ -3235,6 +3365,12 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             
             // CORRECTION: Utiliser la délégation d'événement sur le document pour dragstart/dragend
             document.addEventListener('dragstart', e => { 
+                // FIX: Empêcher le drag si l'interaction se fait sur un bouton (Edit/Delete)
+                if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                    e.preventDefault();
+                    return;
+                }
+
                 const target = e.target.closest('.patracdvr-member-btn, .time-item, .image-preview-item');
                 if (target && target.classList.contains('draggable')) { 
                     e.dataTransfer.setData('text/plain', target.id);

@@ -2258,9 +2258,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         async function openAnnotationModal(previewImgId) {
             const previewImg = document.getElementById(previewImgId);
             if (!previewImg) return;
-
-            // Utiliser une image temporaire pour le chargement afin d'éviter les conflits d'état
-            const loadingImage = new Image();
         
             let objectURL = objectUrlsCache[previewImgId];
 
@@ -2289,11 +2286,12 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 }
             }
 
-            loadingImage.onload = () => {
-                // Une fois chargée, on l'assigne à la variable globale pour le canvas
-                baseImage = loadingImage;
-                canvas.width = loadingImage.naturalWidth;
-                canvas.height = loadingImage.naturalHeight;
+            // Reset baseImage to ensure onload fires every time
+            baseImage = new Image();
+
+            baseImage.onload = () => {
+                canvas.width = baseImage.naturalWidth;
+                canvas.height = baseImage.naturalHeight;
                 try {
                     const rawAnnotations = previewImg.dataset.annotations;
                     annotations = rawAnnotations ? JSON.parse(rawAnnotations) : [];
@@ -2307,17 +2305,19 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 setActiveTool('move');
                 redrawCanvas();
                 annotationModal.dataset.targetPreviewId = previewImgId;
-                if (!annotationModal.open) {
+                try {
                     annotationModal.showModal();
+                } catch(e) {
+                    if (!annotationModal.open) annotationModal.showModal();
                 }
             };
         
-            loadingImage.onerror = (e) => {
+            baseImage.onerror = (e) => {
                 alert("Impossible de charger l'image pour l'annotation. Erreur de source.");
                 console.error("Erreur de chargement de l'image:", e);
             };
         
-            loadingImage.src = objectURL;
+            baseImage.src = objectURL;
         }
 
         function redrawCanvas() {

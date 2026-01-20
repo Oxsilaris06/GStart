@@ -2144,7 +2144,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         const annotationModal = document.getElementById('annotationModal');
         const canvas = document.getElementById('annotationCanvas');
         const ctx = canvas.getContext('2d');
-        const baseImage = new Image();
+        let baseImage = new Image();
         let annotations = [], currentTool = 'move', isDrawing = false, isDragging = false, startX, startY;
         let currentAnnotation = null, selectedAnnotation = null, dragOffsetX, dragOffsetY;
         const rotationInput = document.getElementById('rotation_input');
@@ -2225,6 +2225,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         async function openAnnotationModal(previewImgId) {
             const previewImg = document.getElementById(previewImgId);
             if (!previewImg) return;
+            
+            // FIX: Réinitialiser l'objet Image pour garantir le déclenchement de onload à chaque ouverture
+            baseImage = new Image();
         
             const objectURL = objectUrlsCache[previewImgId];
 

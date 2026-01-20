@@ -3296,6 +3296,12 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             
             // CORRECTION: Utiliser la délégation d'événement sur le document pour dragstart/dragend
             document.addEventListener('dragstart', e => { 
+                // FIX: Empêcher le drag si l'interaction se fait sur un bouton (Edit/Delete)
+                if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                    e.preventDefault();
+                    return;
+                }
+
                 const target = e.target.closest('.patracdvr-member-btn, .time-item, .image-preview-item');
                 if (target && target.classList.contains('draggable')) { 
                     e.dataTransfer.setData('text/plain', target.id);

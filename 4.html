@@ -756,7 +756,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                         
                         <!-- NOUVEAU: Champ DIR Radio -->
                         <div style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                            <label for="quick_edit_dir_input" style="color:var(--accent-blue);">DIR (Canal):</label>
+                            <label for="quick_edit_dir_input" style="color:var(--accent-blue);">DIR (Dossier Individuel Radio):</label>
                             <input type="text" id="quick_edit_dir_input" placeholder="Ex: 42, 101..." style="margin-bottom: 0;">
                         </div>
                         
@@ -1946,7 +1946,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                                     interactiveItem.id = imgData.id + "_item"; // ID Unique pour drag
 
                                     interactiveItem.innerHTML = `
-                                        <img id="${imgData.id}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations='${imgData.annotations || '[]'}'>
                                         <img id="${imgData.id}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations='${(imgData.annotations || '[]').replace(/'/g, "&apos;") }'>
                                         <div style="display: flex; gap: 5px; margin-top: 5px;">
                                             <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onclick="openAnnotationModal('${imgData.id}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
@@ -2230,16 +2229,12 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             // FIX: Réinitialiser l'objet Image pour garantir le déclenchement de onload à chaque ouverture
             baseImage = new Image();
         
-            const objectURL = objectUrlsCache[previewImgId];
             let objectURL = objectUrlsCache[previewImgId];
 
             if (!objectURL) {
                  // Tenter de recharger le blob si l'URL a été révoquée
                  const imageBlob = await dbManager.getItem(previewImgId);
                  if (imageBlob) {
-                     const newUrl = URL.createObjectURL(imageBlob);
-                     objectUrlsCache[previewImgId] = newUrl;
-                     previewImg.src = newUrl;
                      objectURL = URL.createObjectURL(imageBlob);
                      objectUrlsCache[previewImgId] = objectURL;
                      previewImg.src = objectURL;
@@ -2252,7 +2247,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             baseImage.onload = () => {
                 canvas.width = baseImage.naturalWidth;
                 canvas.height = baseImage.naturalHeight;
-                annotations = JSON.parse(previewImg.dataset.annotations || '[]');
                 try {
                     annotations = JSON.parse(previewImg.dataset.annotations || '[]');
                 } catch (e) {
@@ -2265,7 +2259,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 setActiveTool('move');
                 redrawCanvas();
                 annotationModal.dataset.targetPreviewId = previewImgId;
-                annotationModal.showModal();
                 if (!annotationModal.open) {
                     annotationModal.showModal();
                 }
@@ -2276,7 +2269,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 console.error("Erreur de chargement de l'image dans `baseImage`:", e);
             };
         
-            baseImage.src = objectUrlsCache[previewImgId] || previewImg.src; // Fallback
             baseImage.src = objectURL;
         }
 

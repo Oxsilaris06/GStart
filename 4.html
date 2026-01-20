@@ -507,6 +507,10 @@
                             <label for="resize_h" style="font-size: 0.8em; margin:0;">Hauteur</label>
                             <input type="range" id="resize_h" min="20" max="800" step="5" style="width: 80px;" oninput="resizeSelected(null, this.value)">
                         </div>
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                            <label for="stroke_width_edit" style="font-size: 0.8em; margin:0;">Épaisseur</label>
+                            <input type="range" id="stroke_width_edit" min="1" max="20" step="1" value="5" style="width: 80px;" oninput="updateStrokeWidth(this.value)">
+                        </div>
 
                         <button id="edit_text_btn" class="tool-btn"><span class="material-symbols-outlined">text_fields</span>Texte</button>
                          <button id="delete_btn" class="tool-btn" style="background-color: var(--danger-red); color: white;"><span class="material-symbols-outlined">delete</span>Suppr.</button>
@@ -535,6 +539,14 @@
                      <input type="text" id="circle_text" value="Zone">
                      <label for="circle_opacity">Transp.:</label>
                      <input type="range" id="circle_opacity" min="0.1" max="1" step="0.1" value="0.5">
+                 </div>
+                 <div id="controls_arrow" class="tool-controls">
+                     <label for="arrow_thickness">Épaisseur:</label>
+                     <input type="range" id="arrow_thickness" min="1" max="20" value="5">
+                 </div>
+                 <div id="controls_box" class="tool-controls">
+                     <label for="box_thickness">Épaisseur:</label>
+                     <input type="range" id="box_thickness" min="1" max="20" value="5">
                  </div>
                  <div class="annotation-actions">
                      <button id="tool_reset" class="tool-btn"><span class="material-symbols-outlined">delete_sweep</span>Tout effacer</button>
@@ -991,6 +1003,15 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
         let activeMemberId = null;
         let currentAnnotationColor = '#c0392b'; // Couleur par défaut (rouge)
+
+        function hexToRgb(hex) {
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
 
         let currentStep = 0;
         let visitedSteps = new Set();
@@ -2164,6 +2185,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 const hSlider = document.getElementById('resize_h');
                 if(wSlider && selection.width) wSlider.value = selection.width;
                 if(hSlider && selection.height) hSlider.value = selection.height;
+                
+                const strokeSlider = document.getElementById('stroke_width_edit');
+                if(strokeSlider && selection.thickness) strokeSlider.value = selection.thickness;
                 // Pour arrow, c'est plus complexe, on ignore pour l'instant
                 
             } else {
@@ -2184,6 +2208,15 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 selectedAnnotation.radius = parseInt(w) / 2;
             }
             redrawCanvas();
+        }
+        
+        function updateStrokeWidth(val) {
+            if (selectedAnnotation) {
+                selectedAnnotation.thickness = parseInt(val);
+                redrawCanvas();
+                document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(annotations);
+                saveFormData();
+            }
         }
         
         function updateAnnotationRotation() {
@@ -2368,7 +2401,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     if (radius < 2) { ctx.restore(); return; }
                     ctx.beginPath();
                     ctx.arc(annotation.x, annotation.y, radius, 0, 2 * Math.PI);
-                    ctx.fillStyle = `rgba(91, 155, 213, ${annotation.opacity || 0.5})`; // Garder bleu standard pour le fond
+                    const rgb = hexToRgb(color) || {r:91, g:155, b:213};
+                    ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${annotation.opacity || 0.5})`;
                     ctx.fill();
                     ctx.strokeStyle = color; // Couleur personnalisée pour le bord
                     ctx.lineWidth = 3;
@@ -2705,7 +2739,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     const radius = annotation.radius || 0;
                     if (radius < 2) { context.restore(); return; }
                     context.beginPath(); context.arc(annotation.x, annotation.y, radius, 0, 2 * Math.PI);
-                    context.fillStyle = `rgba(91, 155, 213, ${annotation.opacity || 0.5})`; context.fill();
+                    const rgb = hexToRgb(color) || {r:91, g:155, b:213};
+                    context.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${annotation.opacity || 0.5})`; context.fill();
                     context.strokeStyle = color; context.lineWidth = 3; context.stroke();
                     if (annotation.text) {
                         context.fillStyle = 'black'; context.font = `bold ${Math.max(12, radius / 2)}px Oswald`;
@@ -4242,6 +4277,43 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 <span style="color: ${dangerColor}; font-weight: bold;">C</span>onduite à Tenir : ${getVal('ao_cat')}<br>
                 <span style="color: ${dangerColor}; font-weight: bold;">P</span>lace du Chef : ${getVal('ao_place_chef')}
             </p>`;
+            htmlContent += aoText;
+            
+            htmlContent += await drawImagesHtmlFromCategory('photo_container_emplacement_ao_preview_container', 'Emplacement AO');
+
+            htmlContent += drawTitleHtml("7. PATRACDVR (Détail de la Composition)");
+            const patracHeaders = ["Trigramme", "Fonction", "Cellule", "DIR", "Princ.", "Sec.", "A.F.I.", "Grenades", "Équip.", "Tenue", "GPB"];
+            for (const row of (formData.patracdvr_rows || [])) {
+                if(row.vehicle && row.members && row.members.length > 0) {
+                    htmlContent += drawSubTitleHtml(`Véhicule: ${row.vehicle}`);
+                    const patracRows = row.members.filter(m => m.trigramme).map(m => [
+                         m.trigramme, 
+                         m.fonction, 
+                         m.cellule, 
+                         m.dir || '',
+                         m.principales, m.secondaires, m.afis, m.grenades, 
+                         `${m.equipement}, ${m.equipement2}`.replace('Sans, Sans', 'Sans').replace(', Sans', ''), 
+                         m.tenue, m.gpb
+                    ]);
+                    if (patracRows.length > 0) { htmlContent += drawTableHtml(patracHeaders, patracRows); }
+                }
+            }
+            
+            htmlContent += drawTitleHtml("9. CONDUITES À TENIR");
+            htmlContent += drawSubTitleHtml("Générales"); htmlContent += drawTextHtml(getVal('cat_generales'), true);
+            const noGoText = getVal('no_go');
+            if (noGoText) {
+                htmlContent += drawSubTitleHtml("NO GO");
+                htmlContent += drawTextHtml(noGoText, true, dangerColor, '1.2em');
+            }
+            htmlContent += drawSubTitleHtml("Liaison"); htmlContent += drawTextHtml(getVal('cat_liaison'), true);
+            
+            htmlContent += `</div>`;
+            return htmlContent;
+        }
+    </script>
+</body>
+</html>
             htmlContent += aoText;
             
             htmlContent += await drawImagesHtmlFromCategory('photo_container_emplacement_ao_preview_container', 'Emplacement AO');

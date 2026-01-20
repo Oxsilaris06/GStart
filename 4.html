@@ -1215,8 +1215,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         interactiveItem.innerHTML = `
                             <img id="${previewImgId}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations="[]">
                             <div style="display: flex; gap: 5px; margin-top: 5px;">
-                                <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onclick="openAnnotationModal('${previewImgId}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
-                                <button type="button" class="remove-btn" style="padding: 4px 8px;" onclick="removeImage('${previewImgId}', this.closest('.image-preview-item'))">&times;</button>
+                                <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="openAnnotationModal('${previewImgId}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
+                                <button type="button" class="remove-btn" style="padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="removeImage('${previewImgId}', this.closest('.image-preview-item'))">&times;</button>
                             </div>`;
                         previewContainer.appendChild(interactiveItem);
         
@@ -1396,7 +1396,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             const optionsHtml = ['T0','T1','T2','T3','T4','T5'].map(t => 
                 `<option value="${t}" ${t === type ? 'selected' : ''}>${t}</option>`
             ).join('');
-            item.innerHTML = `<select class="time-type-select" onchange="saveFormData()">${optionsHtml}</select><input type="time" class="time-hour-input" value="${hour}" onchange="saveFormData()"><input type="text" class="time-description-input" placeholder="Description" value="${desc || ''}" oninput="saveFormData()"><button type="button" class="remove-btn" onclick="this.parentElement.remove(); saveFormData();">❌</button>`;
+            item.innerHTML = `<select class="time-type-select" onchange="saveFormData()">${optionsHtml}</select><input type="time" class="time-hour-input" value="${hour}" onchange="saveFormData()"><input type="text" class="time-description-input" placeholder="Description" value="${desc || ''}" oninput="saveFormData()"><button type="button" class="remove-btn" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="this.parentElement.remove(); saveFormData();">❌</button>`;
             container.appendChild(item);
         }
 
@@ -1973,8 +1973,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                                     interactiveItem.innerHTML = `
                                         <img id="${imgData.id}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations='${(imgData.annotations || '[]').replace(/'/g, "&apos;") }'>
                                         <div style="display: flex; gap: 5px; margin-top: 5px;">
-                                            <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onclick="openAnnotationModal('${imgData.id}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
-                                            <button type="button" class="remove-btn" style="padding: 4px 8px;" onclick="removeImage('${imgData.id}', this.closest('.image-preview-item'))">&times;</button>
+                                            <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="openAnnotationModal('${imgData.id}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
+                                            <button type="button" class="remove-btn" style="padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="removeImage('${imgData.id}', this.closest('.image-preview-item'))">&times;</button>
                                         </div>`;
                                     previewContainer.appendChild(interactiveItem);
                                 } else {
@@ -2246,6 +2246,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             setContextualTools(null);
             
             document.getElementById('active_tool_display').innerText = "Outil: " + (toolId === 'move' ? 'Déplacer' : toolId);
+            const activeToolDisplay = document.getElementById('active_tool_display');
+            if (activeToolDisplay) activeToolDisplay.innerText = "Outil: " + (toolId === 'move' ? 'Déplacer' : toolId);
         }
         
         // NOUVEAU: Set Color

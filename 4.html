@@ -4,7 +4,7 @@
 	<link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OI - Générateur Opérationnel</title>
+    <title>OI - ADI </title>
 	<link rel="icon" href="favicon.ico" sizes="any" type="image/png">
     <link rel="icon" href="favicon.ico" type="image/svg+xml">
     <link rel="apple-touch-icon" href="favicon.ico">
@@ -233,15 +233,16 @@
         }
         
         /* Modals: Simplified */
-        #quickEditModal { color: var(--text-primary); background: var(--bg-container); width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; margin: 0; border: none; border-radius: 0; padding: 15px; }
-        #quickEditModal::backdrop { background: rgba(0, 0, 0, 0.85); }
-        #quickEditModal .modal-form { display: flex; flex-direction: column; height: 100%; }
-        #quickEditModal .modal-content { flex: 1 1 auto; overflow-y: auto; padding: 0 5px; }
-        #quickEditModal .modal-actions { flex-shrink: 0; display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
-        #quickEditModal .modal-actions button { flex: 1; }
-        #quick_modal_closeBtn { background-color: var(--bg-interactive); color: var(--text-primary); border: 1px solid var(--border-color); }
+         #quickEditModal, #settingsModal, #resetOptionsModal { color: var(--text-primary); background: var(--bg-container); width: 100vw; max-width: 100vw; height: 100vh; max-height: 100vh; margin: 0; border: none; border-radius: 0; padding: 15px; }
+        #quickEditModal::backdrop, #settingsModal::backdrop, #resetOptionsModal::backdrop { background: rgba(0, 0, 0, 0.85); }
+        #quickEditModal .modal-form, #settingsModal .modal-form, #resetOptionsModal .modal-form { display: flex; flex-direction: column; height: 100%; }
+        #quickEditModal .modal-content, #settingsModal .modal-content, #resetOptionsModal .modal-content { flex: 1 1 auto; overflow-y: auto; padding: 0 5px; }
+        #quickEditModal .modal-actions, #settingsModal .modal-actions, #resetOptionsModal .modal-actions { flex-shrink: 0; display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
+        #quickEditModal .modal-actions button, #settingsModal .modal-actions button, #resetOptionsModal .modal-actions button { flex: 1; }
+        #quick_modal_closeBtn, #settings_closeBtn, #cancelResetBtn { background-color: var(--bg-interactive); color: var(--text-primary); border: 1px solid var(--border-color); }
+        #settings_saveBtn { background-color: var(--success-green); color: white; }
 
-        #quickEditPanel { 
+        #quickEditPanel {  
             padding: 15px; border: 1px solid var(--border-color); border-radius: 5px; margin-top: 20px; background-color: var(--bg-body); 
             display: flex;
             flex-direction: column;
@@ -483,6 +484,22 @@
         </div>
     </dialog>
     
+    <dialog id="resetOptionsModal">
+        <div class="modal-form">
+            <h3>Réinitialisation</h3>
+            <div class="modal-content" style="text-align: center; display: flex; flex-direction: column; gap: 20px; justify-content: center;">
+                <p>Que souhaitez-vous réinitialiser ?</p>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button type="button" id="resetPageBtn" class="wizard-nav-btn" style="background-color: var(--accent-blue); min-width: 120px; color: white;">Page Active</button>
+                    <button type="button" id="resetAllBtn" class="wizard-nav-btn" style="background-color: var(--danger-red); min-width: 120px; color: white;">Tout</button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="cancelResetBtn">Annuler</button>
+            </div>
+        </div>
+    </dialog>
+
     <dialog id="quickEditModal">
         <div class="modal-form">
             <h3 id="quick_modal_title">Édition rapide</h3>
@@ -781,7 +798,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                         
                         <!-- NOUVEAU: Champ DIR Radio -->
                         <div style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                            <label for="quick_edit_dir_input" style="color:var(--accent-blue);">DIR (Dossier Individuel Radio):</label>
+                            <label for="quick_edit_dir_input" style="color:var(--accent-blue);">DIR (CANAL):</label>
                             <input type="text" id="quick_edit_dir_input" placeholder="Ex: 42, 101..." style="margin-bottom: 0;">
                         </div>
                         
@@ -998,6 +1015,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
     </div>
     <div class="dock-menu-item" id="exportSessionBtn" title="Exporter Session">
         <span class="material-symbols-outlined">file_download</span>
+    </div>
+    <div class="dock-menu-item" id="resetMenuBtn" title="Réinitialiser">
+        <span class="material-symbols-outlined">restart_alt</span>
     </div>
     
     <div class="dock-menu-item" id="darkModeToggle" title="Changer le thème">
@@ -1592,6 +1612,144 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             }
         }
         
+        // ----------------------------------------------------------------------
+        // 1. VARIABLE GLOBALE POUR LE DRAG MOBILE
+        // ----------------------------------------------------------------------
+        let touchDragItem = null;
+        let touchDragClone = null;
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        // ----------------------------------------------------------------------
+        // 2. GESTIONNAIRES D'ÉVÉNEMENTS TACTILES (MOBILE)
+        // ----------------------------------------------------------------------
+        function handleTouchStart(e) {
+            // Si on touche le bouton de suppression ou d'édition à l'intérieur, on ne drag pas
+            if (e.target.classList.contains('remove-btn') || e.target.closest('.remove-btn')) return;
+
+            const target = e.target.closest('.draggable');
+            if (!target) return;
+
+            touchDragItem = target;
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            
+            // Créer un clone visuel pour suivre le doigt
+            touchDragClone = target.cloneNode(true);
+            touchDragClone.style.position = 'fixed';
+            touchDragClone.style.zIndex = '9999';
+            touchDragClone.style.opacity = '0.8';
+            touchDragClone.style.width = target.offsetWidth + 'px';
+            touchDragClone.style.pointerEvents = 'none'; // Important pour détecter l'élément dessous
+            touchDragClone.classList.add('dragging');
+            
+            // Position initiale hors écran pour éviter le flash
+            touchDragClone.style.left = '-9999px';
+            touchDragClone.style.top = '-9999px';
+            
+            document.body.appendChild(touchDragClone);
+            
+            // Feedback visuel sur l'original
+            target.style.opacity = '0.4';
+        }
+
+        function handleTouchMove(e) {
+            if (!touchDragItem || !touchDragClone) return;
+            
+            // Empêcher le scroll de la page pendant le drag
+            if (e.cancelable) e.preventDefault();
+
+            const touch = e.touches[0];
+            
+            // Déplacer le clone
+            touchDragClone.style.left = (touch.clientX - (touchDragClone.offsetWidth / 2)) + 'px';
+            touchDragClone.style.top = (touch.clientY - (touchDragClone.offsetHeight / 2)) + 'px';
+
+            // Identifier la zone de drop sous le doigt
+            touchDragClone.style.display = 'none'; // Cacher brièvement pour voir dessous
+            const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            touchDragClone.style.display = 'block';
+
+            if (!elemBelow) return;
+
+            // Trouver le conteneur valide le plus proche (Véhicule, Non assigné ou Poubelle)
+            const droppableBelow = elemBelow.closest('.patracdvr-members-container, #unassigned_members_container, #trashCan');
+
+            // Gestion visuelle des bordures (Feedback)
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            document.querySelectorAll('.patracdvr-members-container, #unassigned_members_container').forEach(el => el.style.border = '1px dashed var(--border-color)');
+
+            if (droppableBelow) {
+                if (droppableBelow.id === 'trashCan') {
+                    droppableBelow.classList.add('drag-over');
+                } else {
+                    droppableBelow.style.border = '2px dashed var(--accent-blue)';
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            if (!touchDragItem) return;
+
+            const touch = e.changedTouches[0]; // Position finale
+
+            // Nettoyage visuel
+            if (touchDragClone) touchDragClone.remove();
+            touchDragItem.style.opacity = '1';
+            
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            document.querySelectorAll('.patracdvr-members-container, #unassigned_members_container').forEach(el => el.style.border = '1px dashed var(--border-color)');
+
+            // Identifier la cible finale
+            touchDragClone && (touchDragClone.style.display = 'none'); // Juste au cas où
+            const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            
+            // 1. Gestion Drop : POUBELLE
+            const trashCan = elemBelow ? elemBelow.closest('#trashCan') : null;
+            if (trashCan) {
+                if (confirm(`Voulez-vous vraiment SUPPRIMER DÉFINITIVEMENT le membre ${touchDragItem.dataset.trigramme || 'N/A'} ?`)) {
+                    const memberId = touchDragItem.id;
+                    touchDragItem.remove();
+                    if (activeMemberId === memberId) {
+                        activeMemberId = null;
+                        document.getElementById('quickEditPanel').style.display = 'none';
+                    }
+                    saveFormData();
+                }
+            } 
+            // 2. Gestion Drop : CONTENEURS (Véhicules ou Non assigné)
+            else {
+                const dropContainer = elemBelow ? elemBelow.closest('.patracdvr-members-container, #unassigned_members_container') : null;
+                
+                if (dropContainer) {
+                    // Logique d'insertion (similaire à handleDrop PC)
+                    dropContainer.appendChild(touchDragItem);
+                    
+                    const isUnassignedZone = dropContainer.id === 'unassigned_members_container';
+                    if (isUnassignedZone) {
+                        touchDragItem.dataset.cellule = 'Sans';
+                        touchDragItem.dataset.fonction = 'Sans';
+                    } else {
+                        if (touchDragItem.dataset.cellule === 'Sans') {
+                            touchDragItem.dataset.cellule = 'India 1';
+                        }
+                    }
+                    
+                    updateMemberButtonVisuals(touchDragItem);
+                    if (touchDragItem.id === activeMemberId) {
+                        touchDragItem.classList.remove('member-active');
+                        activeMemberId = null;
+                        document.getElementById('quickEditPanel').style.display = 'none';
+                    }
+                    saveFormData();
+                }
+            }
+
+            // Reset variables
+            touchDragItem = null;
+            touchDragClone = null;
+        }
+
         function addPatracdvrMember(containerElement, data = {}) {
             if (!containerElement) return;
             const btn = document.createElement('button');
@@ -1617,15 +1775,19 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             Object.keys(memberData).forEach(key => btn.dataset[key] = memberData[key]);
             updateMemberButtonVisuals(btn);
             
-            // CORRECTION: Ajouter l'écouteur de clic au moment de la création du bouton
             btn.addEventListener('click', handleMemberSelection);
+
+            // --- AJOUT CORRECTIF MOBILE ---
+            // On ajoute les écouteurs tactiles directement sur l'élément créé
+            btn.addEventListener('touchstart', handleTouchStart, {passive: false});
+            btn.addEventListener('touchmove', handleTouchMove, {passive: false});
+            btn.addEventListener('touchend', handleTouchEnd);
+            // ------------------------------
 
             containerElement.appendChild(btn);
             
-            // CONFORMITÉ: Sauvegarde immédiate après la création d'un membre
             saveFormData();
-            
-            return btn; // Retourner le bouton créé pour la manipulation immédiate
+            return btn; 
         }
 
         function updateMemberButtonVisuals(btn) {
@@ -3153,6 +3315,73 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                  }
             }
             
+            // Gestion du Reset via le Dock
+            const resetOptionsModal = document.getElementById('resetOptionsModal');
+            const resetMenuBtn = document.getElementById('resetMenuBtn');
+            const cancelResetBtn = document.getElementById('cancelResetBtn');
+            const resetAllBtn = document.getElementById('resetAllBtn');
+            const resetPageBtn = document.getElementById('resetPageBtn');
+
+            if (resetMenuBtn) resetMenuBtn.addEventListener('click', () => resetOptionsModal.showModal());
+            if (cancelResetBtn) cancelResetBtn.addEventListener('click', () => resetOptionsModal.close());
+
+            if (resetAllBtn) {
+                resetAllBtn.addEventListener('click', async () => {
+                    if (confirm("Attention: Toutes les données et photos seront définitivement effacées (Sauf le PATRACDVR).")) {
+                        // Sauvegarder le PATRACDVR actuel
+                        const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+                        let patracdvrData = {};
+                        if (savedData) {
+                            try {
+                                const parsed = JSON.parse(savedData);
+                                if (parsed.patracdvr_rows) patracdvrData.patracdvr_rows = parsed.patracdvr_rows;
+                                if (parsed.patracdvr_unassigned) patracdvrData.patracdvr_unassigned = parsed.patracdvr_unassigned;
+                            } catch(e) { console.error(e); }
+                        }
+
+                        localStorage.removeItem(LOCAL_STORAGE_KEY);
+                        await dbManager.clearAllImages();
+                        
+                        // Restaurer le PATRACDVR
+                        if (Object.keys(patracdvrData).length > 0) {
+                            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(patracdvrData));
+                        }
+                        
+                        location.reload();
+                    }
+                    resetOptionsModal.close();
+                });
+            }
+
+            if (resetPageBtn) {
+                resetPageBtn.addEventListener('click', async () => {
+                    if (confirm("Réinitialiser uniquement les champs de la page active ?")) {
+                        const activeStep = document.querySelector('.wizard-step.active');
+                        if (activeStep) {
+                            activeStep.querySelectorAll('input:not([type="file"]), textarea, select').forEach(el => {
+                                if (el.type === 'checkbox' || el.type === 'radio') el.checked = false;
+                                else el.value = '';
+                            });
+                            activeStep.querySelectorAll('.dynamic-list-item').forEach(el => el.remove());
+                            activeStep.querySelectorAll('.chip-btn.selected').forEach(el => el.classList.remove('selected'));
+                            
+                            const images = activeStep.querySelectorAll('.image-preview-item img');
+                            for (const img of images) { await removeImage(img.id, img.closest('.image-preview-item')); }
+                            
+                            if (activeStep.querySelector('#patracdvr_container')) {
+                                document.getElementById('patracdvr_container').innerHTML = '';
+                                document.getElementById('unassigned_members_container').innerHTML = '';
+                                activeMemberId = null;
+                                document.getElementById('quickEditPanel').style.display = 'none';
+                            }
+                            saveFormData();
+                            updateArticulationDisplay();
+                        }
+                    }
+                    resetOptionsModal.close();
+                });
+            }
+            
             // Gestion Import/Export Session
             const importSessionBtn = document.getElementById('importSessionBtn');
             const exportSessionBtn = document.getElementById('exportSessionBtn');
@@ -3486,18 +3715,23 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             
             // CORRECTION: Utiliser la délégation d'événement sur le document pour dragstart/dragend
             document.addEventListener('dragstart', e => { 
-                // FIX: Empêcher le drag si l'interaction se fait sur un bouton (Edit/Delete)
-                if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
-                    e.preventDefault();
+                // On autorise le drag SI c'est un élément .draggable, MÊME si c'est un bouton
+                // On empêche le drag seulement si on clique sur un bouton "interne" non draggable (ex: croix de suppression si elle existait dans le bouton)
+                
+                const target = e.target.closest('.draggable');
+                
+                if (!target) {
+                    // Si ce n'est pas un élément draggable, et que c'est un bouton "classique" (ex: bouton Ajouter), on bloque le drag natif
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                        e.preventDefault();
+                        return;
+                    }
                     return;
                 }
 
-                const target = e.target.closest('.patracdvr-member-btn, .time-item, .image-preview-item');
-                if (target && target.classList.contains('draggable')) { 
-                    e.dataTransfer.setData('text/plain', target.id);
-                    // Utiliser setTimeout pour que la classe 'dragging' soit appliquée après le début du drag (meilleure compatibilité)
-                    setTimeout(() => target.classList.add('dragging'), 0); 
-                } 
+                // Si on arrive ici, c'est un élément .draggable
+                e.dataTransfer.setData('text/plain', target.id);
+                setTimeout(() => target.classList.add('dragging'), 0); 
             });
 
             document.addEventListener('dragend', (e) => { 

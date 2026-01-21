@@ -4463,11 +4463,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 drawSubTitle("Liaison"); drawWrappedText(getVal('cat_liaison'), {x: context.margin, font: helveticaBoldFont});
 
                 
-                // CORRECTION IMAGE: Ajoute la page finale AVEC le fond
-                // Supprimer l'ancienne page finale
-                context.pdfDoc.removePage(context.pdfDoc.getPageCount() - 1);
-                context.pageNumber = context.pdfDoc.getPageCount(); // Réinitialise le compteur au nombre de pages avant la finale
-                
                 // Ajoute la page finale AVEC le fond
                 addNewPage(true); 
 

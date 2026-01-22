@@ -433,10 +433,14 @@
         #dockToggleBtn { color: var(--accent-blue); }
         #resetDataDockBtn span { color: var(--danger-red); }
 
-        /* --- MODALES GLASS --- */
+        /* --- MODALES GLASS FIX --- */
         .custom-modal-backdrop { 
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.8); 
             backdrop-filter: blur(5px); 
+            display: none; /* FIX: Caché par défaut */
+            z-index: 2000;
         }
         
         .custom-modal {
@@ -448,6 +452,7 @@
             width: 95%; max-width: 450px; 
             z-index: 2001; 
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            display: none; /* FIX: Caché par défaut */
         }
 
         .modal-buttons { display: flex; gap: 10px; margin-top: 20px; }

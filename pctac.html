@@ -810,7 +810,6 @@
         let html5QrCodeLocal; 
         let qrChunks = [];
         let currentQrIndex = 0;
-        const QR_BATCH_SIZE = 4; // Réduit de 8 à 4 pour éviter l'erreur "code length overflow" (8652>5352)
         
         // Variable pour suivre si l'utilisateur a modifié l'heure manuellement
         let isTimeInputManuallyChanged = false;
@@ -1519,11 +1518,7 @@
         
         // --- 7. LOGIQUE TRANSFERT QR SÉQUENTIEL ---
 
-        function chunkArray(array, size) {
-            const chunks = [];
-            for (let i = 0; i < array.length; i += size) chunks.push(array.slice(i, i + size));
-            return chunks;
-        }
+        // NOTE: chunkArray est remplacé par une logique dynamique dans prepareQRPagination
 
         function openTransferModal() {
             document.getElementById('modalBackdrop').style.display = 'block';
@@ -1552,8 +1547,51 @@
             const logs = getLogData();
             const container = document.getElementById('qrcode-container');
             container.innerHTML = '';
-            if (logs.length === 0) { container.textContent = "Aucune donnée."; return; }
-            qrChunks = chunkArray(logs.map(l => [l.id, l.heure, l.pax, l.paxMode, l.paxColor, l.lieu, l.fenetrePorte, l.remarques]), QR_BATCH_SIZE);
+            
+            if (logs.length === 0) { 
+                container.textContent = "Aucune donnée."; 
+                return; 
+            }
+
+            // Découpage intelligent basé sur la taille estimée des données
+            // Limite de sécurité pour la librairie QR Code (~4500 caractères pour version 40-M, on vise 4000)
+            const MAX_QR_CHARS = 4000; 
+            qrChunks = [];
+            let currentChunk = [];
+            let currentSize = 0;
+
+            logs.forEach(l => {
+                // Optimisation : On n'exporte PAS la couleur pour les modes standard
+                // Structure : [id, heure, pax, paxMode, (color si free), lieu, fp, remarques]
+                const optimizedLog = [
+                    l.id, 
+                    l.heure, 
+                    l.pax, 
+                    l.paxMode, 
+                    (l.paxMode === 'free' ? l.paxColor : null), // Null si standard (couleur déduite au scan)
+                    l.lieu, 
+                    l.fenetrePorte, 
+                    l.remarques
+                ];
+
+                const logStr = JSON.stringify(optimizedLog);
+                // Estimation taille : chaine + virgule
+                const entrySize = logStr.length + 1;
+
+                if (currentSize + entrySize > MAX_QR_CHARS && currentChunk.length > 0) {
+                    qrChunks.push(currentChunk);
+                    currentChunk = [];
+                    currentSize = 0;
+                }
+
+                currentChunk.push(optimizedLog);
+                currentSize += entrySize;
+            });
+
+            if (currentChunk.length > 0) {
+                qrChunks.push(currentChunk);
+            }
+
             currentQrIndex = 0;
             document.getElementById('qr-nav-controls').style.display = qrChunks.length > 1 ? 'flex' : 'none'; 
             showQR(currentQrIndex);
@@ -1596,7 +1634,21 @@
                     const currentLogs = getLogData();
                     const currentIds = new Set(currentLogs.map(l => l.id));
                     let added = 0;
-                    data.d.forEach(item => { if (!currentIds.has(item[0])) { currentLogs.push({ id: item[0], heure: item[1], pax: item[2], paxMode: item[3], paxColor: item[4], lieu: item[5], fenetrePorte: item[6], remarques: item[7] }); added++; } });
+                    data.d.forEach(item => { 
+                        if (!currentIds.has(item[0])) { 
+                            currentLogs.push({ 
+                                id: item[0], 
+                                heure: item[1], 
+                                pax: item[2], 
+                                paxMode: item[3], 
+                                paxColor: item[4], // Sera null pour standard, géré par renderLogTable
+                                lieu: item[5], 
+                                fenetrePorte: item[6], 
+                                remarques: item[7] 
+                            }); 
+                            added++; 
+                        } 
+                    });
                     if (added > 0) { renderLogTable(currentLogs); alert(`${added} entrées ajoutées.`); }
                 }
             } catch (e) {}

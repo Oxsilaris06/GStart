@@ -8,13 +8,10 @@
     <link rel="icon" href="favicon.ico" type="image/svg+xml">
     <link rel="apple-touch-icon" href="favicon.ico">
     
-    <!-- Fonts mises à jour pour le thème Tactical -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Oswald:wght@300;400;500&family=Saira+Stencil+One&display=swap" rel="stylesheet">
     
-    <!-- Utilisation des Material Symbols Outlined -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     
-    <!-- Librairies QR Code -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 
@@ -484,11 +481,19 @@
         .transfer-content { display: none; }
         .transfer-content.active { display: block; }
         
+        /* CORRECTIF #1 : STYLE QR CODE FIX (Importé de pctac.html) */
         #qrcode-container {
             background: white; padding: 20px; border-radius: var(--radius-sm); margin: 20px auto;
-            display: inline-block; max-width: 100%;
+            display: inline-block; 
+            max-width: 100%; 
+            min-height: 256px; /* Évite le saut de contenu */
         }
-        #qrcode-container img { margin: 0 auto; display: block; max-width: 100%; height: auto; }
+        #qrcode-container img, #qrcode-container canvas { 
+            margin: 0 auto; 
+            display: block; 
+            max-width: 100% !important; 
+            height: auto !important; 
+        }
         
         #qr-reader {
             width: 100%; margin: 20px auto; border: 2px solid var(--accent-blue);
@@ -522,10 +527,8 @@
     </style>
 </head>
 <body class="dark-mode">
-    <!-- Champ de fichier caché pour l'importation de JSON -->
     <input type="file" id="jsonImportInput" accept=".json" style="display: none;">
 
-    <!-- Modale de Confirmation Réinitialisation -->
     <div class="custom-modal-backdrop" id="modalBackdrop"></div>
     <div class="custom-modal" id="resetModal">
         <h3 style="color: var(--accent-blue); margin-bottom: 10px;">Confirmer la Réinitialisation</h3>
@@ -536,7 +539,6 @@
         </div>
     </div>
 
-    <!-- Modale d'Édition de Jalon -->
     <div class="custom-modal" id="editModal">
         <h3 style="color: var(--accent-blue); margin-bottom: 15px;">Modifier le Jalon</h3>
         <input type="hidden" id="edit_id">
@@ -547,7 +549,6 @@
             </div>
             <div>
                 <label>Pax</label>
-                <!-- On simplifie l'édition par un select/input selon le mode original -->
                 <div id="edit_pax_standard_container">
                     <select id="edit_pax_select">
                         <option value="Adversaire">Adversaire</option>
@@ -583,7 +584,6 @@
         </div>
     </div>
     
-    <!-- Modal Transfert (QR séquentiel local) -->
     <div class="custom-modal" id="transferModal">
         <h3 style="color: var(--accent-blue); margin-bottom: 15px;">Export/Import (QR Local)</h3>
         
@@ -592,11 +592,9 @@
             <button class="transfer-tab-btn" data-tab="receive">Importer (Scan)</button>
         </div>
         
-        <!-- Contenu Envoyer -->
         <div id="transfer-send" class="transfer-content active">
             <div id="qrcode-container"></div>
             
-            <!-- Navigation QR Code -->
             <div id="qr-nav-controls" style="display: none;">
                 <button class="qr-nav-btn" id="prevQrBtn"><span class="material-symbols-outlined">arrow_back</span></button>
                 <span id="qr-counter">1/1</span>
@@ -606,7 +604,6 @@
             <p id="qr-status-text" style="color: var(--text-muted); font-size: 0.85em; margin-top: 10px;"></p>
         </div>
         
-        <!-- Contenu Recevoir -->
         <div id="transfer-receive" class="transfer-content">
             <div id="qr-reader"></div>
             <p style="color: var(--text-muted); font-size: 0.9em;">Scanner les QR codes séquentiellement pour importer.</p>
@@ -620,30 +617,22 @@
     <div class="container">
         <h1>PC Tac</h1>
         
-        <!-- Formulaire d'ajout de ligne -->
         <form id="log-form" class="log-entry-form">
             <h3 style="margin-top: 0;"><span class="material-symbols-outlined">playlist_add</span> Ajouter une entrée</h3>
             
-            <!-- NOUVEL EMPLACEMENT du toggle : Haut à droite du formulaire -->
             <div id="pax_mode_toggle_container">
                 <button type="button" class="mode-toggle-btn active" data-mode="standard" onclick="setPaxMode('standard')">Forcené</button>
                 <button type="button" class="mode-toggle-btn" data-mode="free" onclick="setPaxMode('free')">TP</button>
             </div>
-            <!-- Fin NOUVEL EMPLACEMENT -->
-            
-            <!-- OPTIMISATION MOBILE: Le lieu et la fenêtre/porte sont déplacés à la fin de la grille pour une séquence Heure -> PAX -> Saisie rapide -->
             <div class="form-row main-fields">
                  <div>
                     <label for="heure_input">Heure</label>
-                    <!-- Type="time" utilise l'interface de sélection d'heure native du mobile, très rapide -->
                     <input type="time" id="heure_input" required value="">
                  </div>
                  
                  <div>
                     <label>Pax</label>
                     
-                    <!-- L'élément #pax_mode_toggle_container a été déplacé -->
-
                     <div id="pax_select_wrapper_standard" class="pax-select-wrapper">
                         <div class="pax-select" id="pax_select_container">
                             <span class="pax-select-option" data-pax="Adversaire">Adversaire</span>
@@ -656,8 +645,7 @@
                     <div id="pax_select_wrapper_free" class="pax-select-wrapper" style="display: none;">
                         <div id="free_mode_options">
                             <div class="color-palette" id="free_color_palette">
-                                <!-- Les swatches de couleur sont générés par JS -->
-                            </div>
+                                </div>
                             <input type="text" id="free_pax_input" placeholder="Intervenant/Adversaire" value="" />
                             <input type="hidden" id="free_color_input" value="#800000" />
                         </div>
@@ -683,7 +671,6 @@
             <div class="form-row text-fields">
                 <div style="grid-column: span 1;">
                     <label for="remarques_input">Remarques</label>
-                    <!-- OPTIMISATION: Mise en évidence du champ remarques -->
                     <textarea id="remarques_input" rows="3" placeholder="Informations clés, compte-rendu..."></textarea>
                 </div>
             </div>
@@ -693,7 +680,6 @@
             </button>
         </form>
 
-        <!-- Tableau des entrées -->
         <div id="logTableContainer">
             <table id="logTable">
                 <thead>
@@ -706,8 +692,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Les lignes de log seront insérées ici -->
-                </tbody>
+                    </tbody>
             </table>
         </div>
         
@@ -716,25 +701,19 @@
         </footer>
     </div>
     
-    <!-- Dock Flottant -->
     <div class="dock-menu collapsed" id="dockMenu">
-        <!-- Bouton de bascule du dock -->
         <button class="dock-menu-item" id="dockToggleBtn" title="Ouvrir/Réduire">
             <span class="material-symbols-outlined">expand_less</span>
         </button>
-        <!-- Bouton Alt Route (Remplace Home) -->
         <a class="dock-menu-item" href="1.html" title="Générateur d'OI" style="text-decoration: none;">
             <span class="material-symbols-outlined">alt_route</span>
         </a>
         
-        <!-- NOUVEAU BOUTON : Transfert QR Local -->
         <div class="dock-menu-item" id="transferDockBtn" title="Transfert QR Local"><span class="material-symbols-outlined">qr_code_2</span></div>
         
-        <!-- Bouton Export JSON -->
         <div class="dock-menu-item" id="exportJsonDockBtn" title="Exporter les données au format JSON">
             <span class="material-symbols-outlined">save</span>
         </div>
-         <!-- Bouton Import JSON -->
          <div class="dock-menu-item" id="importJsonDockBtn" title="Importer des données au format JSON">
             <span class="material-symbols-outlined">upload_file</span>
         </div>
@@ -745,12 +724,10 @@
         <div class="dock-menu-item" id="fullscreenToggle" title="Plein écran">
             <span class="material-symbols-outlined" id="fullscreenIcon">fullscreen</span>
         </div>
-        <!-- Bouton PDF (téléchargement direct) -->
-         <div class="dock-menu-item" id="previewPdfDockBtn" title="Générer et télécharger le PDF">
+        <div class="dock-menu-item" id="previewPdfDockBtn" title="Générer et télécharger le PDF">
             <span class="material-symbols-outlined">picture_as_pdf</span>
         </div>
-        <!-- Bouton Réinitialisation -->
-         <div class="dock-menu-item" id="resetDataDockBtn" title="Réinitialiser toutes les données">
+        <div class="dock-menu-item" id="resetDataDockBtn" title="Réinitialiser toutes les données">
             <span class="material-symbols-outlined" style="color: var(--danger-red);">delete_forever</span>
         </div>
     </div>
@@ -810,6 +787,7 @@
         let html5QrCodeLocal; 
         let qrChunks = [];
         let currentQrIndex = 0;
+        const QR_BATCH_SIZE = 8; // Nombre d'entrées par QR
         
         // Variable pour suivre si l'utilisateur a modifié l'heure manuellement
         let isTimeInputManuallyChanged = false;
@@ -1516,146 +1494,139 @@
             alert("Journal réinitialisé.");
         }
         
-        // --- 7. LOGIQUE TRANSFERT QR SÉQUENTIEL ---
+        // --- 7. LOGIQUE TRANSFERT QR SÉQUENTIEL (CORRECTIF APPLIQUÉ) ---
 
-        // NOTE: chunkArray est remplacé par une logique dynamique dans prepareQRPagination
+        function chunkArray(array, size) {
+            const chunks = [];
+            for (let i = 0; i < array.length; i += size) chunks.push(array.slice(i, i + size));
+            return chunks;
+        }
 
         function openTransferModal() {
             document.getElementById('modalBackdrop').style.display = 'block';
             transferModal.style.display = 'block';
-            
-            // FIX: Timeout pour assurer que le DOM est rendu (display:block) avant de générer le QR Code
-            setTimeout(() => {
-                switchTransferTab('send');
-            }, 50);
+            switchTransferTab('send');
         }
-
+        
         function closeTransferModal() {
             document.getElementById('modalBackdrop').style.display = 'none';
             transferModal.style.display = 'none';
-            if(html5QrCodeLocal) { html5QrCodeLocal.stop(); html5QrCodeLocal = null; }
+            // Stop scanner if active
+            if(html5QrCodeLocal) { 
+                html5QrCodeLocal.stop().catch(err => console.log("Stop failed", err));
+                html5QrCodeLocal = null; 
+            }
         }
-
+        
         function switchTransferTab(tabName) {
             transferTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
             document.querySelectorAll('.transfer-content').forEach(c => c.classList.remove('active'));
             document.getElementById(`transfer-${tabName}`).classList.add('active');
-            if(tabName === 'send') prepareQRPagination(); else startScanner();
+            
+            if(tabName === 'send') {
+                // If we were scanning, stop it
+                if(html5QrCodeLocal) { 
+                    html5QrCodeLocal.stop().then(() => html5QrCodeLocal = null).catch(err => console.error(err));
+                }
+                prepareQRPagination(); 
+            } else {
+                startScanner();
+            }
         }
         
         function prepareQRPagination() {
             const logs = getLogData();
             const container = document.getElementById('qrcode-container');
+            const statusText = document.getElementById('qr-status-text');
+            const navControls = document.getElementById('qr-nav-controls');
+            
             container.innerHTML = '';
             
-            if (logs.length === 0) { 
-                container.textContent = "Aucune donnée."; 
-                return; 
+            if (logs.length === 0) {
+                container.textContent = "Aucune donnée à transférer.";
+                if(statusText) statusText.textContent = "";
+                if(navControls) navControls.style.display = 'none';
+                return;
             }
 
-            // Découpage intelligent basé sur la taille estimée des données
-            // Limite de sécurité pour la librairie QR Code (~4500 caractères pour version 40-M, on vise 4000)
-            const MAX_QR_CHARS = 4500; 
-            qrChunks = [];
-            let currentChunk = [];
+            // Compression des données (Array of arrays) pour gagner de la place dans le QR
+            let compressedData = logs.map(l => [l.id, l.heure, l.pax, l.paxMode, l.paxColor, l.lieu, l.fenetrePorte, l.remarques]);
             
-            // On calcule la taille actuelle du chunk pour éviter des stringify répétitifs coûteux
-            // On commence avec la structure vide {t:"", d:[]} qui fait environ 15 caractères
-            let currentSizeEstimate = 15; 
-
-            logs.forEach(l => {
-                // Optimisation : On n'exporte PAS la couleur pour les modes standard
-                // Structure : [id, heure, pax, paxMode, (color si free), lieu, fp, remarques]
-                const optimizedLog = [
-                    l.id, 
-                    l.heure, 
-                    l.pax, 
-                    l.paxMode, 
-                    (l.paxMode === 'free' ? l.paxColor : null), // Null si standard (couleur déduite au scan)
-                    l.lieu, 
-                    l.fenetrePorte, 
-                    l.remarques
-                ];
-
-                const logStr = JSON.stringify(optimizedLog);
-                // Estimation taille : chaine + virgule
-                const entrySize = logStr.length + 1;
-
-                // Si l'ajout de l'entrée dépasse la limite, on ferme le chunk actuel
-                if (currentSizeEstimate + entrySize > MAX_QR_CHARS && currentChunk.length > 0) {
-                    qrChunks.push(currentChunk);
-                    currentChunk = [];
-                    currentSizeEstimate = 15;
-                }
-
-                currentChunk.push(optimizedLog);
-                currentSizeEstimate += entrySize;
-            });
-
-            if (currentChunk.length > 0) {
-                qrChunks.push(currentChunk);
-            }
-
+            qrChunks = chunkArray(compressedData, QR_BATCH_SIZE);
             currentQrIndex = 0;
-            document.getElementById('qr-nav-controls').style.display = qrChunks.length > 1 ? 'flex' : 'none'; 
-            showQR(currentQrIndex);
+            
+            if(navControls) {
+                navControls.style.display = qrChunks.length > 1 ? 'flex' : 'none';
+            }
+            
+            // CORRECTIF #1 suite : Utiliser un délai pour laisser le modal s'afficher avant de dessiner
+            setTimeout(() => {
+                showQR(currentQrIndex);
+            }, 50);
         }
 
         function showQR(index) {
             const container = document.getElementById('qrcode-container');
-            container.innerHTML = ''; 
-            // Nettoyage explicite
-            container.style.display = 'inline-block';
+            const statusText = document.getElementById('qr-status-text');
+            const counter = document.getElementById('qr-counter');
+            const prevBtn = document.getElementById('prevQrBtn');
+            const nextBtn = document.getElementById('nextQrBtn');
             
-            try {
-                new QRCode(container, { 
-                    text: JSON.stringify({ t: "", d: qrChunks[index] }), 
-                    width: 256, 
-                    height: 256,
-                    correctLevel : QRCode.CorrectLevel.M
-                });
-                document.getElementById('qr-counter').textContent = `${index + 1} / ${qrChunks.length}`;
-                document.getElementById('prevQrBtn').disabled = index === 0;
-                document.getElementById('nextQrBtn').disabled = index === qrChunks.length - 1;
-                const statusText = document.getElementById('qr-status-text');
-                if(statusText) statusText.textContent = "";
-            } catch (e) {
-                console.error("Erreur génération QR:", e);
-                container.innerHTML = '<span style="color:var(--danger-red);">Erreur: Données trop volumineuses.</span>';
+            container.innerHTML = '';
+            
+            // Structure compatible avec pctac.html : t = titre, d = data
+            // v1 n'a pas d'input titre, on envoie une chaine vide ou par défaut
+            let transferPayload = { t: "PC-TAC-V1", d: qrChunks[index] };
+            let jsonString = JSON.stringify(transferPayload);
+            
+            new QRCode(container, {
+                text: jsonString,
+                width: 256,
+                height: 256,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.M
+            });
+            
+            if (qrChunks.length > 1) {
+                if(statusText) statusText.textContent = `Page ${index + 1} sur ${qrChunks.length} - ${qrChunks[index].length} entrées.`;
+                if(counter) counter.textContent = `${index + 1} / ${qrChunks.length}`;
+                if(prevBtn) prevBtn.disabled = index === 0;
+                if(nextBtn) nextBtn.disabled = index === qrChunks.length - 1;
+            } else {
+                if(statusText) statusText.textContent = `${qrChunks[0].length} entrées prêtes au transfert.`;
             }
         }
 
         function startScanner() {
             if (html5QrCodeLocal) return; 
             html5QrCodeLocal = new Html5Qrcode("qr-reader");
-            html5QrCodeLocal.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess).catch(err => { document.getElementById('qr-reader').textContent = "Erreur caméra."; });
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            html5QrCodeLocal.start({ facingMode: "environment" }, config, onScanSuccess)
+            .catch(err => {
+                document.getElementById('qr-reader').textContent = "Erreur caméra: " + err;
+            });
         }
 
         function onScanSuccess(decodedText) {
             try {
                 const data = JSON.parse(decodedText);
+                // Compatible avec les formats {d: [...]} (v1 ancien) et {t:..., d:[...]} (v2 nouveau)
                 if (data.d && Array.isArray(data.d)) {
                     const currentLogs = getLogData();
                     const currentIds = new Set(currentLogs.map(l => l.id));
                     let added = 0;
                     data.d.forEach(item => { 
                         if (!currentIds.has(item[0])) { 
-                            currentLogs.push({ 
-                                id: item[0], 
-                                heure: item[1], 
-                                pax: item[2], 
-                                paxMode: item[3], 
-                                paxColor: item[4], // Sera null pour standard, géré par renderLogTable
-                                lieu: item[5], 
-                                fenetrePorte: item[6], 
-                                remarques: item[7] 
-                            }); 
+                            currentLogs.push({ id: item[0], heure: item[1], pax: item[2], paxMode: item[3], paxColor: item[4], lieu: item[5], fenetrePorte: item[6], remarques: item[7] }); 
                             added++; 
                         } 
                     });
                     if (added > 0) { renderLogTable(currentLogs); alert(`${added} entrées ajoutées.`); }
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error(e);
+            }
         }
         
         // --- 8. Initialisation ---
@@ -1684,12 +1655,25 @@
             resetDataDockBtn.addEventListener('click', showResetModal);
             document.getElementById('confirmResetBtn').addEventListener('click', handleResetData);
             document.getElementById('cancelResetBtn').addEventListener('click', hideResetModal);
+            
+            // Listeners Transfert QR
             transferDockBtn.addEventListener('click', openTransferModal);
             closeTransferBtn.addEventListener('click', closeTransferModal);
             transferTabs.forEach(btn => btn.addEventListener('click', (e) => switchTransferTab(e.target.dataset.tab)));
-            document.getElementById('prevQrBtn').addEventListener('click', () => { if (currentQrIndex > 0) showQR(--currentQrIndex); });
-            document.getElementById('nextQrBtn').addEventListener('click', () => { if (currentQrIndex < qrChunks.length - 1) showQR(++currentQrIndex); });
-            document.getElementById('modalBackdrop').addEventListener('click', hideResetModal);
+            
+            document.getElementById('prevQrBtn').addEventListener('click', () => { 
+                if (currentQrIndex > 0) { currentQrIndex--; showQR(currentQrIndex); }
+            });
+            document.getElementById('nextQrBtn').addEventListener('click', () => { 
+                if (currentQrIndex < qrChunks.length - 1) { currentQrIndex++; showQR(currentQrIndex); }
+            });
+            
+            document.getElementById('modalBackdrop').addEventListener('click', (e) => {
+                if (e.target.id === 'modalBackdrop') {
+                    hideResetModal();
+                    closeTransferModal();
+                }
+            });
         });
         
         window.setPaxMode = setPaxMode;

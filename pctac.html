@@ -1528,13 +1528,19 @@
         function openTransferModal() {
             document.getElementById('modalBackdrop').style.display = 'block';
             transferModal.style.display = 'block';
-            switchTransferTab('send');
+            
+            // FIX: Timeout pour assurer que le DOM est rendu (display:block) avant de générer le QR Code
+            setTimeout(() => {
+                switchTransferTab('send');
+            }, 50);
         }
+
         function closeTransferModal() {
             document.getElementById('modalBackdrop').style.display = 'none';
             transferModal.style.display = 'none';
             if(html5QrCodeLocal) { html5QrCodeLocal.stop(); html5QrCodeLocal = null; }
         }
+
         function switchTransferTab(tabName) {
             transferTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
             document.querySelectorAll('.transfer-content').forEach(c => c.classList.remove('active'));
@@ -1556,10 +1562,25 @@
         function showQR(index) {
             const container = document.getElementById('qrcode-container');
             container.innerHTML = ''; 
-            new QRCode(container, { text: JSON.stringify({ t: "", d: qrChunks[index] }), width: 256, height: 256 });
-            document.getElementById('qr-counter').textContent = `${index + 1} / ${qrChunks.length}`;
-            document.getElementById('prevQrBtn').disabled = index === 0;
-            document.getElementById('nextQrBtn').disabled = index === qrChunks.length - 1;
+            // Nettoyage explicite
+            container.style.display = 'inline-block';
+            
+            try {
+                new QRCode(container, { 
+                    text: JSON.stringify({ t: "", d: qrChunks[index] }), 
+                    width: 256, 
+                    height: 256,
+                    correctLevel : QRCode.CorrectLevel.M
+                });
+                document.getElementById('qr-counter').textContent = `${index + 1} / ${qrChunks.length}`;
+                document.getElementById('prevQrBtn').disabled = index === 0;
+                document.getElementById('nextQrBtn').disabled = index === qrChunks.length - 1;
+                const statusText = document.getElementById('qr-status-text');
+                if(statusText) statusText.textContent = "";
+            } catch (e) {
+                console.error("Erreur génération QR:", e);
+                container.innerHTML = '<span style="color:var(--danger-red);">Erreur: Données trop volumineuses.</span>';
+            }
         }
 
         function startScanner() {

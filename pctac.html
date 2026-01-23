@@ -1555,10 +1555,13 @@
 
             // Découpage intelligent basé sur la taille estimée des données
             // Limite de sécurité pour la librairie QR Code (~4500 caractères pour version 40-M, on vise 4000)
-            const MAX_QR_CHARS = 4000; 
+            const MAX_QR_CHARS = 4500; 
             qrChunks = [];
             let currentChunk = [];
-            let currentSize = 0;
+            
+            // On calcule la taille actuelle du chunk pour éviter des stringify répétitifs coûteux
+            // On commence avec la structure vide {t:"", d:[]} qui fait environ 15 caractères
+            let currentSizeEstimate = 15; 
 
             logs.forEach(l => {
                 // Optimisation : On n'exporte PAS la couleur pour les modes standard
@@ -1578,14 +1581,15 @@
                 // Estimation taille : chaine + virgule
                 const entrySize = logStr.length + 1;
 
-                if (currentSize + entrySize > MAX_QR_CHARS && currentChunk.length > 0) {
+                // Si l'ajout de l'entrée dépasse la limite, on ferme le chunk actuel
+                if (currentSizeEstimate + entrySize > MAX_QR_CHARS && currentChunk.length > 0) {
                     qrChunks.push(currentChunk);
                     currentChunk = [];
-                    currentSize = 0;
+                    currentSizeEstimate = 15;
                 }
 
                 currentChunk.push(optimizedLog);
-                currentSize += entrySize;
+                currentSizeEstimate += entrySize;
             });
 
             if (currentChunk.length > 0) {

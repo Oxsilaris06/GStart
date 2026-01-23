@@ -810,7 +810,7 @@
         let html5QrCodeLocal; 
         let qrChunks = [];
         let currentQrIndex = 0;
-        const QR_BATCH_SIZE = 8; // Nombre d'entrées par QR
+        const QR_BATCH_SIZE = 4; // Réduit de 8 à 4 pour éviter l'erreur "code length overflow" (8652>5352)
         
         // Variable pour suivre si l'utilisateur a modifié l'heure manuellement
         let isTimeInputManuallyChanged = false;

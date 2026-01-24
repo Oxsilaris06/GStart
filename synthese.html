@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synthèse Interactive - ADI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Oswald:wght@300;400;500;700&family=Saira+Stencil+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <style>
+/* --- 1. COULEURS & VARIABLES GLOBALES --- */
+:root {
+    --bg-body: #050505;
+    --bg-panel: #141414;
+    --bg-interactive: #1f1f1f;
+    
+    /* Identité PC TAC */
+    --pctac-blue: #3b82f6;
+    --pctac-glass: rgba(22, 22, 25, 0.9);
+    
+    /* Identité OI */
+    --oi-green: #22c55e;
+    --oi-bg: #2a2a2a;
+
+    /* Status Tactiques */
+    --adv-red: #ef4444; 
+    --civil-yellow: #eab308;
+    --inter-blue: #3b82f6;
+    
+    --border-color: rgba(255, 255, 255, 0.15);
+    
+    /* Dimensions Slides */
+    --slide-width: 1280px;
+    --slide-height: 720px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    background-color: var(--bg-body);
+    font-family: 'Oswald', sans-serif;
+    color: #e0e0e0;
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* --- 2. STRUCTURE DES SLIDES --- */
+.slide-container {
+    width: var(--slide-width);
+    height: var(--slide-height);
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 0 50px rgba(0,0,0,0.9);
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    padding: 50px;
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.95);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    overflow: hidden;
+}
+
+.slide-container.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+    z-index: 10;
+}
+
+/* Grille de fond tactique */
+.slide-container::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-image: 
+        linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.content-area {
+    position: relative;
+    z-index: 2;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* Typographie */
+h1, h2 {
+    font-family: 'Saira Stencil One', cursive;
+    text-transform: uppercase;
+    color: var(--pctac-blue);
+    margin: 0;
+    letter-spacing: 2px;
+}
+h1 { font-size: 72px; text-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
+.slide-title {
+    font-size: 38px;
+    border-bottom: 2px solid var(--pctac-blue);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    width: 100%;
+}
+h3 { font-size: 24px; color: #fff; margin-bottom: 15px; font-weight: 500; }
+p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
+.subtitle { font-family: 'JetBrains Mono', monospace; color: var(--oi-green); font-size: 22px; margin-top: 10px; }
+
+/* Layout Colonnes */
+.two-column {
+    display: grid;
+    grid-template-columns: 35% 65%; /* Plus d'espace pour la démo */
+    gap: 40px;
+    height: 100%;
+}
+
+/* --- 3. MODULE INTERACTIF : PC TAC (Slide 3) --- */
+/* Inspiré de pctac.html : Style "Glass", Inputs, Logs */
+
+.demo-pctac-interface {
+    background: rgba(22, 22, 25, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 8px;
+    padding: 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.demo-form-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.demo-input {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 10px;
+    color: #e0e0e0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+}
+
+.demo-input:focus { border-color: var(--pctac-blue); outline: none; }
+
+.demo-select {
+    flex: 1;
+    cursor: pointer;
+}
+
+.demo-btn-add {
+    background: var(--pctac-blue);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-family: 'Oswald', sans-serif;
+    text-transform: uppercase;
+    font-weight: bold;
+    transition: 0.2s;
+}
+.demo-btn-add:hover { background: #2563eb; transform: translateY(-2px); }
+
+.demo-log-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.demo-log-item {
+    display: flex;
+    align-items: center;
+    background: rgba(255,255,255,0.03);
+    padding: 8px;
+    margin-bottom: 8px;
+    border-left: 3px solid transparent;
+    animation: slideIn 0.3s ease-out;
+}
+@keyframes slideIn { from { opacity:0; transform: translateX(-10px); } to { opacity:1; transform: translateX(0); } }
+
+.demo-log-time { font-family: 'JetBrains Mono'; color: var(--pctac-blue); margin-right: 15px; font-weight: bold; font-size: 14px; }
+.demo-log-badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-right: 10px; color: white; min-width: 80px; text-align: center; }
+.demo-log-text { color: #ccc; font-size: 14px; }
+
+/* Couleurs badges PC TAC */
+.bg-adv { background-color: var(--adv-red); }
+.bg-inter { background-color: var(--inter-blue); }
+.bg-ao { background-color: var(--oi-green); }
+.bg-civil { background-color: var(--civil-yellow); color: black !important; }
+
+
+/* --- 4. MODULE INTERACTIF : OI GENERATOR (Slide 4) --- */
+/* Inspiré de 1.html : Drag & Drop, Styles "Card" */
+
+.demo-oi-interface {
+    background: #1a1a1a;
+    border: 1px solid var(--oi-green);
+    border-radius: 8px;
+    padding: 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.demo-drag-area {
+    display: flex;
+    gap: 20px;
+    height: 100%;
+    margin-top: 10px;
+}
+
+.demo-pool, .demo-vehicle {
+    flex: 1;
+    border: 2px dashed rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: 0.3s;
+    overflow-y: auto;
+}
+
+.demo-pool-title {
+    font-size: 14px;
+    text-transform: uppercase;
+    color: #888;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.demo-vehicle {
+    border-color: var(--pctac-blue);
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.demo-vehicle.drag-over {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: var(--oi-green);
+}
+
+.demo-member-card {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    padding: 10px;
+    border-radius: 4px;
+    cursor: grab;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Oswald', sans-serif;
+}
+
+.demo-member-card:active { cursor: grabbing; }
+.demo-member-card.dragging { opacity: 0.5; }
+
+.demo-trigram { font-weight: bold; color: #fff; }
+.demo-role { font-size: 12px; color: #888; }
+.demo-status-icon { color: var(--oi-green); display: none; }
+
+.demo-vehicle .demo-member-card { border-color: var(--pctac-blue); }
+.demo-vehicle .demo-member-card .demo-status-icon { display: block; }
+
+
+/* --- 5. NAVIGATION & FOOTER --- */
+.nav-controls {
+    position: fixed;
+    bottom: 30px;
+    display: flex;
+    gap: 20px;
+    z-index: 100;
+}
+.btn-nav {
+    background: rgba(0,0,0,0.8);
+    border: 1px solid var(--pctac-blue);
+    color: var(--pctac-blue);
+    padding: 10px 25px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-family: 'Oswald', sans-serif;
+    text-transform: uppercase;
+    transition: 0.3s;
+}
+.btn-nav:hover:not(:disabled) {
+    background: var(--pctac-blue);
+    color: #000;
+    box-shadow: 0 0 15px var(--pctac-blue);
+}
+.btn-nav:disabled { opacity: 0.3; cursor: not-allowed; border-color: #555; color: #555; }
+
+.slide-footer { position: absolute; bottom: 30px; right: 60px; font-size: 14px; color: #444; }
+
+/* Indicateur Gain */
+.gain-badge {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid var(--oi-green);
+    color: var(--oi-green);
+    padding: 5px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .slide-container { width: 100%; height: 100%; border-radius: 0; padding: 20px; transform: scale(1) !important; }
+    .two-column { grid-template-columns: 1fr; grid-template-rows: auto 1fr; gap: 20px; }
+    h1 { font-size: 40px; }
+    .demo-pctac-interface, .demo-oi-interface { height: 400px; } /* Hauteur fixe pour le mobile */
+}
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: TITRE -->
+<div class="slide-container active" id="slide1">
+    <div class="content-area" style="text-align: center; border: 1px solid var(--pctac-blue); padding: 60px; border-radius: 20px; background: rgba(0,0,0,0.4);">
+        <h1>INNOVATIONS OPÉRATIONNELLES</h1>
+        <p class="subtitle">OUTILS NUMÉRIQUES TACTIQUES</p>
+        <div style="margin-top: 50px; display: flex; justify-content: center; gap: 80px; flex-wrap: wrap;">
+            <div style="text-align: center;">
+                <i class="fa-solid fa-desktop" style="color: var(--pctac-blue); font-size: 50px; margin-bottom: 20px;"></i>
+                <h3 style="color: var(--pctac-blue); margin:0;">PC TAC</h3>
+                <p style="font-size: 18px; color: #aaa;">L'ACTION</p>
+            </div>
+            <div style="height: 100px; width: 1px; background: #333;"></div>
+            <div style="text-align: center;">
+                <i class="fa-solid fa-file-contract" style="color: var(--oi-green); font-size: 50px; margin-bottom: 20px;"></i>
+                <h3 style="color: var(--oi-green); margin:0;">GÉNÉRATEUR OI</h3>
+                <p style="font-size: 18px; color: #aaa;">LA PRÉPARATION</p>
+            </div>
+        </div>
+        <p style="margin-top: 60px; font-size: 14px; color: #666;">ATELIERS DE L'INNOVATION GENDARMERIE</p>
+    </div>
+    <div class="slide-footer">Introduction</div>
+</div>
+
+<!-- SLIDE 2: CONTEXTE -->
+<div class="slide-container" id="slide2">
+    <h2 class="slide-title">LE BESOIN OPÉRATIONNEL</h2>
+    <div class="content-area">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+            <div style="background: rgba(239, 68, 68, 0.05); padding: 30px; border-radius: 8px; border: 1px solid var(--adv-red);">
+                <h3 style="color: var(--adv-red);"><i class="fa-solid fa-file-circle-xmark"></i> PROBLÉMATIQUES</h3>
+                <ul>
+                    <li>Supports papier hétérogènes et raturés.</li>
+                    <li>Perte d'information en temps de crise.</li>
+                    <li>Rédaction OI chronophage (copier-coller).</li>
+                </ul>
+            </div>
+            <div style="background: rgba(34, 197, 94, 0.05); padding: 30px; border-radius: 8px; border: 1px solid var(--oi-green);">
+                <h3 style="color: var(--oi-green);"><i class="fa-solid fa-check-circle"></i> SOLUTIONS ADI</h3>
+                <ul>
+                    <li>Standardisation des interfaces (Code couleur).</li>
+                    <li>Données sécurisées en Local Storage (0 Serveur).</li>
+                    <li>Apps résilientes "Offline First".</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="slide-footer">Contexte</div>
+</div>
+
+<!-- SLIDE 3: PC TAC (INTERACTIF) -->
+<div class="slide-container" id="slide3">
+    <h2 class="slide-title" style="border-color: var(--pctac-blue);">PC TAC : GESTION DE CRISE</h2>
+    <div class="content-area">
+        <div class="two-column">
+            <!-- Colonne Texte -->
+            <div>
+                <h3><i class="fa-solid fa-laptop-medical" style="color: var(--pctac-blue);"></i> MAIN COURANTE LIVE</h3>
+                <p>Outil tactique pour suivre l'évolution d'une situation en temps réel (Forcené, Retranchement).</p>
+                <ul style="margin-top: 20px;">
+                    <li><strong>Standardisation :</strong> Code couleur automatique (Rouge=Adv, Bleu=Inter).</li>
+                    <li><strong>Rapidité :</strong> Saisie optimisée pour l'opérateur PC.</li>
+                    <li><strong>Résilience :</strong> Fonctionne sans internet.</li>
+                </ul>
+                <p style="font-style: italic; font-size: 14px; margin-top: 20px; color: #666;">
+                    <i class="fa-solid fa-hand-pointer"></i> Essayez le module ci-contre : Ajoutez une entrée au journal.
+                </p>
+            </div>
+
+            <!-- Colonne Interactive (Mini App PC TAC) -->
+            <div class="demo-pctac-interface">
+                <!-- Formulaire -->
+                <div class="demo-form-row">
+                    <input type="time" id="demoPcTime" class="demo-input" style="width: 80px;">
+                    <select id="demoPcPax" class="demo-input demo-select">
+                        <option value="Adversaire">Adversaire</option>
+                        <option value="Inter">Inter</option>
+                        <option value="AO">AO</option>
+                        <option value="Civil">Civil</option>
+                    </select>
+                    <input type="text" id="demoPcMsg" class="demo-input" placeholder="Message (ex: Visuel fenêtre A1)" style="flex-grow: 1;">
+                    <button onclick="addLiveLogEntry()" class="demo-btn-add"><i class="fa-solid fa-plus"></i></button>
+                </div>
+
+                <!-- Liste Log -->
+                <div class="demo-log-list" id="demoLogContainer">
+                    <!-- Entrées initiales -->
+                    <div class="demo-log-item" style="border-left-color: var(--adv-red);">
+                        <span class="demo-log-time">06:00</span>
+                        <span class="demo-log-badge bg-adv">ADVERSAIRE</span>
+                        <span class="demo-log-text">Visuel fenêtre A1 avec arme longue.</span>
+                    </div>
+                    <div class="demo-log-item" style="border-left-color: var(--inter-blue);">
+                        <span class="demo-log-time">06:05</span>
+                        <span class="demo-log-badge bg-inter">INTER</span>
+                        <span class="demo-log-text">Dispositif de bouclage en place.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="slide-footer">Demo Interactive : PC Tac</div>
+</div>
+
+<!-- SLIDE 4: OI GENERATOR (INTERACTIF) -->
+<div class="slide-container" id="slide4">
+    <h2 class="slide-title" style="border-color: var(--oi-green);">GÉNÉRATEUR OI : PRÉPARATION</h2>
+    <div class="content-area">
+        <div class="two-column">
+            <!-- Colonne Texte -->
+            <div>
+                <h3><i class="fa-solid fa-wand-magic-sparkles" style="color: var(--oi-green);"></i> WIZARD & PATRACDVR</h3>
+                <p>Assistant de rédaction pas à pas avec gestion visuelle des moyens.</p>
+                <ul style="margin-top: 20px;">
+                    <li><strong>Drag & Drop :</strong> Assignation intuitive des personnels aux véhicules.</li>
+                    <li><strong>Gain de temps :</strong> 1 Heure gagnée par préparation.</li>
+                    <li><strong>Export PDF :</strong> Mise en forme automatique.</li>
+                </ul>
+                <div class="gain-badge">
+                    <i class="fa-solid fa-clock"></i> Gain : 1H / Mission
+                </div>
+                <p style="font-style: italic; font-size: 14px; margin-top: 20px; color: #666;">
+                    <i class="fa-solid fa-hand-pointer"></i> Essayez le module : Glissez les personnels dans le véhicule.
+                </p>
+            </div>
+
+            <!-- Colonne Interactive (Mini App OI) -->
+            <div class="demo-oi-interface">
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <h4 style="margin:0; color:#888;">Module PatracDVR (Démo)</h4>
+                    <button onclick="resetOiDemo()" style="background:none; border:none; color:#666; cursor:pointer;"><i class="fa-solid fa-rotate-right"></i> Reset</button>
+                </div>
+                
+                <div class="demo-drag-area">
+                    <!-- Pool Personnels -->
+                    <div class="demo-pool" id="demoPool" ondrop="drop(event)" ondragover="allowDrop(event)">
+                        <div class="demo-pool-title">Effectifs Disponibles</div>
+                        
+                        <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem1">
+                            <div><span class="demo-trigram">MAH</span> <br><span class="demo-role">Chef Inter</span></div>
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem2">
+                            <div><span class="demo-trigram">DUP</span> <br><span class="demo-role">Effraction</span></div>
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem3">
+                            <div><span class="demo-trigram">MAR</span> <br><span class="demo-role">Appui Obs.</span></div>
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                         <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem4">
+                            <div><span class="demo-trigram">LEF</span> <br><span class="demo-role">Conducteur</span></div>
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                    </div>
+
+                    <!-- Véhicule Cible -->
+                    <div class="demo-vehicle" id="demoVehicle" ondrop="drop(event)" ondragover="allowDrop(event)">
+                        <div class="demo-pool-title" style="color:var(--pctac-blue); font-weight:bold;">
+                            <i class="fa-solid fa-truck-pickup"></i> KODIAQ (India 1)
+                        </div>
+                        <!-- Zone de drop vide au départ -->
+                        <div style="font-style:italic; font-size:12px; text-align:center; color:#444; margin-top:20px;" id="vehicleHint">Glisser ici</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="slide-footer">Demo Interactive : Drag & Drop</div>
+</div>
+
+<!-- SLIDE 5: SOCLE TECHNIQUE -->
+<div class="slide-container" id="slide5">
+    <h2 class="slide-title" style="color: #fff; border-color: #fff;">SOCLE TECHNIQUE COMMUN</h2>
+    <div class="content-area">
+        <div style="display: flex; gap: 30px; justify-content: center;">
+            <div style="flex:1; background: rgba(255,255,255,0.05); padding: 30px; border-radius: 8px; text-align: center;">
+                <i class="fa-solid fa-shield-halved" style="color: var(--pctac-blue); font-size: 40px; margin-bottom: 20px;"></i>
+                <h3 style="color: var(--pctac-blue);">100% LOCAL</h3>
+                <p>Architecture "Client-Side Only". Aucune donnée ne sort du navigateur vers un cloud. Sécurité maximale.</p>
+            </div>
+            <div style="flex:1; background: rgba(255,255,255,0.05); padding: 30px; border-radius: 8px; text-align: center;">
+                <i class="fa-solid fa-database" style="color: var(--oi-green); font-size: 40px; margin-bottom: 20px;"></i>
+                <h3 style="color: var(--oi-green);">LOCAL STORAGE</h3>
+                <p>Persistance des données cryptée dans le cache du navigateur. Résiste aux fermetures accidentelles.</p>
+            </div>
+            <div style="flex:1; background: rgba(255,255,255,0.05); padding: 30px; border-radius: 8px; text-align: center;">
+                <i class="fa-solid fa-file-pdf" style="color: var(--civil-yellow); font-size: 40px; margin-bottom: 20px;"></i>
+                <h3 style="color: var(--civil-yellow);">JS PDF-LIB</h3>
+                <p>Génération de rapports officiels instantanée via le moteur Javascript embarqué.</p>
+            </div>
+        </div>
+    </div>
+    <div class="slide-footer">Architecture</div>
+</div>
+
+<!-- SLIDE 6: DÉPLOIEMENT -->
+<div class="slide-container" id="slide6">
+    <h2 class="slide-title">IMPACT OPÉRATIONNEL</h2>
+    <div class="content-area" style="text-align: center;">
+        <div style="display: flex; justify-content: center; gap: 60px; align-items: center; margin-top: 40px;">
+            <div>
+                <div style="font-family: 'Saira Stencil One'; font-size: 100px; color: #fff; line-height: 1;">100%</div>
+                <p style="text-transform: uppercase; margin-top: 10px; color: #888;">Opérationnel<br>PSIG Gilette</p>
+            </div>
+            <div style="width: 2px; height: 100px; background: #333;"></div>
+            <div>
+                <div style="font-family: 'Saira Stencil One'; font-size: 100px; color: var(--pctac-blue); line-height: 1;">PACA</div>
+                <p style="text-transform: uppercase; margin-top: 10px; color: #888;">Phase Test<br>Régionale</p>
+            </div>
+            <div style="width: 2px; height: 100px; background: #333;"></div>
+            <div>
+                <div style="font-family: 'Saira Stencil One'; font-size: 100px; color: var(--oi-green); line-height: 1;">1H</div>
+                <p style="text-transform: uppercase; margin-top: 10px; color: #888;">Gain temps moyen<br>Préparation OI</p>
+            </div>
+        </div>
+        <p style="margin-top: 80px; font-size: 24px; font-style: italic; color: #fff;">"Du code par le terrain, pour le terrain."</p>
+    </div>
+    <div class="slide-footer">Résultats</div>
+</div>
+
+<!-- SLIDE 7: FIN -->
+<div class="slide-container" id="slide7">
+    <div class="content-area" style="text-align: center;">
+        <h2 style="font-size: 60px; margin-bottom: 20px;">POUR ALLER PLUS LOIN</h2>
+        <div style="font-size: 80px; color: var(--pctac-blue); margin-bottom: 30px;">
+            <i class="fa-regular fa-comments"></i>
+        </div>
+        <p>Retrouvez ces outils et les codes sources sur le portail des Ateliers de l'Innovation.</p>
+        <p class="subtitle" style="margin-top: 40px; color: #666;">FIN DE PRÉSENTATION</p>
+    </div>
+</div>
+
+<!-- Navigation Globale -->
+<div class="nav-controls">
+    <button class="btn-nav" id="btnPrev" onclick="changeSlide(-1)" disabled><i class="fa-solid fa-chevron-left"></i> Précédent</button>
+    <button class="btn-nav" id="btnNext" onclick="changeSlide(1)">Suivant <i class="fa-solid fa-chevron-right"></i></button>
+</div>
+
+<script>
+    /* --- LOGIQUE DE PRÉSENTATION --- */
+    let currentSlide = 1;
+    const totalSlides = 7;
+
+    function showSlide(n) {
+        document.querySelectorAll('.slide-container').forEach(slide => slide.classList.remove('active'));
+        document.getElementById('slide' + n).classList.add('active');
+        document.getElementById('btnPrev').disabled = (n === 1);
+        document.getElementById('btnNext').disabled = (n === totalSlides);
+    }
+
+    function changeSlide(dir) {
+        if (dir === 1 && currentSlide < totalSlides) currentSlide++;
+        else if (dir === -1 && currentSlide > 1) currentSlide--;
+        showSlide(currentSlide);
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if(e.key === "ArrowRight") changeSlide(1);
+        if(e.key === "ArrowLeft") changeSlide(-1);
+    });
+
+    /* --- LOGIQUE MINI-MODULE PC TAC (Slide 3) --- */
+    function initPcTacDemo() {
+        const timeInput = document.getElementById('demoPcTime');
+        const now = new Date();
+        timeInput.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    }
+
+    function addLiveLogEntry() {
+        const time = document.getElementById('demoPcTime').value;
+        const pax = document.getElementById('demoPcPax').value;
+        const msg = document.getElementById('demoPcMsg').value;
+        
+        if(!msg) return; // Pas de message vide
+
+        const container = document.getElementById('demoLogContainer');
+        const item = document.createElement('div');
+        item.className = 'demo-log-item';
+        
+        // Définition couleur
+        let colorClass = 'bg-adv';
+        let borderColor = 'var(--adv-red)';
+        if(pax === 'Inter') { colorClass = 'bg-inter'; borderColor = 'var(--inter-blue)'; }
+        if(pax === 'AO') { colorClass = 'bg-ao'; borderColor = 'var(--oi-green)'; }
+        if(pax === 'Civil') { colorClass = 'bg-civil'; borderColor = 'var(--civil-yellow)'; }
+
+        item.style.borderLeftColor = borderColor;
+        item.innerHTML = `
+            <span class="demo-log-time">${time}</span>
+            <span class="demo-log-badge ${colorClass}">${pax.toUpperCase()}</span>
+            <span class="demo-log-text">${msg}</span>
+        `;
+        
+        container.prepend(item); // Ajout en haut
+        document.getElementById('demoPcMsg').value = ''; // Reset input
+    }
+
+    /* --- LOGIQUE MINI-MODULE OI (Slide 4 - Drag & Drop) --- */
+    function allowDrop(ev) {
+        ev.preventDefault();
+        const target = ev.target.closest('.demo-vehicle, .demo-pool');
+        if(target) target.classList.add('drag-over');
+    }
+
+    function drag(ev) {
+        ev.dataTransfer.setData("text", ev.target.id);
+        ev.target.classList.add('dragging');
+    }
+
+    function drop(ev) {
+        ev.preventDefault();
+        var data = ev.dataTransfer.getData("text");
+        var draggedElement = document.getElementById(data);
+        draggedElement.classList.remove('dragging');
+
+        // Trouver la zone de drop valide la plus proche
+        var dropZone = ev.target.closest('.demo-vehicle, .demo-pool');
+        
+        // Nettoyage visuel
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+        if (dropZone) {
+            dropZone.appendChild(draggedElement);
+            
+            // Gestion du texte d'aide "Glisser ici"
+            const hint = document.getElementById('vehicleHint');
+            const vehicle = document.getElementById('demoVehicle');
+            if(vehicle.children.length > 2) { // Title + Hint + at least 1 member
+                hint.style.display = 'none';
+            } else {
+                hint.style.display = 'block';
+            }
+        }
+    }
+    
+    // Écouteur pour enlever l'effet drag-over si on sort de la zone
+    document.addEventListener('dragleave', (e) => {
+        const target = e.target.closest('.demo-vehicle, .demo-pool');
+        if(target) target.classList.remove('drag-over');
+    });
+
+    function resetOiDemo() {
+        const pool = document.getElementById('demoPool');
+        const members = ['mem1', 'mem2', 'mem3', 'mem4'];
+        members.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) pool.appendChild(el);
+        });
+        document.getElementById('vehicleHint').style.display = 'block';
+    }
+
+    // Initialisation
+    initPcTacDemo();
+
+</script>
+
+</body>
+</html>

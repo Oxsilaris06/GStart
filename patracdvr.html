@@ -293,7 +293,7 @@
 <body>
 
     <div class="container">
-        <h1>PATRACDVR</h1>
+        <h1>PATRACDVR </h1>
 
         <!-- ACTION BAR -->
         <div class="action-bar">
@@ -674,20 +674,58 @@
                 catDiv.innerHTML = `<h5>${label}</h5>`;
                 const optsDiv = document.createElement('div');
                 optsDiv.className = 'quick-edit-options';
+                // AJOUT : métadonnées pour la mise à jour dynamique
+                optsDiv.dataset.attribute = conf.attribute;
+                optsDiv.dataset.configKey = conf.key;
 
                 (memberConfig[conf.key] || []).forEach(opt => {
-                    const b = document.createElement('button');
-                    b.className = 'quick-edit-btn';
-                    b.type = 'button';
-                    b.textContent = opt;
-                    b.dataset.attribute = conf.attribute;
-                    b.dataset.value = opt;
-                    b.onclick = (e) => handleQuickEditClick(e, b);
+                    const b = createQuickEditButton(opt, conf.attribute);
                     optsDiv.appendChild(b);
                 });
                 catDiv.appendChild(optsDiv);
                 content.appendChild(catDiv);
             }
+        }
+
+        function createQuickEditButton(opt, attribute) {
+            const b = document.createElement('button');
+            b.className = 'quick-edit-btn';
+            b.type = 'button';
+            b.textContent = opt;
+            b.dataset.attribute = attribute;
+            b.dataset.value = opt;
+            b.onclick = (e) => handleQuickEditClick(e, b);
+            return b;
+        }
+
+        function syncQuickEditOptions(btn) {
+            document.querySelectorAll('.quick-edit-options').forEach(optsDiv => {
+                const attr = optsDiv.dataset.attribute;
+                const configKey = optsDiv.dataset.configKey;
+                const standardOptions = memberConfig[configKey] || [];
+                
+                // Nettoyage des boutons temporaires (ceux qui ne sont pas dans la config)
+                Array.from(optsDiv.children).forEach(b => {
+                    if (!standardOptions.includes(b.dataset.value)) {
+                        b.remove();
+                    }
+                });
+
+                // Ajout des boutons pour les valeurs actuelles du membre si hors config
+                const valStr = btn.dataset[attr];
+                if (valStr && valStr !== 'Sans') {
+                    const values = multiSelectAttributes.includes(attr) ? valStr.split(', ') : [valStr];
+                    values.forEach(v => {
+                        if (v !== 'Sans' && !standardOptions.includes(v)) {
+                            // Vérifier doublon (au cas où)
+                            if (!Array.from(optsDiv.children).some(b => b.dataset.value === v)) {
+                                const b = createQuickEditButton(v, attr);
+                                optsDiv.appendChild(b);
+                            }
+                        }
+                    });
+                }
+            });
         }
 
         function handleMemberSelection(e, btn) {
@@ -713,6 +751,9 @@
             document.getElementById('selectedMemberTrigramme').textContent = btn.dataset.trigramme;
             document.getElementById('quick_edit_trigramme_input').value = btn.dataset.trigramme;
             
+            // Update buttons dynamically for this member
+            syncQuickEditOptions(btn);
+
             refreshQuickEditButtons(btn);
             
             quickEditPanel.style.display = 'flex';

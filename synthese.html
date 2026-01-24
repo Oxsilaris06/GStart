@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Oswald:wght@300;400;500;700&family=Saira+Stencil+One&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
 /* --- 1. COULEURS & VARIABLES GLOBALES --- */
 :root {
@@ -28,6 +29,7 @@
     --adv-red: #ef4444; 
     --civil-yellow: #eab308;
     --inter-blue: #3b82f6;
+    --ao-green: #22c55e;
     
     --border-color: rgba(255, 255, 255, 0.15);
     
@@ -141,6 +143,7 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
     display: flex;
     flex-direction: column;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    position: relative;
 }
 
 .demo-form-row {
@@ -148,6 +151,35 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
     gap: 10px;
     margin-bottom: 15px;
 }
+
+/* Nouveaux Boutons PAX PC TAC */
+.demo-pax-selector {
+    display: flex; gap: 8px; margin-bottom: 15px;
+}
+.demo-pax-btn {
+    flex: 1;
+    padding: 12px 5px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Oswald'; font-weight: bold; font-size: 13px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.05);
+    transition: 0.2s;
+}
+.demo-pax-btn:hover { background: rgba(255,255,255,0.1); }
+.demo-pax-btn.active {
+    color: #fff;
+    border-color: #fff;
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    opacity: 1;
+}
+.demo-pax-btn.active.bg-adv { background: var(--adv-red); border-color: var(--adv-red); }
+.demo-pax-btn.active.bg-inter { background: var(--inter-blue); border-color: var(--inter-blue); }
+.demo-pax-btn.active.bg-ao { background: var(--ao-green); border-color: var(--ao-green); color: black; }
+.demo-pax-btn.active.bg-civil { background: var(--civil-yellow); border-color: var(--civil-yellow); color: black; }
 
 .demo-input {
     background: rgba(0, 0, 0, 0.4);
@@ -160,11 +192,6 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
 }
 
 .demo-input:focus { border-color: var(--pctac-blue); outline: none; }
-
-.demo-select {
-    flex: 1;
-    cursor: pointer;
-}
 
 .demo-btn-add {
     background: var(--pctac-blue);
@@ -207,8 +234,30 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
 /* Couleurs badges PC TAC */
 .bg-adv { background-color: var(--adv-red); }
 .bg-inter { background-color: var(--inter-blue); }
-.bg-ao { background-color: var(--oi-green); }
+.bg-ao { background-color: var(--ao-green); }
 .bg-civil { background-color: var(--civil-yellow); color: black !important; }
+
+/* --- QR EXPORT SIMULATION --- */
+.qr-demo-btn {
+    position: absolute; bottom: 20px; right: 20px;
+    background: transparent; border: 1px solid var(--pctac-blue); color: var(--pctac-blue);
+    padding: 8px 12px; border-radius: 30px; cursor: pointer; font-family: 'Oswald'; text-transform: uppercase;
+    transition: 0.3s;
+}
+.qr-demo-btn:hover { background: var(--pctac-blue); color: #000; }
+
+.demo-qr-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.95); z-index: 20;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    backdrop-filter: blur(5px); border-radius: 8px;
+}
+.demo-qr-box {
+    background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;
+}
+.demo-qr-nav { display: flex; gap: 20px; align-items: center; color: #fff; font-family: 'JetBrains Mono'; }
+.nav-icon { cursor: pointer; font-size: 24px; transition: 0.2s; }
+.nav-icon:hover { color: var(--pctac-blue); }
 
 
 /* --- 4. MODULE INTERACTIF : OI GENERATOR (Slide 4) --- */
@@ -222,6 +271,7 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
     height: 100%;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 .demo-drag-area {
@@ -266,23 +316,53 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
     border: 1px solid #444;
     padding: 10px;
     border-radius: 4px;
-    cursor: grab;
+    cursor: pointer;
     user-select: none;
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-family: 'Oswald', sans-serif;
+    transition: border-color 0.2s;
 }
 
+.demo-member-card:hover { border-color: var(--oi-green); }
 .demo-member-card:active { cursor: grabbing; }
 .demo-member-card.dragging { opacity: 0.5; }
 
-.demo-trigram { font-weight: bold; color: #fff; }
-.demo-role { font-size: 12px; color: #888; }
+.demo-trigram { font-weight: bold; color: #fff; font-size: 16px; }
+.demo-role { font-size: 11px; color: #888; display: block; }
 .demo-status-icon { color: var(--oi-green); display: none; }
 
 .demo-vehicle .demo-member-card { border-color: var(--pctac-blue); }
 .demo-vehicle .demo-member-card .demo-status-icon { display: block; }
+
+/* --- EDITOR OVERLAY OI --- */
+.demo-editor-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(20, 20, 20, 0.98); z-index: 20;
+    display: none; flex-direction: column; padding: 25px;
+    backdrop-filter: blur(5px); border-radius: 8px;
+}
+.demo-editor-title { 
+    font-size: 20px; color: var(--oi-green); margin-bottom: 20px; border-bottom: 1px solid #444; padding-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.demo-editor-section { margin-bottom: 20px; }
+.demo-editor-label { font-size: 12px; color: #888; margin-bottom: 8px; text-transform: uppercase; font-family: 'JetBrains Mono'; }
+.demo-editor-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.demo-option-btn {
+    background: #333; border: 1px solid #555; color: #ccc;
+    padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;
+    font-family: 'Oswald'; transition: 0.2s;
+}
+.demo-option-btn:hover { border-color: var(--oi-green); color: #fff; }
+.demo-option-btn.selected { 
+    background: var(--oi-green); color: #000; border-color: var(--oi-green); font-weight: bold; 
+}
+.demo-close-editor {
+    background: transparent; border: 1px solid #555; color: #aaa; cursor: pointer; padding: 5px 10px; border-radius: 4px;
+}
+.demo-close-editor:hover { color: #fff; border-color: #fff; }
 
 
 /* --- 5. NAVIGATION & FOOTER --- */
@@ -395,26 +475,30 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
                 <h3><i class="fa-solid fa-laptop-medical" style="color: var(--pctac-blue);"></i> MAIN COURANTE LIVE</h3>
                 <p>Outil tactique pour suivre l'évolution d'une situation en temps réel (Forcené, Retranchement).</p>
                 <ul style="margin-top: 20px;">
-                    <li><strong>Standardisation :</strong> Code couleur automatique (Rouge=Adv, Bleu=Inter).</li>
-                    <li><strong>Rapidité :</strong> Saisie optimisée pour l'opérateur PC.</li>
-                    <li><strong>Résilience :</strong> Fonctionne sans internet.</li>
+                    <li><strong>Standardisation :</strong> Code couleur automatique.</li>
+                    <li><strong>Rapidité :</strong> Saisie optimisée par boutons tactiques.</li>
+                    <li><strong>Transfert :</strong> Export QR Code pour transmission sans réseau.</li>
                 </ul>
                 <p style="font-style: italic; font-size: 14px; margin-top: 20px; color: #666;">
-                    <i class="fa-solid fa-hand-pointer"></i> Essayez le module ci-contre : Ajoutez une entrée au journal.
+                    <i class="fa-solid fa-hand-pointer"></i> Essayez : Sélectionnez un PAX, tapez un message, ou testez l'export QR.
                 </p>
             </div>
 
             <!-- Colonne Interactive (Mini App PC TAC) -->
             <div class="demo-pctac-interface">
+                <!-- Sélécteur PAX (Boutons) -->
+                <div class="demo-pax-selector">
+                    <button class="demo-pax-btn bg-adv active" onclick="selectPcPax('Adversaire', this)">ADVERSAIRE</button>
+                    <button class="demo-pax-btn bg-inter" onclick="selectPcPax('Inter', this)">INTER</button>
+                    <button class="demo-pax-btn bg-ao" onclick="selectPcPax('AO', this)">AO</button>
+                    <button class="demo-pax-btn bg-civil" onclick="selectPcPax('Civil', this)">CIVIL</button>
+                </div>
+
                 <!-- Formulaire -->
                 <div class="demo-form-row">
                     <input type="time" id="demoPcTime" class="demo-input" style="width: 80px;">
-                    <select id="demoPcPax" class="demo-input demo-select">
-                        <option value="Adversaire">Adversaire</option>
-                        <option value="Inter">Inter</option>
-                        <option value="AO">AO</option>
-                        <option value="Civil">Civil</option>
-                    </select>
+                    <!-- Input caché pour stocker le type -->
+                    <input type="hidden" id="demoPcPaxValue" value="Adversaire">
                     <input type="text" id="demoPcMsg" class="demo-input" placeholder="Message (ex: Visuel fenêtre A1)" style="flex-grow: 1;">
                     <button onclick="addLiveLogEntry()" class="demo-btn-add"><i class="fa-solid fa-plus"></i></button>
                 </div>
@@ -433,6 +517,23 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
                         <span class="demo-log-text">Dispositif de bouclage en place.</span>
                     </div>
                 </div>
+
+                <!-- Bouton Export QR -->
+                <button class="qr-demo-btn" onclick="openQrDemo()"><i class="fa-solid fa-qrcode"></i> Export QR</button>
+
+                <!-- Overlay QR -->
+                <div class="demo-qr-overlay" id="qrOverlay">
+                    <div class="demo-qr-box">
+                        <div id="qrcode-demo" style="margin-bottom: 10px;"></div>
+                        <p style="color:#000; margin:0; font-size:12px; font-weight:bold;">SÉQUENCE DE TRANSFERT SÉCURISÉ</p>
+                    </div>
+                    <div class="demo-qr-nav">
+                        <i class="fa-solid fa-chevron-left nav-icon" onclick="changeQr(-1)"></i>
+                        <span id="qrCounter">1 / 3</span>
+                        <i class="fa-solid fa-chevron-right nav-icon" onclick="changeQr(1)"></i>
+                    </div>
+                    <button class="qr-demo-btn" style="position:static; margin-top:20px; border-color:#fff; color:#fff;" onclick="closeQrDemo()">Fermer</button>
+                </div>
             </div>
         </div>
     </div>
@@ -449,15 +550,15 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
                 <h3><i class="fa-solid fa-wand-magic-sparkles" style="color: var(--oi-green);"></i> WIZARD & PATRACDVR</h3>
                 <p>Assistant de rédaction pas à pas avec gestion visuelle des moyens.</p>
                 <ul style="margin-top: 20px;">
-                    <li><strong>Drag & Drop :</strong> Assignation intuitive des personnels aux véhicules.</li>
+                    <li><strong>Drag & Drop :</strong> Assignation intuitive des personnels.</li>
+                    <li><strong>Édition Rapide :</strong> Modifiez les rôles et équipements en un clic.</li>
                     <li><strong>Gain de temps :</strong> 1 Heure gagnée par préparation.</li>
-                    <li><strong>Export PDF :</strong> Mise en forme automatique.</li>
                 </ul>
                 <div class="gain-badge">
                     <i class="fa-solid fa-clock"></i> Gain : 1H / Mission
                 </div>
                 <p style="font-style: italic; font-size: 14px; margin-top: 20px; color: #666;">
-                    <i class="fa-solid fa-hand-pointer"></i> Essayez le module : Glissez les personnels dans le véhicule.
+                    <i class="fa-solid fa-hand-pointer"></i> Essayez : Glissez les personnels ou <strong>cliquez sur un membre</strong> pour l'éditer.
                 </p>
             </div>
 
@@ -473,21 +574,25 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
                     <div class="demo-pool" id="demoPool" ondrop="drop(event)" ondragover="allowDrop(event)">
                         <div class="demo-pool-title">Effectifs Disponibles</div>
                         
-                        <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem1">
-                            <div><span class="demo-trigram">MAH</span> <br><span class="demo-role">Chef Inter</span></div>
-                            <i class="fa-solid fa-user"></i>
+                        <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem1" onclick="openOiEditor('mem1')">
+                            <div><span class="demo-trigram">MAH</span> <br><span class="demo-role" id="role_mem1">Chef Inter</span></div>
+                            <span class="demo-role" id="cell_mem1" style="display:none;">India 1</span>
+                            <i class="fa-solid fa-user-pen" style="color:#666; font-size:12px;"></i>
                         </div>
-                        <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem2">
-                            <div><span class="demo-trigram">DUP</span> <br><span class="demo-role">Effraction</span></div>
-                            <i class="fa-solid fa-user"></i>
+                        <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem2" onclick="openOiEditor('mem2')">
+                            <div><span class="demo-trigram">DUP</span> <br><span class="demo-role" id="role_mem2">Effrac</span></div>
+                            <span class="demo-role" id="cell_mem2" style="display:none;">Effrac</span>
+                            <i class="fa-solid fa-user-pen" style="color:#666; font-size:12px;"></i>
                         </div>
-                        <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem3">
-                            <div><span class="demo-trigram">MAR</span> <br><span class="demo-role">Appui Obs.</span></div>
-                            <i class="fa-solid fa-user"></i>
+                        <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem3" onclick="openOiEditor('mem3')">
+                            <div><span class="demo-trigram">MAR</span> <br><span class="demo-role" id="role_mem3">AO</span></div>
+                            <span class="demo-role" id="cell_mem3" style="display:none;">AO1</span>
+                            <i class="fa-solid fa-user-pen" style="color:#666; font-size:12px;"></i>
                         </div>
-                         <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem4">
-                            <div><span class="demo-trigram">LEF</span> <br><span class="demo-role">Conducteur</span></div>
-                            <i class="fa-solid fa-user"></i>
+                         <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem4" onclick="openOiEditor('mem4')">
+                            <div><span class="demo-trigram">LEF</span> <br><span class="demo-role" id="role_mem4">Conducteur</span></div>
+                            <span class="demo-role" id="cell_mem4" style="display:none;">India 1</span>
+                            <i class="fa-solid fa-user-pen" style="color:#666; font-size:12px;"></i>
                         </div>
                     </div>
 
@@ -500,10 +605,37 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
                         <div style="font-style:italic; font-size:12px; text-align:center; color:#444; margin-top:20px;" id="vehicleHint">Glisser ici</div>
                     </div>
                 </div>
+
+                <!-- OVERLAY EDITION MEMBRE -->
+                <div class="demo-editor-overlay" id="oiEditor">
+                    <div class="demo-editor-title">
+                        <span id="editorTitle">EDITER MEMBRE</span>
+                        <button class="demo-close-editor" onclick="closeOiEditor()">X</button>
+                    </div>
+                    <div class="demo-editor-section">
+                        <div class="demo-editor-label">Fonction</div>
+                        <div class="demo-editor-options" id="editorFunctions">
+                            <!-- Peuplé par JS -->
+                        </div>
+                    </div>
+                    <div class="demo-editor-section">
+                        <div class="demo-editor-label">Cellule</div>
+                        <div class="demo-editor-options" id="editorCells">
+                            <!-- Peuplé par JS -->
+                        </div>
+                    </div>
+                    <div class="demo-editor-section">
+                        <div class="demo-editor-label">Arme Principale</div>
+                        <div class="demo-editor-options" id="editorWeapons">
+                            <!-- Peuplé par JS -->
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
-    <div class="slide-footer">Demo Interactive : Drag & Drop</div>
+    <div class="slide-footer">Demo Interactive : Drag & Drop & Édition</div>
 </div>
 
 <!-- SLIDE 5: SOCLE TECHNIQUE -->
@@ -604,9 +736,17 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
         timeInput.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     }
 
+    function selectPcPax(type, btn) {
+        // MAJ visuelle des boutons
+        document.querySelectorAll('.demo-pax-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        // MAJ Valeur cachée
+        document.getElementById('demoPcPaxValue').value = type;
+    }
+
     function addLiveLogEntry() {
         const time = document.getElementById('demoPcTime').value;
-        const pax = document.getElementById('demoPcPax').value;
+        const pax = document.getElementById('demoPcPaxValue').value;
         const msg = document.getElementById('demoPcMsg').value;
         
         if(!msg) return; // Pas de message vide
@@ -619,7 +759,7 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
         let colorClass = 'bg-adv';
         let borderColor = 'var(--adv-red)';
         if(pax === 'Inter') { colorClass = 'bg-inter'; borderColor = 'var(--inter-blue)'; }
-        if(pax === 'AO') { colorClass = 'bg-ao'; borderColor = 'var(--oi-green)'; }
+        if(pax === 'AO') { colorClass = 'bg-ao'; borderColor = 'var(--ao-green)'; }
         if(pax === 'Civil') { colorClass = 'bg-civil'; borderColor = 'var(--civil-yellow)'; }
 
         item.style.borderLeftColor = borderColor;
@@ -633,7 +773,49 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
         document.getElementById('demoPcMsg').value = ''; // Reset input
     }
 
+    /* --- QR EXPORT SIMULATION --- */
+    let qrSequence = 1;
+    const totalQr = 3;
+    
+    function openQrDemo() {
+        document.getElementById('qrOverlay').style.display = 'flex';
+        qrSequence = 1;
+        updateQrDisplay();
+    }
+    
+    function closeQrDemo() {
+        document.getElementById('qrOverlay').style.display = 'none';
+    }
+    
+    function updateQrDisplay() {
+        const qrContainer = document.getElementById('qrcode-demo');
+        qrContainer.innerHTML = '';
+        new QRCode(qrContainer, {
+            text: "DemoData_Sequence_" + qrSequence,
+            width: 200,
+            height: 200
+        });
+        document.getElementById('qrCounter').innerText = qrSequence + " / " + totalQr;
+    }
+    
+    function changeQr(dir) {
+        qrSequence += dir;
+        if(qrSequence < 1) qrSequence = 1;
+        if(qrSequence > totalQr) qrSequence = totalQr;
+        updateQrDisplay();
+    }
+
+
     /* --- LOGIQUE MINI-MODULE OI (Slide 4 - Drag & Drop) --- */
+    // Config OI Réelle (Simplifiée)
+    const oiConfig = {
+        fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "Conducteur", "Chef de bord", "DE", "Cyno", "Inter", "Effrac", "AO", "Sans"],
+        cellules: ["India 1", "India 2", "India 3", "India 4", "India 5", "AO1", "AO2", "AO3", "Effrac", "Sans"],
+        armes: ["G36", "HK416", "UMP9", "FAP", "PSA", "Sans"]
+    };
+
+    let activeMemberId = null;
+
     function allowDrop(ev) {
         ev.preventDefault();
         const target = ev.target.closest('.demo-vehicle, .demo-pool');
@@ -649,29 +831,20 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
         ev.preventDefault();
         var data = ev.dataTransfer.getData("text");
         var draggedElement = document.getElementById(data);
-        draggedElement.classList.remove('dragging');
+        if(draggedElement) draggedElement.classList.remove('dragging');
 
-        // Trouver la zone de drop valide la plus proche
         var dropZone = ev.target.closest('.demo-vehicle, .demo-pool');
-        
-        // Nettoyage visuel
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
 
-        if (dropZone) {
+        if (dropZone && draggedElement) {
             dropZone.appendChild(draggedElement);
-            
-            // Gestion du texte d'aide "Glisser ici"
             const hint = document.getElementById('vehicleHint');
             const vehicle = document.getElementById('demoVehicle');
-            if(vehicle.children.length > 2) { // Title + Hint + at least 1 member
-                hint.style.display = 'none';
-            } else {
-                hint.style.display = 'block';
-            }
+            if(vehicle.children.length > 2) hint.style.display = 'none';
+            else hint.style.display = 'block';
         }
     }
     
-    // Écouteur pour enlever l'effet drag-over si on sort de la zone
     document.addEventListener('dragleave', (e) => {
         const target = e.target.closest('.demo-vehicle, .demo-pool');
         if(target) target.classList.remove('drag-over');
@@ -685,10 +858,71 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
             if(el) pool.appendChild(el);
         });
         document.getElementById('vehicleHint').style.display = 'block';
+        closeOiEditor();
+    }
+
+    /* --- OI MEMBER EDITOR LOGIC --- */
+    function initOiEditorOptions() {
+        const funcContainer = document.getElementById('editorFunctions');
+        const cellContainer = document.getElementById('editorCells');
+        const weaponContainer = document.getElementById('editorWeapons');
+        
+        // Helper
+        const createBtn = (txt, type, container) => {
+            const btn = document.createElement('button');
+            btn.className = 'demo-option-btn';
+            btn.innerText = txt;
+            btn.onclick = () => selectOiOption(type, txt, btn);
+            container.appendChild(btn);
+        };
+
+        oiConfig.fonctions.forEach(f => createBtn(f, 'role', funcContainer));
+        oiConfig.cellules.forEach(c => createBtn(c, 'cell', cellContainer));
+        oiConfig.armes.forEach(w => createBtn(w, 'weapon', weaponContainer));
+    }
+
+    function openOiEditor(memberId) {
+        activeMemberId = memberId;
+        const member = document.getElementById(memberId);
+        const trigram = member.querySelector('.demo-trigram').innerText;
+        
+        document.getElementById('editorTitle').innerText = "EDITER MEMBRE : " + trigram;
+        document.getElementById('oiEditor').style.display = 'flex';
+        
+        // Reset selections visual state (simplified)
+        document.querySelectorAll('.demo-option-btn').forEach(b => b.classList.remove('selected'));
+    }
+
+    function closeOiEditor() {
+        document.getElementById('oiEditor').style.display = 'none';
+        activeMemberId = null;
+    }
+
+    function selectOiOption(type, value, btnElement) {
+        if(!activeMemberId) return;
+        
+        // Update Visual Button State within the group
+        const group = btnElement.parentElement;
+        group.querySelectorAll('.demo-option-btn').forEach(b => b.classList.remove('selected'));
+        btnElement.classList.add('selected');
+
+        // Update Member Card Data
+        const member = document.getElementById(activeMemberId);
+        if(type === 'role') {
+            member.querySelector('.demo-role').innerText = value;
+        } else if (type === 'cell') {
+            // Dans la démo simple, on peut juste stocker ou afficher en tooltip
+            // Pour l'exemple visuel, on ne change que le rôle principal affiché
+        }
+        
+        // Feedback visuel flash sur la carte
+        member.style.borderColor = "#fff";
+        setTimeout(() => member.style.borderColor = "", 300);
     }
 
     // Initialisation
     initPcTacDemo();
+    initOiEditorOptions();
 
 </script>
 

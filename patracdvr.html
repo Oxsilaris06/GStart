@@ -293,7 +293,7 @@
 <body>
 
     <div class="container">
-        <h1>PATRACDVR Generator</h1>
+        <h1>PATRACDVR</h1>
 
         <!-- ACTION BAR -->
         <div class="action-bar">
@@ -308,7 +308,6 @@
             </div>
             
             <div style="display:flex; gap:10px; flex-wrap: wrap;">
-                <!-- Modification: Suppression du bouton 'importDefaultConfigBtn' -->
                 <button type="button" id="importSessionBtn" class="add-btn" title="Importer une sauvegarde JSON">
                     <span class="material-symbols-outlined">upload_file</span> Importer Sauvegarde
                 </button>
@@ -370,7 +369,7 @@
         </button>
 
         <footer>
-            Strategica Web - Module PATRACDVR Autonome
+         Module PATRACDVR Autonome
         </footer>
     </div>
 
@@ -397,23 +396,41 @@
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
 
     <script>
-        // --- CONFIGURATION ---
+        // --- CONFIGURATION DE BASE (CANEVAS DU JSON) ---
+        // Données extraites de members_config (1).json
         const memberConfig = {
-            fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "Conducteur", "Chef de bord", "DE", "Cyno", "Inter", "Effrac", "AO", "Sans"],
-            cellules: ["AO1", "AO2", "AO3", "AO4", "India 1", "India 2", "India 3", "India 4", "India 5", "Effrac", "Sans"],
+            fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "DE", "Cyno", "Inter", "AO", "Sans"],
+            cellules: ["AO1", "AO2", "AO3", "AO4", "AO5", "AO6", "AO7", "AO8", "India 1", "India 2", "India 3", "India 4", "India 5", "Effrac", "Sans"],
             principales: ["UMP9", "G36", "FAP", "Sans"],
+            secondaires: ["PSA", "Sans"],
             afis: ["PIE", "LBD40", "LBD44", "Sans"],
-            secondaires: ["PSA"],
             grenades: ["GENL", "MP7", "Sans"],
-            equipements: ["Sans", "Casque Lourd", "Casque MO", "BBAL", "Belier", "Lacry", "IL", "Lot 5.11"],
-            equipements2: ["Sans", "Cam pieton", "Échelle", "Stop stick", "Lacry", "Cale", "IL", "Pass"],
-            tenues: ["UBAS", "4S", "Bleu", "Civile", "Ghillie", "Treillis"],
+            equipements: ["Sans", "BBAL", "GENL", "EFFRAC", "MP7", "IL", "Lot 5.11"],
+            equipements2: ["Sans", "Échelle", "Stop stick", "Lacry", "Cale", "IL", "Pass"],
+            tenues: ["UBAS", "4S", "Bleu", "Civil", "Ghillie", "Treillis"],
             gpbs: ["GPBL", "GPBPD", "Sans"]
         };
+
+        // Données membres par défaut extraites du JSON
+        const DEFAULT_MEMBERS = [
+            { trigramme: "AAA", fonction: "Sans", cellule: "India 3", principales: "Sans", secondaires: "Sans", afis: "Sans", grenades: "Sans", equipement: "Sans", equipement2: "Sans", tenue: "UBAS", gpb: "GPBL" },
+            { trigramme: "BBB", fonction: "Sans", cellule: "India 2", principales: "Sans", secondaires: "Sans", afis: "Sans", grenades: "Sans", equipement: "EFFRAC", equipement2: "Sans", tenue: "UBAS", gpb: "GPBL" },
+            { trigramme: "CCC", fonction: "Inter", cellule: "India 2", principales: "Sans", secondaires: "Sans", afis: "Sans", grenades: "Sans", equipement: "EFFRAC", equipement2: "Sans", tenue: "UBAS", gpb: "GPBL" },
+            { trigramme: "DDD", fonction: "Chef inter", cellule: "India 3", principales: "Sans", secondaires: "Sans", afis: "Sans", grenades: "Sans", equipement: "Sans", equipement2: "Sans", tenue: "UBAS", gpb: "GPBL" },
+            { trigramme: "EEE", fonction: "Sans", cellule: "India 1", principales: "Sans", secondaires: "Sans", afis: "Sans", grenades: "Sans", equipement: "Sans", equipement2: "Sans", tenue: "UBAS", gpb: "GPBL" },
+            { trigramme: "FFF", fonction: "AO", cellule: "AO2", principales: "Sans", secondaires: "Sans", afis: "Sans", grenades: "Sans", equipement: "Sans", equipement2: "Sans", tenue: "UBAS", gpb: "GPBL" },
+            { trigramme: "GGG", fonction: "Sans", cellule: "India 1", principales: "Sans", secondaires: "Sans", afis: "Sans", grenades: "Sans", equipement: "Sans", equipement2: "Sans", tenue: "UBAS", gpb: "GPBL" },
+            { trigramme: "HHH", fonction: "Inter", cellule: "AO1", principales: "Sans", secondaires: "Sans", afis: "Sans", grenades: "Sans", equipement: "Sans", equipement2: "Sans", tenue: "UBAS", gpb: "GPBL" },
+            { trigramme: "III", fonction: "Sans", cellule: "India 1", principales: "Sans", secondaires: "Sans", afis: "Sans", grenades: "Sans", equipement: "Sans", equipement2: "Sans", tenue: "UBAS", gpb: "GPBL" },
+            { trigramme: "JJJ", fonction: "Chef dispo", cellule: "India 4", principales: "Sans", secondaires: "Sans", afis: "Sans", grenades: "Sans", equipement: "Sans", equipement2: "Sans", tenue: "UBAS", gpb: "GPBL" },
+            { trigramme: "KKK", fonction: "Sans", cellule: "India 4", principales: "Sans", secondaires: "Sans", afis: "Sans", grenades: "Sans", equipement: "Sans", equipement2: "Sans", tenue: "UBAS", gpb: "GPBL" },
+            { trigramme: "LLL", fonction: "DE", cellule: "India 5", principales: "Sans", secondaires: "Sans", afis: "Sans", grenades: "Sans", equipement: "Sans", equipement2: "Sans", tenue: "Civil", gpb: "GPBPD" }
+        ];
 
         const availableVehicles = ['Sharan', 'Kodiaq', 'Kodiaq Bana', '5008', 'Scénic', 'Expert', 'Traffic'];
         
         // MAPPING pour l'interface (Modal & QuickEdit)
+        // Adapté pour correspondre exactement aux clés du JSON
         const attributeMapping = {
             'Fonction': { key: 'fonctions', attribute: 'fonction' },
             'Cellule': { key: 'cellules', attribute: 'cellule' },
@@ -452,7 +469,6 @@
             document.getElementById('confirmNewMemberBtn').addEventListener('click', addNewMemberFromModal);
 
             document.getElementById('resetBtn').addEventListener('click', resetAll);
-            // Modification: Suppression de l'écouteur pour importDefaultConfigBtn
             document.getElementById('exportSessionBtn').addEventListener('click', exportData);
             document.getElementById('importSessionBtn').addEventListener('click', () => document.getElementById('importFileInput').click());
             document.getElementById('importFileInput').addEventListener('change', importData);
@@ -891,14 +907,21 @@
 
         function loadData() {
             const json = localStorage.getItem('patracdvr_standalone_data');
-            if (!json) return;
+            if (!json) {
+                // Chargement par défaut si pas de sauvegarde (structure du JSON fourni)
+                DEFAULT_MEMBERS.forEach(m => addPatracdvrMember(unassignedContainer, m));
+                return;
+            }
             try {
                 const data = JSON.parse(json);
                 restoreDataFromObject(data);
-            } catch (e) { console.error("Load error", e); }
+            } catch (e) { 
+                console.error("Load error", e);
+                // Fallback
+                DEFAULT_MEMBERS.forEach(m => addPatracdvrMember(unassignedContainer, m));
+            }
         }
 
-        // Nouvelle fonction pour restaurer l'état depuis un objet (utilisée par loadData et import)
         function restoreDataFromObject(data) {
             // Nettoyage
             patracdvrContainer.innerHTML = '';
@@ -914,13 +937,16 @@
             }
             
             // Restoration non assignés
-            if (data.unassigned) {
+            if (data.unassigned && data.unassigned.length > 0) {
                 data.unassigned.forEach(m => addPatracdvrMember(unassignedContainer, m));
+            } else if (!data.rows && !data.unassigned) {
+                 // Si c'est vide ou corrompu, on remet les defaults
+                 DEFAULT_MEMBERS.forEach(m => addPatracdvrMember(unassignedContainer, m));
             }
         }
 
         function resetAll() {
-            if (confirm("Tout effacer ?")) {
+            if (confirm("Tout effacer ? Cela rechargera la configuration par défaut.")) {
                 localStorage.removeItem('patracdvr_standalone_data');
                 location.reload();
             }
@@ -946,7 +972,7 @@
                 try {
                     const data = JSON.parse(e.target.result);
                     // Validation simple
-                    if (!data.rows && !data.unassigned) throw new Error("Format invalide");
+                    if (!data.rows && !data.unassigned && !data.members) throw new Error("Format invalide");
                     
                     if(confirm("Importer ce fichier va écraser la session actuelle. Continuer ?")) {
                         restoreDataFromObject(data);
@@ -956,42 +982,9 @@
                 } catch(err) {
                     alert("Erreur lors de l'importation : " + err.message);
                 }
-                // Reset input pour permettre de réimporter le même fichier
                 event.target.value = '';
             };
             reader.readAsText(file);
-        }
-
-        // MODIFICATION 1: Chargement de la config depuis un fichier racine
-        async function loadDefaultConfig() {
-            if(!confirm("Charger la configuration depuis members_config.json ? (Ceci écrasera les données actuelles)")) return;
-            
-            try {
-                const response = await fetch('members_config.json');
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const config = await response.json();
-
-                // 1. Update Config Options
-                if (config.options) {
-                    Object.assign(memberConfig, config.options);
-                    setupQuickEditPanelUI(); // Refresh panels
-                }
-
-                // 2. Clear & Load Members
-                patracdvrContainer.innerHTML = '';
-                unassignedContainer.innerHTML = '';
-                
-                if (config.members && Array.isArray(config.members)) {
-                     config.members.forEach(m => addPatracdvrMember(unassignedContainer, m));
-                }
-                
-                saveData();
-                alert("Configuration chargée avec succès.");
-
-            } catch (e) {
-                console.error("Erreur chargement config:", e);
-                alert("Impossible de charger members_config.json. Vérifiez qu'il est à la racine. Erreur: " + e.message);
-            }
         }
 
         // --- PDF GENERATION ---
@@ -1052,7 +1045,7 @@
             drawText(mainTitle, 24, helveticaBold, margin, y, rgb(0, 51/255, 160/255));
             y -= 40;
 
-            // Headers
+            // Headers - Structure identique au JSON (Arme P, Arme S, AFI, Grenades)
             const headers = ["PAX", "Fct", "Cel.", "Arme P.", "Arme S.", "AFI", "Gren.", "Equip 1", "Equip 2", "Tenue", "GPB"];
             const colWidths = [50, 70, 60, 70, 50, 60, 60, 80, 80, 60, 60];
             const startX = margin;
@@ -1170,8 +1163,9 @@
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            const safeTitle = missionTitle ? missionTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'patracdvr';
-            link.download = `PATRACDVR_${safeTitle}_${new Date().toISOString().slice(0,10)}.pdf`;
+            const safeTitle = missionTitle ? missionTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'PATRACDVR';
+            // DATE FORMAT: PATRACDVR-DATE.pdf (ou approchant, avec timestamp pour unicité)
+            link.download = `PATRACDVR-${new Date().toISOString().slice(0,10)}.pdf`;
             link.click();
         }
 

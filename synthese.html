@@ -204,8 +204,10 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
     text-transform: uppercase;
     font-weight: bold;
     transition: 0.2s;
+    min-width: 60px;
 }
 .demo-btn-add:hover { background: #2563eb; transform: translateY(-2px); }
+.demo-btn-add.edit-mode { background: #eab308; color: black; }
 
 .demo-log-list {
     flex-grow: 1;
@@ -224,12 +226,21 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
     margin-bottom: 8px;
     border-left: 3px solid transparent;
     animation: slideIn 0.3s ease-out;
+    position: relative;
+    padding-right: 40px; /* Espace pour le bouton edit */
 }
 @keyframes slideIn { from { opacity:0; transform: translateX(-10px); } to { opacity:1; transform: translateX(0); } }
 
 .demo-log-time { font-family: 'JetBrains Mono'; color: var(--pctac-blue); margin-right: 15px; font-weight: bold; font-size: 14px; }
 .demo-log-badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-right: 10px; color: white; min-width: 80px; text-align: center; }
-.demo-log-text { color: #ccc; font-size: 14px; }
+.demo-log-text { color: #ccc; font-size: 14px; flex-grow: 1; }
+
+.demo-edit-log-btn {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: #555; cursor: pointer;
+    transition: 0.2s;
+}
+.demo-edit-log-btn:hover { color: var(--pctac-blue); }
 
 /* Couleurs badges PC TAC */
 .bg-adv { background-color: var(--adv-red); }
@@ -276,12 +287,13 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
 
 .demo-drag-area {
     display: flex;
-    gap: 20px;
+    gap: 15px;
     height: 100%;
     margin-top: 10px;
 }
 
-.demo-pool, .demo-vehicle {
+/* Les 3 Zones */
+.demo-zone {
     flex: 1;
     border: 2px dashed rgba(255,255,255,0.2);
     border-radius: 8px;
@@ -291,25 +303,48 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
     gap: 8px;
     transition: 0.3s;
     overflow-y: auto;
+    position: relative;
 }
 
-.demo-pool-title {
+.demo-zone-title {
     font-size: 14px;
     text-transform: uppercase;
     color: #888;
     text-align: center;
     margin-bottom: 5px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 5px;
+    font-weight: bold;
 }
 
+/* Zone 1: Attente */
+.demo-pool {
+    border-color: rgba(255,255,255,0.2);
+}
+
+/* Zone 2: Véhicule */
 .demo-vehicle {
     border-color: var(--pctac-blue);
     background: rgba(59, 130, 246, 0.05);
+    flex: 1.2; /* Slightly wider */
 }
-
 .demo-vehicle.drag-over {
     background: rgba(34, 197, 94, 0.1);
     border-color: var(--oi-green);
 }
+
+/* Zone 3: Corbeille */
+.demo-trash {
+    border-color: var(--adv-red);
+    background: rgba(239, 68, 68, 0.05);
+    flex: 0.8;
+}
+.demo-trash.drag-over {
+    background: rgba(239, 68, 68, 0.2);
+    box-shadow: inset 0 0 20px rgba(239, 68, 68, 0.5);
+}
+.demo-trash .demo-zone-title { color: var(--adv-red); }
+
 
 .demo-member-card {
     background: #2a2a2a;
@@ -331,10 +366,10 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
 
 .demo-trigram { font-weight: bold; color: #fff; font-size: 16px; }
 .demo-role { font-size: 11px; color: #888; display: block; }
-.demo-status-icon { color: var(--oi-green); display: none; }
 
+/* Styles spécifiques par zone */
 .demo-vehicle .demo-member-card { border-color: var(--pctac-blue); }
-.demo-vehicle .demo-member-card .demo-status-icon { display: block; }
+.demo-trash .demo-member-card { border-color: var(--adv-red); opacity: 0.7; text-decoration: line-through; }
 
 /* --- EDITOR OVERLAY OI --- */
 .demo-editor-overlay {
@@ -476,11 +511,11 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
                 <p>Outil tactique pour suivre l'évolution d'une situation en temps réel (Forcené, Retranchement).</p>
                 <ul style="margin-top: 20px;">
                     <li><strong>Standardisation :</strong> Code couleur automatique.</li>
-                    <li><strong>Rapidité :</strong> Saisie optimisée par boutons tactiques.</li>
+                    <li><strong>Édition :</strong> Modification rapide des entrées erronées.</li>
                     <li><strong>Transfert :</strong> Export QR Code pour transmission sans réseau.</li>
                 </ul>
                 <p style="font-style: italic; font-size: 14px; margin-top: 20px; color: #666;">
-                    <i class="fa-solid fa-hand-pointer"></i> Essayez : Sélectionnez un PAX, tapez un message, ou testez l'export QR.
+                    <i class="fa-solid fa-hand-pointer"></i> Essayez : Cliquez sur le crayon <i class="fa-solid fa-pen"></i> pour modifier un log.
                 </p>
             </div>
 
@@ -499,23 +534,16 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
                     <input type="time" id="demoPcTime" class="demo-input" style="width: 80px;">
                     <!-- Input caché pour stocker le type -->
                     <input type="hidden" id="demoPcPaxValue" value="Adversaire">
+                    <!-- Input caché pour stocker l'ID en cours d'édition -->
+                    <input type="hidden" id="demoEditId" value="">
+                    
                     <input type="text" id="demoPcMsg" class="demo-input" placeholder="Message (ex: Visuel fenêtre A1)" style="flex-grow: 1;">
-                    <button onclick="addLiveLogEntry()" class="demo-btn-add"><i class="fa-solid fa-plus"></i></button>
+                    <button onclick="handleAddOrUpdateLog()" id="demoAddBtn" class="demo-btn-add"><i class="fa-solid fa-plus"></i></button>
                 </div>
 
                 <!-- Liste Log -->
                 <div class="demo-log-list" id="demoLogContainer">
-                    <!-- Entrées initiales -->
-                    <div class="demo-log-item" style="border-left-color: var(--adv-red);">
-                        <span class="demo-log-time">06:00</span>
-                        <span class="demo-log-badge bg-adv">ADVERSAIRE</span>
-                        <span class="demo-log-text">Visuel fenêtre A1 avec arme longue.</span>
-                    </div>
-                    <div class="demo-log-item" style="border-left-color: var(--inter-blue);">
-                        <span class="demo-log-time">06:05</span>
-                        <span class="demo-log-badge bg-inter">INTER</span>
-                        <span class="demo-log-text">Dispositif de bouclage en place.</span>
-                    </div>
+                    <!-- Les logs initiaux sont générés par JS pour avoir des IDs -->
                 </div>
 
                 <!-- Bouton Export QR -->
@@ -550,15 +578,15 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
                 <h3><i class="fa-solid fa-wand-magic-sparkles" style="color: var(--oi-green);"></i> WIZARD & PATRACDVR</h3>
                 <p>Assistant de rédaction pas à pas avec gestion visuelle des moyens.</p>
                 <ul style="margin-top: 20px;">
-                    <li><strong>Drag & Drop :</strong> Assignation intuitive des personnels.</li>
-                    <li><strong>Édition Rapide :</strong> Modifiez les rôles et équipements en un clic.</li>
-                    <li><strong>Gain de temps :</strong> 1 Heure gagnée par préparation.</li>
+                    <li><strong>3 Zones :</strong> Attente (Pool), Véhicule (Mission), Corbeille (Suppression).</li>
+                    <li><strong>Interactif :</strong> Drag & Drop fluide entre toutes les zones.</li>
+                    <li><strong>Édition :</strong> Modification rapide des rôles.</li>
                 </ul>
                 <div class="gain-badge">
                     <i class="fa-solid fa-clock"></i> Gain : 1H / Mission
                 </div>
                 <p style="font-style: italic; font-size: 14px; margin-top: 20px; color: #666;">
-                    <i class="fa-solid fa-hand-pointer"></i> Essayez : Glissez les personnels ou <strong>cliquez sur un membre</strong> pour l'éditer.
+                    <i class="fa-solid fa-hand-pointer"></i> Essayez : Glissez les personnels vers le véhicule ou la corbeille.
                 </p>
             </div>
 
@@ -570,39 +598,25 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
                 </div>
                 
                 <div class="demo-drag-area">
-                    <!-- Pool Personnels -->
-                    <div class="demo-pool" id="demoPool" ondrop="drop(event)" ondragover="allowDrop(event)">
-                        <div class="demo-pool-title">Effectifs Disponibles</div>
-                        
-                        <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem1" onclick="openOiEditor('mem1')">
-                            <div><span class="demo-trigram">MAH</span> <br><span class="demo-role" id="role_mem1">Chef Inter</span></div>
-                            <span class="demo-role" id="cell_mem1" style="display:none;">India 1</span>
-                            <i class="fa-solid fa-user-pen" style="color:#666; font-size:12px;"></i>
-                        </div>
-                        <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem2" onclick="openOiEditor('mem2')">
-                            <div><span class="demo-trigram">DUP</span> <br><span class="demo-role" id="role_mem2">Effrac</span></div>
-                            <span class="demo-role" id="cell_mem2" style="display:none;">Effrac</span>
-                            <i class="fa-solid fa-user-pen" style="color:#666; font-size:12px;"></i>
-                        </div>
-                        <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem3" onclick="openOiEditor('mem3')">
-                            <div><span class="demo-trigram">MAR</span> <br><span class="demo-role" id="role_mem3">AO</span></div>
-                            <span class="demo-role" id="cell_mem3" style="display:none;">AO1</span>
-                            <i class="fa-solid fa-user-pen" style="color:#666; font-size:12px;"></i>
-                        </div>
-                         <div class="demo-member-card" draggable="true" ondragstart="drag(event)" id="mem4" onclick="openOiEditor('mem4')">
-                            <div><span class="demo-trigram">LEF</span> <br><span class="demo-role" id="role_mem4">Conducteur</span></div>
-                            <span class="demo-role" id="cell_mem4" style="display:none;">India 1</span>
-                            <i class="fa-solid fa-user-pen" style="color:#666; font-size:12px;"></i>
-                        </div>
+                    <!-- Zone 1: Attente (Pool) -->
+                    <div class="demo-zone demo-pool" id="demoPool" ondrop="drop(event)" ondragover="allowDrop(event)">
+                        <div class="demo-zone-title">Attente</div>
+                        <!-- Membres générés par JS pour le reset facile -->
                     </div>
 
-                    <!-- Véhicule Cible -->
-                    <div class="demo-vehicle" id="demoVehicle" ondrop="drop(event)" ondragover="allowDrop(event)">
-                        <div class="demo-pool-title" style="color:var(--pctac-blue); font-weight:bold;">
-                            <i class="fa-solid fa-truck-pickup"></i> KODIAQ (India 1)
+                    <!-- Zone 2: Véhicule -->
+                    <div class="demo-zone demo-vehicle" id="demoVehicle" ondrop="drop(event)" ondragover="allowDrop(event)">
+                        <div class="demo-zone-title" style="color:var(--pctac-blue);">
+                            <i class="fa-solid fa-truck-pickup"></i> KODIAQ
                         </div>
-                        <!-- Zone de drop vide au départ -->
                         <div style="font-style:italic; font-size:12px; text-align:center; color:#444; margin-top:20px;" id="vehicleHint">Glisser ici</div>
+                    </div>
+
+                    <!-- Zone 3: Corbeille -->
+                    <div class="demo-zone demo-trash" id="demoTrash" ondrop="drop(event)" ondragover="allowDrop(event)">
+                        <div class="demo-zone-title">
+                            <i class="fa-solid fa-trash"></i> Corbeille
+                        </div>
                     </div>
                 </div>
 
@@ -635,7 +649,7 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
             </div>
         </div>
     </div>
-    <div class="slide-footer">Demo Interactive : Drag & Drop & Édition</div>
+    <div class="slide-footer">Demo Interactive : 3 Zones Drag & Drop</div>
 </div>
 
 <!-- SLIDE 5: SOCLE TECHNIQUE -->
@@ -730,48 +744,101 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
     });
 
     /* --- LOGIQUE MINI-MODULE PC TAC (Slide 3) --- */
+    
+    // Données initiales
+    let logs = [
+        { id: 1, time: '06:00', type: 'Adversaire', msg: 'Visuel fenêtre A1 avec arme longue.' },
+        { id: 2, time: '06:05', type: 'Inter', msg: 'Dispositif de bouclage en place.' }
+    ];
+
     function initPcTacDemo() {
         const timeInput = document.getElementById('demoPcTime');
         const now = new Date();
         timeInput.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        renderLogs();
     }
 
     function selectPcPax(type, btn) {
-        // MAJ visuelle des boutons
         document.querySelectorAll('.demo-pax-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        // MAJ Valeur cachée
+        if(btn) btn.classList.add('active');
+        else {
+             // Sélection par défaut/programatique
+             const targetBtn = Array.from(document.querySelectorAll('.demo-pax-btn')).find(b => b.innerText === type.toUpperCase());
+             if(targetBtn) targetBtn.classList.add('active');
+        }
         document.getElementById('demoPcPaxValue').value = type;
     }
 
-    function addLiveLogEntry() {
+    function renderLogs() {
+        const container = document.getElementById('demoLogContainer');
+        container.innerHTML = '';
+        
+        logs.forEach(log => {
+            const item = document.createElement('div');
+            item.className = 'demo-log-item';
+            
+            let colorClass = 'bg-adv';
+            let borderColor = 'var(--adv-red)';
+            if(log.type === 'Inter') { colorClass = 'bg-inter'; borderColor = 'var(--inter-blue)'; }
+            if(log.type === 'AO') { colorClass = 'bg-ao'; borderColor = 'var(--ao-green)'; }
+            if(log.type === 'Civil') { colorClass = 'bg-civil'; borderColor = 'var(--civil-yellow)'; }
+
+            item.style.borderLeftColor = borderColor;
+            item.innerHTML = `
+                <span class="demo-log-time">${log.time}</span>
+                <span class="demo-log-badge ${colorClass}">${log.type.toUpperCase()}</span>
+                <span class="demo-log-text">${log.msg}</span>
+                <button class="demo-edit-log-btn" onclick="editLog(${log.id})"><i class="fa-solid fa-pen"></i></button>
+            `;
+            container.prepend(item);
+        });
+    }
+
+    function editLog(id) {
+        const log = logs.find(l => l.id === id);
+        if(!log) return;
+
+        // Remplir le formulaire
+        document.getElementById('demoPcTime').value = log.time;
+        document.getElementById('demoPcMsg').value = log.msg;
+        selectPcPax(log.type);
+        
+        // Mode édition
+        document.getElementById('demoEditId').value = log.id;
+        const btn = document.getElementById('demoAddBtn');
+        btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+        btn.classList.add('edit-mode');
+    }
+
+    function handleAddOrUpdateLog() {
         const time = document.getElementById('demoPcTime').value;
         const pax = document.getElementById('demoPcPaxValue').value;
         const msg = document.getElementById('demoPcMsg').value;
+        const editId = document.getElementById('demoEditId').value;
         
-        if(!msg) return; // Pas de message vide
+        if(!msg) return;
 
-        const container = document.getElementById('demoLogContainer');
-        const item = document.createElement('div');
-        item.className = 'demo-log-item';
-        
-        // Définition couleur
-        let colorClass = 'bg-adv';
-        let borderColor = 'var(--adv-red)';
-        if(pax === 'Inter') { colorClass = 'bg-inter'; borderColor = 'var(--inter-blue)'; }
-        if(pax === 'AO') { colorClass = 'bg-ao'; borderColor = 'var(--ao-green)'; }
-        if(pax === 'Civil') { colorClass = 'bg-civil'; borderColor = 'var(--civil-yellow)'; }
+        if (editId) {
+            // UPDATE
+            const logIndex = logs.findIndex(l => l.id == editId);
+            if(logIndex > -1) {
+                logs[logIndex] = { id: parseInt(editId), time, type: pax, msg };
+            }
+            // Reset mode
+            document.getElementById('demoEditId').value = '';
+            const btn = document.getElementById('demoAddBtn');
+            btn.innerHTML = '<i class="fa-solid fa-plus"></i>';
+            btn.classList.remove('edit-mode');
+        } else {
+            // CREATE
+            const newId = logs.length > 0 ? Math.max(...logs.map(l => l.id)) + 1 : 1;
+            logs.push({ id: newId, time, type: pax, msg });
+        }
 
-        item.style.borderLeftColor = borderColor;
-        item.innerHTML = `
-            <span class="demo-log-time">${time}</span>
-            <span class="demo-log-badge ${colorClass}">${pax.toUpperCase()}</span>
-            <span class="demo-log-text">${msg}</span>
-        `;
-        
-        container.prepend(item); // Ajout en haut
-        document.getElementById('demoPcMsg').value = ''; // Reset input
+        document.getElementById('demoPcMsg').value = '';
+        renderLogs();
     }
+
 
     /* --- QR EXPORT SIMULATION --- */
     let qrSequence = 1;
@@ -806,8 +873,7 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
     }
 
 
-    /* --- LOGIQUE MINI-MODULE OI (Slide 4 - Drag & Drop) --- */
-    // Config OI Réelle (Simplifiée)
+    /* --- LOGIQUE MINI-MODULE OI (Slide 4 - Drag & Drop 3 Zones) --- */
     const oiConfig = {
         fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "Conducteur", "Chef de bord", "DE", "Cyno", "Inter", "Effrac", "AO", "Sans"],
         cellules: ["India 1", "India 2", "India 3", "India 4", "India 5", "AO1", "AO2", "AO3", "Effrac", "Sans"],
@@ -816,9 +882,46 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
 
     let activeMemberId = null;
 
+    // Génération initiale des membres pour permettre le reset
+    function renderOiMembers() {
+        const pool = document.getElementById('demoPool');
+        pool.innerHTML = '<div class="demo-zone-title">Attente</div>';
+        const trash = document.getElementById('demoTrash');
+        trash.innerHTML = '<div class="demo-zone-title"><i class="fa-solid fa-trash"></i> Corbeille</div>';
+        const vehicle = document.getElementById('demoVehicle');
+        // On ne reset pas le véhicule s'il a déjà des items lors d'un render, sauf si demandé explicitement
+        // Pour cette démo simple, renderOiMembers est appelé au reset.
+        
+        const membersData = [
+            { id: 'mem1', trig: 'MAH', role: 'Chef Inter' },
+            { id: 'mem2', trig: 'DUP', role: 'Effrac' },
+            { id: 'mem3', trig: 'MAR', role: 'AO' },
+            { id: 'mem4', trig: 'LEF', role: 'Conducteur' }
+        ];
+
+        membersData.forEach(m => {
+            const div = document.createElement('div');
+            div.className = 'demo-member-card';
+            div.id = m.id;
+            div.draggable = true;
+            div.onclick = () => openOiEditor(m.id);
+            div.ondragstart = (event) => drag(event);
+            div.innerHTML = `<div><span class="demo-trigram">${m.trig}</span> <br><span class="demo-role" id="role_${m.id}">${m.role}</span></div><i class="fa-solid fa-user-pen" style="color:#666; font-size:12px;"></i>`;
+            pool.appendChild(div);
+        });
+        
+        // Reset Vehicule content too on full reset
+        vehicle.innerHTML = `
+            <div class="demo-zone-title" style="color:var(--pctac-blue);">
+                <i class="fa-solid fa-truck-pickup"></i> KODIAQ
+            </div>
+            <div style="font-style:italic; font-size:12px; text-align:center; color:#444; margin-top:20px;" id="vehicleHint">Glisser ici</div>
+        `;
+    }
+
     function allowDrop(ev) {
         ev.preventDefault();
-        const target = ev.target.closest('.demo-vehicle, .demo-pool');
+        const target = ev.target.closest('.demo-zone');
         if(target) target.classList.add('drag-over');
     }
 
@@ -833,31 +936,39 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
         var draggedElement = document.getElementById(data);
         if(draggedElement) draggedElement.classList.remove('dragging');
 
-        var dropZone = ev.target.closest('.demo-vehicle, .demo-pool');
+        var dropZone = ev.target.closest('.demo-zone');
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
 
         if (dropZone && draggedElement) {
-            dropZone.appendChild(draggedElement);
-            const hint = document.getElementById('vehicleHint');
-            const vehicle = document.getElementById('demoVehicle');
-            if(vehicle.children.length > 2) hint.style.display = 'none';
-            else hint.style.display = 'block';
+            
+            // Logique Spécifique Zones
+            if(dropZone.id === 'demoTrash') {
+                // Si drop dans corbeille, on cache l'élément (simulation suppression)
+                draggedElement.style.display = 'none';
+                dropZone.appendChild(draggedElement); // Move to trash DOM just to keep track
+            } else {
+                draggedElement.style.display = 'flex'; // Ensure visible
+                dropZone.appendChild(draggedElement);
+                
+                // Gestion Hint Véhicule
+                const hint = document.getElementById('vehicleHint');
+                const vehicle = document.getElementById('demoVehicle');
+                // Vehicle has Title + Hint + Members. If members > 0, hide hint.
+                // Title is child 0, Hint is child 1.
+                // We count children that are member cards.
+                const membersInVehicle = vehicle.querySelectorAll('.demo-member-card').length;
+                if(hint) hint.style.display = membersInVehicle > 0 ? 'none' : 'block';
+            }
         }
     }
     
     document.addEventListener('dragleave', (e) => {
-        const target = e.target.closest('.demo-vehicle, .demo-pool');
+        const target = e.target.closest('.demo-zone');
         if(target) target.classList.remove('drag-over');
     });
 
     function resetOiDemo() {
-        const pool = document.getElementById('demoPool');
-        const members = ['mem1', 'mem2', 'mem3', 'mem4'];
-        members.forEach(id => {
-            const el = document.getElementById(id);
-            if(el) pool.appendChild(el);
-        });
-        document.getElementById('vehicleHint').style.display = 'block';
+        renderOiMembers();
         closeOiEditor();
     }
 
@@ -867,7 +978,6 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
         const cellContainer = document.getElementById('editorCells');
         const weaponContainer = document.getElementById('editorWeapons');
         
-        // Helper
         const createBtn = (txt, type, container) => {
             const btn = document.createElement('button');
             btn.className = 'demo-option-btn';
@@ -888,8 +998,6 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
         
         document.getElementById('editorTitle').innerText = "EDITER MEMBRE : " + trigram;
         document.getElementById('oiEditor').style.display = 'flex';
-        
-        // Reset selections visual state (simplified)
         document.querySelectorAll('.demo-option-btn').forEach(b => b.classList.remove('selected'));
     }
 
@@ -901,21 +1009,15 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
     function selectOiOption(type, value, btnElement) {
         if(!activeMemberId) return;
         
-        // Update Visual Button State within the group
         const group = btnElement.parentElement;
         group.querySelectorAll('.demo-option-btn').forEach(b => b.classList.remove('selected'));
         btnElement.classList.add('selected');
 
-        // Update Member Card Data
         const member = document.getElementById(activeMemberId);
         if(type === 'role') {
             member.querySelector('.demo-role').innerText = value;
-        } else if (type === 'cell') {
-            // Dans la démo simple, on peut juste stocker ou afficher en tooltip
-            // Pour l'exemple visuel, on ne change que le rôle principal affiché
         }
         
-        // Feedback visuel flash sur la carte
         member.style.borderColor = "#fff";
         setTimeout(() => member.style.borderColor = "", 300);
     }
@@ -923,6 +1025,7 @@ p, li { font-size: 18px; color: #a3a3a3; line-height: 1.5; font-weight: 300; }
     // Initialisation
     initPcTacDemo();
     initOiEditorOptions();
+    renderOiMembers(); // Init OI
 
 </script>
 

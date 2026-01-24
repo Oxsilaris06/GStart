@@ -959,10 +959,9 @@
             return data;
         }
 
-        function loadData() {
-            const json = localStorage.getItem(LOCAL_STORAGE_KEY);
-            if (!json) return; // Ne rien charger si vide (plus de défauts)
-            
+         function loadData() {
+            const json = localStorage.getItem('patracdvr_standalone_data');
+            if (!json) return;
             try {
                 const data = JSON.parse(json);
                 restoreDataFromObject(data);
@@ -970,28 +969,45 @@
         }
 
         /**
-         * RESTORE DATA - Modifié pour supporter le format {members: [...], options: {...}, mission_info: {...}}
+         * RESTORE DATA - Modifié pour lire le format plat avec vehicle_assigned
          */
         function restoreDataFromObject(data) {
             // Nettoyage
             patracdvrContainer.innerHTML = '';
             unassignedContainer.innerHTML = '';
 
-            // 1. Restauration Configuration Options
+            // 1. Restauration Configuration Options (si présente)
             if (data.options) {
-                Object.assign(memberConfig, data.options);
+                // Fusion intelligente : Constantes par défaut + Valeurs importées uniques
+                Object.keys(DEFAULT_MEMBER_CONFIG).forEach(key => {
+                    const defaultValues = DEFAULT_MEMBER_CONFIG[key];
+                    const importedValues = data.options[key] || [];
+                    
+                    if (Array.isArray(defaultValues)) {
+                        // Merge arrays et suppression des doublons
+                        const combined = [...defaultValues, ...importedValues];
+                        memberConfig[key] = [...new Set(combined)];
+                    } else {
+                        memberConfig[key] = importedValues;
+                    }
+                });
+
+                // Ajouter les clés qui existent dans l'import mais pas dans les défauts
+                Object.keys(data.options).forEach(key => {
+                    if (!DEFAULT_MEMBER_CONFIG.hasOwnProperty(key)) {
+                        memberConfig[key] = data.options[key];
+                    }
+                });
+
                 setupQuickEditPanelUI();
             }
 
             // 2. Restauration Mission Info
-            if (data.mission_info) {
-                document.getElementById('missionTitleInput').value = data.mission_info.title || '';
-                document.getElementById('rallyTimeInput').value = data.mission_info.rally || '';
-            } else {
-                // Fallback anciens formats
-                document.getElementById('missionTitleInput').value = data.missionTitle || '';
-                document.getElementById('rallyTimeInput').value = data.rallyTime || '';
-            }
+            // Supporte l'ancien format (root) et le nouveau format (mission_info)
+            const mTitle = data.mission_info ? data.mission_info.title : (data.missionTitle || '');
+            const mRally = data.mission_info ? data.mission_info.rally : (data.rallyTime || '');
+            document.getElementById('missionTitleInput').value = mTitle;
+            document.getElementById('rallyTimeInput').value = mRally;
 
             // 3. Restauration Membres & Véhicules
             // Cas A : Nouveau format (members list with vehicle_assigned)

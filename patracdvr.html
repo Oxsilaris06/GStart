@@ -414,6 +414,8 @@
             gpbs: ["GPBL", "GPBPD", "Sans"]
         };
 
+        // Données membres par défaut vides
+        const DEFAULT_MEMBERS = [];
 
         const availableVehicles = ['Sharan', 'Kodiaq', 'Kodiaq Bana', '5008', 'Scénic', 'Expert', 'Traffic'];
         
@@ -517,7 +519,7 @@
         function addPatracdvrRow(vehicleName, members = []) {
             // Check doublon
             if (document.querySelector(`.patracdvr-vehicle-row[data-vehicle-name="${vehicleName}"]`)) {
-                alert("Ce véhicule existe déjà.");
+                // Si le véhicule existe déjà, on ne fait rien (utile lors du restore)
                 return;
             }
 
@@ -548,7 +550,9 @@
 
             patracdvrContainer.appendChild(row);
             const membersContainer = row.querySelector('.patracdvr-members-container');
-            members.forEach(m => addPatracdvrMember(membersContainer, m));
+            if (members && members.length > 0) {
+                members.forEach(m => addPatracdvrMember(membersContainer, m));
+            }
         }
 
         function addPatracdvrMember(container, data = {}) {
@@ -564,8 +568,15 @@
             };
             
             // Merge defaults and data
+            // Note: on ignore les clés comme 'vehicle_assigned' pour l'affichage, elles ne servent qu'à la restoration
             const memberData = { ...defaults, ...data };
-            Object.keys(memberData).forEach(k => btn.dataset[k] = memberData[k]);
+            
+            // Stocker les données dans le dataset du bouton
+            Object.keys(memberData).forEach(k => {
+                if (k !== 'vehicle_assigned') {
+                     btn.dataset[k] = memberData[k];
+                }
+            });
 
             updateMemberButtonVisuals(btn);
             btn.onclick = (e) => handleMemberSelection(e, btn);
@@ -901,28 +912,6 @@
 
         // --- DATA & PERSISTENCE ---
 
-        function saveData() {
-            const data = {
-                rows: [],
-                unassigned: [],
-                missionTitle: document.getElementById('missionTitleInput').value,
-                rallyTime: document.getElementById('rallyTimeInput').value
-            };
-
-            document.querySelectorAll('.patracdvr-vehicle-row').forEach(row => {
-                const vehicle = row.dataset.vehicleName;
-                const members = [];
-                row.querySelectorAll('.patracdvr-member-btn').forEach(btn => members.push(getMemberData(btn)));
-                data.rows.push({ vehicle, members });
-            });
-
-            unassignedContainer.querySelectorAll('.patracdvr-member-btn').forEach(btn => {
-                data.unassigned.push(getMemberData(btn));
-            });
-
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
-        }
-
         function getMemberData(btn) {
             const d = btn.dataset;
             return {
@@ -933,43 +922,107 @@
             };
         }
 
+        /**
+         * SAVE DATA - Modifié pour respecter le format demandé
+         * Structure: { options: {...}, members: [ {..., vehicle_assigned: "vName" } ], mission_info: {...} }
+         */
+        function saveData() {
+            const allMembers = [];
+
+            // 1. Récupérer les non-assignés (vehicle_assigned = null/undefined)
+            unassignedContainer.querySelectorAll('.patracdvr-member-btn').forEach(btn => {
+                const m = getMemberData(btn);
+                delete m.vehicle_assigned; // Clean up
+                allMembers.push(m);
+            });
+
+            // 2. Récupérer les assignés (dans les véhicules)
+            document.querySelectorAll('.patracdvr-vehicle-row').forEach(row => {
+                const vName = row.dataset.vehicleName;
+                row.querySelectorAll('.patracdvr-member-btn').forEach(btn => {
+                    const m = getMemberData(btn);
+                    m.vehicle_assigned = vName; // Marqueur d'assignation
+                    allMembers.push(m);
+                });
+            });
+
+            const data = {
+                options: memberConfig,
+                members: allMembers,
+                mission_info: {
+                    title: document.getElementById('missionTitleInput').value,
+                    rally: document.getElementById('rallyTimeInput').value
+                }
+            };
+
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+            return data;
+        }
+
         function loadData() {
             const json = localStorage.getItem(LOCAL_STORAGE_KEY);
-            if (!json) {
-                // Chargement par défaut si pas de sauvegarde (structure du JSON fourni)
-                DEFAULT_MEMBERS.forEach(m => addPatracdvrMember(unassignedContainer, m));
-                return;
-            }
+            if (!json) return; // Ne rien charger si vide (plus de défauts)
+            
             try {
                 const data = JSON.parse(json);
                 restoreDataFromObject(data);
-            } catch (e) { 
-                console.error("Load error", e);
-                // Fallback
-                DEFAULT_MEMBERS.forEach(m => addPatracdvrMember(unassignedContainer, m));
-            }
+            } catch (e) { console.error("Load error", e); }
         }
 
+        /**
+         * RESTORE DATA - Modifié pour supporter le format {members: [...], options: {...}, mission_info: {...}}
+         */
         function restoreDataFromObject(data) {
             // Nettoyage
             patracdvrContainer.innerHTML = '';
             unassignedContainer.innerHTML = '';
 
-            // Restoration inputs mission
-            if (data.missionTitle) document.getElementById('missionTitleInput').value = data.missionTitle;
-            if (data.rallyTime) document.getElementById('rallyTimeInput').value = data.rallyTime;
-
-            // Restoration vehicules
-            if (data.rows) {
-                data.rows.forEach(r => addPatracdvrRow(r.vehicle, r.members));
+            // 1. Restauration Configuration Options
+            if (data.options) {
+                Object.assign(memberConfig, data.options);
+                setupQuickEditPanelUI();
             }
-            
-            // Restoration non assignés
-            if (data.unassigned && data.unassigned.length > 0) {
-                data.unassigned.forEach(m => addPatracdvrMember(unassignedContainer, m));
-            } else if (!data.rows && !data.unassigned) {
-                 // Si c'est vide ou corrompu, on remet les defaults
-                 DEFAULT_MEMBERS.forEach(m => addPatracdvrMember(unassignedContainer, m));
+
+            // 2. Restauration Mission Info
+            if (data.mission_info) {
+                document.getElementById('missionTitleInput').value = data.mission_info.title || '';
+                document.getElementById('rallyTimeInput').value = data.mission_info.rally || '';
+            } else {
+                // Fallback anciens formats
+                document.getElementById('missionTitleInput').value = data.missionTitle || '';
+                document.getElementById('rallyTimeInput').value = data.rallyTime || '';
+            }
+
+            // 3. Restauration Membres & Véhicules
+            // Cas A : Nouveau format (members list with vehicle_assigned)
+            if (data.members && Array.isArray(data.members)) {
+                
+                // Identifier les véhicules à créer
+                const vehiclesToCreate = [...new Set(data.members
+                    .filter(m => m.vehicle_assigned)
+                    .map(m => m.vehicle_assigned))];
+
+                // Créer les lignes de véhicules
+                vehiclesToCreate.forEach(vName => addPatracdvrRow(vName));
+
+                // Distribuer les membres
+                data.members.forEach(m => {
+                    if (m.vehicle_assigned) {
+                        const row = document.querySelector(`.patracdvr-vehicle-row[data-vehicle-name="${m.vehicle_assigned}"]`);
+                        if (row) {
+                            addPatracdvrMember(row.querySelector('.patracdvr-members-container'), m);
+                        } else {
+                            addPatracdvrMember(unassignedContainer, m); // Fallback
+                        }
+                    } else {
+                        addPatracdvrMember(unassignedContainer, m);
+                    }
+                });
+            } 
+            // Cas B : Ancien format de sauvegarde (rows array + unassigned array) - Rétrocompatibilité
+            else if (data.rows || data.unassigned) {
+                if (data.rows) data.rows.forEach(r => addPatracdvrRow(r.vehicle, r.members));
+                if (data.unassigned) data.unassigned.forEach(m => addPatracdvrMember(unassignedContainer, m));
             }
         }
 
@@ -981,13 +1034,15 @@
         }
 
         function exportData() {
-            saveData();
-            const data = localStorage.getItem(LOCAL_STORAGE_KEY);
-            const blob = new Blob([data], {type: 'application/json'});
+            const data = saveData();
+            const jsonStr = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonStr], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `PATRACDVR_${new Date().toISOString().slice(0,10)}.json`;
+            // Format demandé : PATRACDVR-DATE
+            const dateStr = new Date().toISOString().slice(0,10);
+            a.download = `PATRACDVR-${dateStr}.json`;
             a.click();
         }
 
@@ -999,8 +1054,6 @@
             reader.onload = function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
-                    // Validation simple
-                    if (!data.rows && !data.unassigned && !data.members) throw new Error("Format invalide");
                     
                     if(confirm("Importer ce fichier va écraser la session actuelle. Continuer ?")) {
                         restoreDataFromObject(data);
@@ -1010,6 +1063,7 @@
                 } catch(err) {
                     alert("Erreur lors de l'importation : " + err.message);
                 }
+                // Reset input pour permettre de réimporter le même fichier
                 event.target.value = '';
             };
             reader.readAsText(file);
@@ -1191,9 +1245,8 @@
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            const safeTitle = missionTitle ? missionTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'PATRACDVR';
-            // DATE FORMAT: PATRACDVR-DATE.pdf (ou approchant, avec timestamp pour unicité)
-            link.download = `PATRACDVR-${new Date().toISOString().slice(0,10)}.pdf`;
+            const safeTitle = missionTitle ? missionTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'patracdvr';
+            link.download = `PATRACDVR_${safeTitle}_${new Date().toISOString().slice(0,10)}.pdf`;
             link.click();
         }
 

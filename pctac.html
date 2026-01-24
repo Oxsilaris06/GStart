@@ -8,10 +8,13 @@
     <link rel="icon" href="favicon.ico" type="image/svg+xml">
     <link rel="apple-touch-icon" href="favicon.ico">
     
+    <!-- Fonts mises à jour pour le thème Tactical -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Oswald:wght@300;400;500&family=Saira+Stencil+One&display=swap" rel="stylesheet">
     
+    <!-- Utilisation des Material Symbols Outlined -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
     
+    <!-- Librairies QR Code -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 
@@ -527,8 +530,10 @@
     </style>
 </head>
 <body class="dark-mode">
+    <!-- Champ de fichier caché pour l'importation de JSON -->
     <input type="file" id="jsonImportInput" accept=".json" style="display: none;">
 
+    <!-- Modale de Confirmation Réinitialisation -->
     <div class="custom-modal-backdrop" id="modalBackdrop"></div>
     <div class="custom-modal" id="resetModal">
         <h3 style="color: var(--accent-blue); margin-bottom: 10px;">Confirmer la Réinitialisation</h3>
@@ -539,6 +544,7 @@
         </div>
     </div>
 
+    <!-- Modale d'Édition de Jalon -->
     <div class="custom-modal" id="editModal">
         <h3 style="color: var(--accent-blue); margin-bottom: 15px;">Modifier le Jalon</h3>
         <input type="hidden" id="edit_id">
@@ -549,6 +555,7 @@
             </div>
             <div>
                 <label>Pax</label>
+                <!-- On simplifie l'édition par un select/input selon le mode original -->
                 <div id="edit_pax_standard_container">
                     <select id="edit_pax_select">
                         <option value="Adversaire">Adversaire</option>
@@ -584,6 +591,7 @@
         </div>
     </div>
     
+    <!-- Modal Transfert (QR séquentiel local) -->
     <div class="custom-modal" id="transferModal">
         <h3 style="color: var(--accent-blue); margin-bottom: 15px;">Export/Import (QR Local)</h3>
         
@@ -592,9 +600,11 @@
             <button class="transfer-tab-btn" data-tab="receive">Importer (Scan)</button>
         </div>
         
+        <!-- Contenu Envoyer -->
         <div id="transfer-send" class="transfer-content active">
             <div id="qrcode-container"></div>
             
+            <!-- Navigation QR Code -->
             <div id="qr-nav-controls" style="display: none;">
                 <button class="qr-nav-btn" id="prevQrBtn"><span class="material-symbols-outlined">arrow_back</span></button>
                 <span id="qr-counter">1/1</span>
@@ -604,6 +614,7 @@
             <p id="qr-status-text" style="color: var(--text-muted); font-size: 0.85em; margin-top: 10px;"></p>
         </div>
         
+        <!-- Contenu Recevoir -->
         <div id="transfer-receive" class="transfer-content">
             <div id="qr-reader"></div>
             <p style="color: var(--text-muted); font-size: 0.9em;">Scanner les QR codes séquentiellement pour importer.</p>
@@ -617,22 +628,30 @@
     <div class="container">
         <h1>PC Tac</h1>
         
+        <!-- Formulaire d'ajout de ligne -->
         <form id="log-form" class="log-entry-form">
             <h3 style="margin-top: 0;"><span class="material-symbols-outlined">playlist_add</span> Ajouter une entrée</h3>
             
+            <!-- NOUVEL EMPLACEMENT du toggle : Haut à droite du formulaire -->
             <div id="pax_mode_toggle_container">
                 <button type="button" class="mode-toggle-btn active" data-mode="standard" onclick="setPaxMode('standard')">Forcené</button>
                 <button type="button" class="mode-toggle-btn" data-mode="free" onclick="setPaxMode('free')">TP</button>
             </div>
+            <!-- Fin NOUVEL EMPLACEMENT -->
+            
+            <!-- OPTIMISATION MOBILE: Le lieu et la fenêtre/porte sont déplacés à la fin de la grille pour une séquence Heure -> PAX -> Saisie rapide -->
             <div class="form-row main-fields">
                  <div>
                     <label for="heure_input">Heure</label>
+                    <!-- Type="time" utilise l'interface de sélection d'heure native du mobile, très rapide -->
                     <input type="time" id="heure_input" required value="">
                  </div>
                  
                  <div>
                     <label>Pax</label>
                     
+                    <!-- L'élément #pax_mode_toggle_container a été déplacé -->
+
                     <div id="pax_select_wrapper_standard" class="pax-select-wrapper">
                         <div class="pax-select" id="pax_select_container">
                             <span class="pax-select-option" data-pax="Adversaire">Adversaire</span>
@@ -645,7 +664,8 @@
                     <div id="pax_select_wrapper_free" class="pax-select-wrapper" style="display: none;">
                         <div id="free_mode_options">
                             <div class="color-palette" id="free_color_palette">
-                                </div>
+                                <!-- Les swatches de couleur sont générés par JS -->
+                            </div>
                             <input type="text" id="free_pax_input" placeholder="Intervenant/Adversaire" value="" />
                             <input type="hidden" id="free_color_input" value="#800000" />
                         </div>
@@ -671,6 +691,7 @@
             <div class="form-row text-fields">
                 <div style="grid-column: span 1;">
                     <label for="remarques_input">Remarques</label>
+                    <!-- OPTIMISATION: Mise en évidence du champ remarques -->
                     <textarea id="remarques_input" rows="3" placeholder="Informations clés, compte-rendu..."></textarea>
                 </div>
             </div>
@@ -680,6 +701,7 @@
             </button>
         </form>
 
+        <!-- Tableau des entrées -->
         <div id="logTableContainer">
             <table id="logTable">
                 <thead>
@@ -692,7 +714,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                    </tbody>
+                    <!-- Les lignes de log seront insérées ici -->
+                </tbody>
             </table>
         </div>
         
@@ -701,19 +724,25 @@
         </footer>
     </div>
     
+    <!-- Dock Flottant -->
     <div class="dock-menu collapsed" id="dockMenu">
+        <!-- Bouton de bascule du dock -->
         <button class="dock-menu-item" id="dockToggleBtn" title="Ouvrir/Réduire">
             <span class="material-symbols-outlined">expand_less</span>
         </button>
+        <!-- Bouton Alt Route (Remplace Home) -->
         <a class="dock-menu-item" href="1.html" title="Générateur d'OI" style="text-decoration: none;">
             <span class="material-symbols-outlined">alt_route</span>
         </a>
         
+        <!-- NOUVEAU BOUTON : Transfert QR Local -->
         <div class="dock-menu-item" id="transferDockBtn" title="Transfert QR Local"><span class="material-symbols-outlined">qr_code_2</span></div>
         
+        <!-- Bouton Export JSON -->
         <div class="dock-menu-item" id="exportJsonDockBtn" title="Exporter les données au format JSON">
             <span class="material-symbols-outlined">save</span>
         </div>
+         <!-- Bouton Import JSON -->
          <div class="dock-menu-item" id="importJsonDockBtn" title="Importer des données au format JSON">
             <span class="material-symbols-outlined">upload_file</span>
         </div>
@@ -724,10 +753,12 @@
         <div class="dock-menu-item" id="fullscreenToggle" title="Plein écran">
             <span class="material-symbols-outlined" id="fullscreenIcon">fullscreen</span>
         </div>
-        <div class="dock-menu-item" id="previewPdfDockBtn" title="Générer et télécharger le PDF">
+        <!-- Bouton PDF (téléchargement direct) -->
+         <div class="dock-menu-item" id="previewPdfDockBtn" title="Générer et télécharger le PDF">
             <span class="material-symbols-outlined">picture_as_pdf</span>
         </div>
-        <div class="dock-menu-item" id="resetDataDockBtn" title="Réinitialiser toutes les données">
+        <!-- Bouton Réinitialisation -->
+         <div class="dock-menu-item" id="resetDataDockBtn" title="Réinitialiser toutes les données">
             <span class="material-symbols-outlined" style="color: var(--danger-red);">delete_forever</span>
         </div>
     </div>
@@ -787,7 +818,10 @@
         let html5QrCodeLocal; 
         let qrChunks = [];
         let currentQrIndex = 0;
-        const QR_BATCH_SIZE = 4; // Nombre d'entrées par QR
+        
+        // OPTIMISATION QR: Version 14-20
+        // Réduction du batch pour s'assurer que les données tiennent dans une version 15
+        const QR_BATCH_SIZE = 5; 
         
         // Variable pour suivre si l'utilisateur a modifié l'heure manuellement
         let isTimeInputManuallyChanged = false;
@@ -1585,7 +1619,9 @@
                 height: 256,
                 colorDark : "#000000",
                 colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.M
+                correctLevel : QRCode.CorrectLevel.M,
+                // OPTIMISATION: Version fixe pour la stabilité
+                typeNumber: 15
             });
             
             if (qrChunks.length > 1) {
@@ -1601,7 +1637,8 @@
         function startScanner() {
             if (html5QrCodeLocal) return; 
             html5QrCodeLocal = new Html5Qrcode("qr-reader");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            // OPTIMISATION: FPS augmenté pour une lecture plus rapide
+            const config = { fps: 20, qrbox: { width: 250, height: 250 } };
             html5QrCodeLocal.start({ facingMode: "environment" }, config, onScanSuccess)
             .catch(err => {
                 document.getElementById('qr-reader').textContent = "Erreur caméra: " + err;

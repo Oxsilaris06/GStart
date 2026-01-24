@@ -369,7 +369,7 @@
         </button>
 
         <footer>
-         Module PATRACDVR Autonome
+             Module PATRACDVR Autonome
         </footer>
     </div>
 
@@ -401,7 +401,7 @@
         const LOCAL_STORAGE_KEY = 'oiFormDataLite';
 
         // Données extraites de members_config (1).json
-        const memberConfig = {
+        const DEFAULT_MEMBER_CONFIG = {
             fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "DE", "Cyno", "Inter", "AO", "Sans"],
             cellules: ["AO1", "AO2", "AO3", "AO4", "AO5", "AO6", "AO7", "AO8", "India 1", "India 2", "India 3", "India 4", "India 5", "Effrac", "Sans"],
             principales: ["UMP9", "G36", "FAP", "Sans"],
@@ -416,6 +416,9 @@
 
         // Données membres par défaut vides
         const DEFAULT_MEMBERS = [];
+
+        // Configuration active (copie modifiable des défauts)
+        let memberConfig = JSON.parse(JSON.stringify(DEFAULT_MEMBER_CONFIG));
 
         const availableVehicles = ['Sharan', 'Kodiaq', 'Kodiaq Bana', '5008', 'Scénic', 'Expert', 'Traffic'];
         
@@ -660,7 +663,7 @@
 
         // --- QUICK EDIT PANEL ---
 
-        function setupQuickEditPanelUI() {
+        function setupQuickEditPanelUI(targetMember = null) {
             const content = quickEditPanel.querySelector('.quick-edit-content');
             content.innerHTML = '';
 
@@ -670,58 +673,39 @@
                 catDiv.innerHTML = `<h5>${label}</h5>`;
                 const optsDiv = document.createElement('div');
                 optsDiv.className = 'quick-edit-options';
-                // AJOUT : métadonnées pour la mise à jour dynamique
-                optsDiv.dataset.attribute = conf.attribute;
-                optsDiv.dataset.configKey = conf.key;
 
-                (memberConfig[conf.key] || []).forEach(opt => {
-                    const b = createQuickEditButton(opt, conf.attribute);
+                // 1. Get Base Options
+                let options = [...(memberConfig[conf.key] || [])];
+
+                // 2. Merge with Member's Custom Values if present
+                if (targetMember) {
+                    const memberVal = targetMember.dataset[conf.attribute];
+                    if (memberVal && memberVal !== 'Sans') {
+                        const values = multiSelectAttributes.includes(conf.attribute) 
+                                       ? memberVal.split(', ') 
+                                       : [memberVal];
+                        
+                        values.forEach(v => {
+                             if (v !== 'Sans' && !options.includes(v)) {
+                                 options.push(v);
+                             }
+                        });
+                    }
+                }
+
+                options.forEach(opt => {
+                    const b = document.createElement('button');
+                    b.className = 'quick-edit-btn';
+                    b.type = 'button';
+                    b.textContent = opt;
+                    b.dataset.attribute = conf.attribute;
+                    b.dataset.value = opt;
+                    b.onclick = (e) => handleQuickEditClick(e, b);
                     optsDiv.appendChild(b);
                 });
                 catDiv.appendChild(optsDiv);
                 content.appendChild(catDiv);
             }
-        }
-
-        function createQuickEditButton(opt, attribute) {
-            const b = document.createElement('button');
-            b.className = 'quick-edit-btn';
-            b.type = 'button';
-            b.textContent = opt;
-            b.dataset.attribute = attribute;
-            b.dataset.value = opt;
-            b.onclick = (e) => handleQuickEditClick(e, b);
-            return b;
-        }
-
-        function syncQuickEditOptions(btn) {
-            document.querySelectorAll('.quick-edit-options').forEach(optsDiv => {
-                const attr = optsDiv.dataset.attribute;
-                const configKey = optsDiv.dataset.configKey;
-                const standardOptions = memberConfig[configKey] || [];
-                
-                // Nettoyage des boutons temporaires (ceux qui ne sont pas dans la config)
-                Array.from(optsDiv.children).forEach(b => {
-                    if (!standardOptions.includes(b.dataset.value)) {
-                        b.remove();
-                    }
-                });
-
-                // Ajout des boutons pour les valeurs actuelles du membre si hors config
-                const valStr = btn.dataset[attr];
-                if (valStr && valStr !== 'Sans') {
-                    const values = multiSelectAttributes.includes(attr) ? valStr.split(', ') : [valStr];
-                    values.forEach(v => {
-                        if (v !== 'Sans' && !standardOptions.includes(v)) {
-                            // Vérifier doublon (au cas où)
-                            if (!Array.from(optsDiv.children).some(b => b.dataset.value === v)) {
-                                const b = createQuickEditButton(v, attr);
-                                optsDiv.appendChild(b);
-                            }
-                        }
-                    });
-                }
-            });
         }
 
         function handleMemberSelection(e, btn) {
@@ -747,9 +731,9 @@
             document.getElementById('selectedMemberTrigramme').textContent = btn.dataset.trigramme;
             document.getElementById('quick_edit_trigramme_input').value = btn.dataset.trigramme;
             
-            // Update buttons dynamically for this member
-            syncQuickEditOptions(btn);
-
+            // Generate Buttons with potential custom values from this member
+            setupQuickEditPanelUI(btn);
+            
             refreshQuickEditButtons(btn);
             
             quickEditPanel.style.display = 'flex';
@@ -923,7 +907,7 @@
         }
 
         /**
-         * SAVE DATA - Modifié pour respecter le format demandé
+         * SAVE DATA - Modifié pour respecter le canevas members_config.json
          * Structure: { options: {...}, members: [ {..., vehicle_assigned: "vName" } ], mission_info: {...} }
          */
         function saveData() {
@@ -932,7 +916,7 @@
             // 1. Récupérer les non-assignés (vehicle_assigned = null/undefined)
             unassignedContainer.querySelectorAll('.patracdvr-member-btn').forEach(btn => {
                 const m = getMemberData(btn);
-                delete m.vehicle_assigned; // Clean up
+                m.vehicle_assigned = null; // Marqueur interne
                 allMembers.push(m);
             });
 
@@ -941,7 +925,7 @@
                 const vName = row.dataset.vehicleName;
                 row.querySelectorAll('.patracdvr-member-btn').forEach(btn => {
                     const m = getMemberData(btn);
-                    m.vehicle_assigned = vName; // Marqueur d'assignation
+                    m.vehicle_assigned = vName; // Marqueur interne
                     allMembers.push(m);
                 });
             });
@@ -959,8 +943,8 @@
             return data;
         }
 
-         function loadData() {
-            const json = localStorage.getItem('patracdvr_standalone_data');
+        function loadData() {
+            const json = localStorage.getItem(LOCAL_STORAGE_KEY);
             if (!json) return;
             try {
                 const data = JSON.parse(json);

@@ -397,6 +397,9 @@
 
     <script>
         // --- CONFIGURATION DE BASE (CANEVAS DU JSON) ---
+        // Constante pour la clé LocalStorage
+        const LOCAL_STORAGE_KEY = 'oiFormDataLite';
+
         // Données extraites de members_config (1).json
         const memberConfig = {
             fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "DE", "Cyno", "Inter", "AO", "Sans"],
@@ -834,14 +837,13 @@
             const trash = e.target.closest('#trashCan');
             
             if (trash && draggedItem) {
-                if (confirm(`Supprimer définitivement ${draggedItem.dataset.trigramme} ?`)) {
-                    if (activeMemberId === draggedItem.id) {
-                        quickEditPanel.style.display = 'none';
-                        activeMemberId = null;
-                    }
-                    draggedItem.remove();
-                    saveData();
+                // Modification: Suppression définitive directe sans confirmation
+                if (activeMemberId === draggedItem.id) {
+                    quickEditPanel.style.display = 'none';
+                    activeMemberId = null;
                 }
+                draggedItem.remove();
+                saveData();
                 return;
             }
 
@@ -892,7 +894,7 @@
                 data.unassigned.push(getMemberData(btn));
             });
 
-            localStorage.setItem('patracdvr_standalone_data', JSON.stringify(data));
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
         }
 
         function getMemberData(btn) {
@@ -906,7 +908,7 @@
         }
 
         function loadData() {
-            const json = localStorage.getItem('patracdvr_standalone_data');
+            const json = localStorage.getItem(LOCAL_STORAGE_KEY);
             if (!json) {
                 // Chargement par défaut si pas de sauvegarde (structure du JSON fourni)
                 DEFAULT_MEMBERS.forEach(m => addPatracdvrMember(unassignedContainer, m));
@@ -947,14 +949,14 @@
 
         function resetAll() {
             if (confirm("Tout effacer ? Cela rechargera la configuration par défaut.")) {
-                localStorage.removeItem('patracdvr_standalone_data');
+                localStorage.removeItem(LOCAL_STORAGE_KEY);
                 location.reload();
             }
         }
 
         function exportData() {
             saveData();
-            const data = localStorage.getItem('patracdvr_standalone_data');
+            const data = localStorage.getItem(LOCAL_STORAGE_KEY);
             const blob = new Blob([data], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');

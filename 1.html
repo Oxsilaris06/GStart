@@ -471,6 +471,7 @@
 <body class="dark-mode">
 
     <input type="file" id="sessionFileInput" accept=".json" style="display: none;">
+    <input type="file" id="jsonConfigInput" accept=".json" style="display: none;">
     <dialog id="presentationModal">
         <div id="presentation-content">
             </div>
@@ -781,6 +782,9 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                     <div style="margin-bottom: 20px; padding: 15px; border: 1px solid var(--border-color); border-radius: 5px;">
                         
                         <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;">
+                            <button type="button" id="importJsonConfigBtn" class="patracdvr-member-btn" title="Importer Configuration Membres" style="flex-grow: 1; max-width: 150px;">
+                                <span class="material-symbols-outlined">upload_file</span> Importer JSON
+                            </button>
                             <button type="button" id="resetPatracdvrBtn" class="patracdvr-member-btn" title="Réinitialiser PATRACDVR" style="flex-grow: 1; max-width: 150px;">
                                 <span class="material-symbols-outlined">delete_forever</span> Réinitialiser
                             </button>
@@ -3429,6 +3433,34 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     } else {
                         alert("Aucune donnée à exporter.");
                     }
+                });
+            }
+
+            const importJsonConfigBtn = document.getElementById('importJsonConfigBtn');
+            const jsonConfigInput = document.getElementById('jsonConfigInput');
+            
+            if (importJsonConfigBtn) {
+                importJsonConfigBtn.addEventListener('click', () => jsonConfigInput.click());
+            }
+            
+            if (jsonConfigInput) {
+                jsonConfigInput.addEventListener('change', (event) => {
+                    const file = event.target.files[0];
+                    if (!file) { return; }
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        try {
+                            const jsonContent = e.target.result;
+                            const config = JSON.parse(jsonContent); 
+                            if (config && (Array.isArray(config.members) || config.options)) {
+                                cleanupObjectUrls();
+                                loadConfigObject(config); 
+                                location.reload();
+                            } else { alert("Fichier JSON invalide."); }
+                        } catch (err) { alert("Erreur de lecture."); console.error(err); }
+                    };
+                    reader.readAsText(file);
+                    event.target.value = null; 
                 });
             }
 

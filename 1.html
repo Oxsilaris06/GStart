@@ -1773,7 +1773,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 grenades: 'Sans',
                 equipement: 'Sans', 
                 equipement2: 'Sans',
-                tenues: 'UBAS',
+                tenue: 'UBAS',
                 gpb: 'GPBL', 
                 dir: '', // NOUVEAU Champ DIR
                 ...data
@@ -2163,6 +2163,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     description: item.querySelector('.time-description-input').value
                 }));
 
+                // Sauvegarde des options de configuration
+                data.options = memberConfig;
+
                 // Utilisation de la clé isolée
                 localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
                 updateArticulationDisplay();
@@ -2189,6 +2192,11 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         
             try {
                 const data = JSON.parse(dataString);
+
+                // Chargement des options de configuration
+                if (data.options) {
+                    Object.assign(memberConfig, data.options);
+                }
         
                 // Nettoyer l'UI
                 document.querySelectorAll('.image-preview-container, .photo-display-area').forEach(c => c.innerHTML = '');

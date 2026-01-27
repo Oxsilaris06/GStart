@@ -288,6 +288,48 @@
             .quick-edit-content { grid-template-columns: 1fr; }
             .modal-form { grid-template-columns: 1fr; }
         }
+
+        /* --- CONFIGURATION COLLAPSIBLE (MERGED FROM paramOI) --- */
+        .collapsible { 
+            background-color: var(--bg-element); 
+            border: 1px solid var(--border-glass); 
+            border-radius: var(--radius-sm); 
+            margin-top: 20px;
+            margin-bottom: 15px; 
+            overflow: hidden; 
+            transition: border-color 0.3s;
+        }
+        .collapsible-header { 
+            cursor: pointer; padding: 15px; 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: rgba(255,255,255,0.02);
+        }
+        .collapsible-header h4 { 
+            border: none; padding: 0; margin: 0; 
+            color: var(--accent-blue);
+            font-family: var(--font-ui);
+            font-weight: bold;
+        }
+        .collapsible-header .toggle-arrow { font-size: 1.2em; transition: transform 0.3s; color: var(--text-secondary); }
+        .collapsible-content { padding: 0 15px; max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out, padding 0.3s ease-out; }
+        .collapsible.open { border-color: var(--accent-blue); }
+        .collapsible.open .collapsible-header .toggle-arrow { transform: rotate(180deg); color: var(--accent-blue); }
+        .collapsible.open .collapsible-content { max-height: 5000px; padding-bottom: 15px; padding-top: 15px; }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group textarea {
+            width: 100%; padding: 12px; 
+            border: 1px solid var(--border-glass); border-radius: var(--radius-sm);
+            font-size: 0.9rem; background-color: var(--bg-input); 
+            color: var(--text-primary); font-family: var(--font-ui);
+            transition: all 0.2s;
+            min-height: 80px; resize: vertical;
+        }
+        .form-group textarea:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+        .form-group .help-text { font-size: 0.8em; color: var(--text-secondary); margin-top: 5px; font-style: italic; }
     </style>
 </head>
 <body>
@@ -367,6 +409,25 @@
             <span class="material-symbols-outlined" style="vertical-align: middle; margin-right:10px;">picture_as_pdf</span>
             Générer la Fiche PATRACDVR
         </button>
+
+        <!-- CONFIGURATION UNITÉ (MERGED) -->
+        <div class="collapsible">
+            <div class="collapsible-header"><h4>Configuration Unité</h4><span class="toggle-arrow"><span class="material-symbols-outlined">expand_more</span></span></div>
+            <div class="collapsible-content">
+                <div class="form-group"><label for="oiFonctions">Fonctions</label><textarea id="oiFonctions" placeholder="Chef inter, Chef dispo, DE, Sans"></textarea><p class="help-text">Séparez chaque valeur par une virgule.</p></div>
+                <div class="form-group"><label for="oiCellules">Cellules</label><textarea id="oiCellules" placeholder="AO1, AO2, India 1, India 2"></textarea></div>
+                
+                <div class="form-group"><label for="oiPrincipales">Armes Principales</label><textarea id="oiPrincipales" placeholder="UMP9, G36, FAP, Sans"></textarea></div>
+                <div class="form-group"><label for="oiSecondaires">Armes Secondaires</label><textarea id="oiSecondaires" placeholder="PSA, Glock, Sans"></textarea></div>
+                <div class="form-group"><label for="oiAfis">A.F.I. (Armes à Feux Intermédiaires)</label><textarea id="oiAfis" placeholder="PIE, LBD40, LBD44, Sans"></textarea></div>
+                <div class="form-group"><label for="oiGrenades">Grenades</label><textarea id="oiGrenades" placeholder="GENL, MP7, Sans"></textarea></div>
+                
+                <div class="form-group"><label for="oiEquipements">Équipements 1</label><textarea id="oiEquipements" placeholder="Sans, BBAL, GENL, EFFRAC"></textarea></div>
+                <div class="form-group"><label for="oiEquipements2">Équipements 2</label><textarea id="oiEquipements2" placeholder="Sans, Échelle, Stop stick"></textarea></div>
+                <div class="form-group"><label for="oiTenues">Tenues</label><textarea id="oiTenues" placeholder="UBAS, 4S, Bleu, Treillis"></textarea></div>
+                <div class="form-group"><label for="oiGpbs">GPB</label><textarea id="oiGpbs" placeholder="GPBL, GPBPD"></textarea></div>
+            </div>
+        </div>
 
         <footer>
              Module PATRACDVR Autonome
@@ -451,6 +512,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             setupQuickEditPanelUI();
             setupVehicleButtons();
+            setupCollapsibles(); // Init collapsibles
             loadData();
             
             // Event Listeners globaux
@@ -497,6 +559,11 @@
                     updateMemberButtonVisuals(member);
                     saveData();
                 }
+            });
+
+            // Listeners pour la configuration
+            document.querySelectorAll('.collapsible-content textarea').forEach(textarea => {
+                textarea.addEventListener('change', updateMemberConfigFromForm);
             });
         });
 
@@ -984,6 +1051,7 @@
                 });
 
                 setupQuickEditPanelUI();
+                populateConfigForm(); // Update form with loaded options
             }
 
             // 2. Restauration Mission Info
@@ -1024,6 +1092,9 @@
                 if (data.rows) data.rows.forEach(r => addPatracdvrRow(r.vehicle, r.members));
                 if (data.unassigned) data.unassigned.forEach(m => addPatracdvrMember(unassignedContainer, m));
             }
+            
+            // Si aucune option chargée (premier lancement), on peuple le formulaire avec les défauts
+            if (!data.options) populateConfigForm();
         }
 
         function resetAll() {
@@ -1067,6 +1138,48 @@
                 event.target.value = '';
             };
             reader.readAsText(file);
+        }
+
+        // --- CONFIGURATION FUNCTIONS (MERGED) ---
+
+        function setupCollapsibles() {
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const parent = header.parentElement;
+                    parent.classList.toggle('open');
+                });
+            });
+        }
+
+        function populateConfigForm() {
+            const getArrayFromTextarea = (key) => (memberConfig[key] || []).join(', ');
+            
+            document.getElementById('oiFonctions').value = getArrayFromTextarea('fonctions');
+            document.getElementById('oiCellules').value = getArrayFromTextarea('cellules');
+            document.getElementById('oiPrincipales').value = getArrayFromTextarea('principales');
+            document.getElementById('oiSecondaires').value = getArrayFromTextarea('secondaires');
+            document.getElementById('oiAfis').value = getArrayFromTextarea('afis');
+            document.getElementById('oiGrenades').value = getArrayFromTextarea('grenades');
+            document.getElementById('oiEquipements').value = getArrayFromTextarea('equipements');
+            document.getElementById('oiEquipements2').value = getArrayFromTextarea('equipements2');
+            document.getElementById('oiTenues').value = getArrayFromTextarea('tenues');
+            document.getElementById('oiGpbs').value = getArrayFromTextarea('gpbs');
+        }
+
+        function updateMemberConfigFromForm() {
+            const getArrayFromTextarea = (id) => document.getElementById(id).value.split(',').map(item => item.trim()).filter(Boolean);
+            memberConfig.fonctions = getArrayFromTextarea('oiFonctions');
+            memberConfig.cellules = getArrayFromTextarea('oiCellules');
+            memberConfig.principales = getArrayFromTextarea('oiPrincipales');
+            memberConfig.secondaires = getArrayFromTextarea('oiSecondaires');
+            memberConfig.afis = getArrayFromTextarea('oiAfis');
+            memberConfig.grenades = getArrayFromTextarea('oiGrenades');
+            memberConfig.equipements = getArrayFromTextarea('oiEquipements');
+            memberConfig.equipements2 = getArrayFromTextarea('oiEquipements2');
+            memberConfig.tenues = getArrayFromTextarea('oiTenues');
+            memberConfig.gpbs = getArrayFromTextarea('oiGpbs');
+            setupQuickEditPanelUI();
+            saveData();
         }
 
         // --- PDF GENERATION ---

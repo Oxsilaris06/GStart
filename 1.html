@@ -2303,6 +2303,36 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             }
         }
 
+        function loadConfigObject(config) {
+            if (config.options) {
+                Object.assign(memberConfig, config.options);
+                setupQuickEditPanel(); 
+            }
+            
+            if (config.members && Array.isArray(config.members)) {
+                unassignedContainer.innerHTML = ''; 
+                patracdvrContainer.innerHTML = '';
+                config.members.forEach(memberData => { 
+                    const defaultData = {
+                        cellule: memberData.cellule || 'Sans',
+                        fonction: memberData.fonction || 'Sans',
+                        principales: memberData.principales || 'Sans',
+                        secondaires: memberData.secondaires || 'PSA',
+                        afis: memberData.afis || 'Sans',
+                        grenades: memberData.grenades || 'Sans',
+                        equipement: memberData.equipement || 'Sans',
+                        equipement2: memberData.equipement2 || 'Sans',
+                        tenue: memberData.tenue || 'UBAS',
+                        gpb: memberData.gpb || 'GPBL',
+                        dir: '',
+                        ...memberData
+                    };
+                    addPatracdvrMember(unassignedContainer, defaultData); 
+                });
+            }
+            saveFormData(); 
+        }
+
         // Suppression de let draggedItem = null; pour utiliser l'objet DataTransfer
 
         function getDragAfterElement(container, y) {

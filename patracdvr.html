@@ -463,15 +463,15 @@
 
         // Données extraites de members_config (1).json
         const DEFAULT_MEMBER_CONFIG = {
-            fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "DE", "Cyno", "Inter", "AO", "Sans"],
+           fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "Conducteur", "Chef de bord", "DE", "Cyno", "Inter", "Effrac", "AO", "Sans"],
             cellules: ["AO1", "AO2", "AO3", "AO4", "AO5", "AO6", "AO7", "AO8", "India 1", "India 2", "India 3", "India 4", "India 5", "Effrac", "Sans"],
             principales: ["UMP9", "G36", "FAP", "Sans"],
-            secondaires: ["PSA", "Sans"],
             afis: ["PIE", "LBD40", "LBD44", "Sans"],
+            secondaires: ["SP2022", "Glock 26", "Sans"],
             grenades: ["GENL", "MP7", "Sans"],
-            equipements: ["Sans", "BBAL","Bouclier MO", "GENL", "EFFRAC", "MP7", "IL", "Lot 5.11"],
-            equipements2: ["Sans", "Échelle", "Stop stick", "Lacry", "Cale", "IL", "Pass"],
-            tenues: ["UBAS", "4S", "Bleu", "Civil", "Ghillie", "Treillis"],
+            equipements: ["Sans", "Casque Lourd", "Casque MO", "BBAL","Bouclier MO", "Belier", "Lacry", "IL", "Lot 5.11"],
+            equipements2: ["Sans", "Cam pieton", "Échelle", "Stop stick", "Lacry", "Cale", "IL", "Pass"],
+            tenues: ["UBAS", "4S", "Bleu", "Civile", "Ghillie", "Treillis"],
             gpbs: ["GPBL", "GPBPD", "Sans"]
         };
 
@@ -1012,7 +1012,10 @@
 
         function loadData() {
             const json = localStorage.getItem(LOCAL_STORAGE_KEY);
-            if (!json) return;
+            if (!json) {
+                populateConfigForm();
+                return;
+            }
             try {
                 const data = JSON.parse(json);
                 restoreDataFromObject(data);
@@ -1167,7 +1170,10 @@
         }
 
         function updateMemberConfigFromForm() {
-            const getArrayFromTextarea = (id) => document.getElementById(id).value.split(',').map(item => item.trim()).filter(Boolean);
+            const getArrayFromTextarea = (id) => {
+                const items = document.getElementById(id).value.split(',').map(item => item.trim()).filter(Boolean);
+                return [...new Set(items)];
+            };
             memberConfig.fonctions = getArrayFromTextarea('oiFonctions');
             memberConfig.cellules = getArrayFromTextarea('oiCellules');
             memberConfig.principales = getArrayFromTextarea('oiPrincipales');

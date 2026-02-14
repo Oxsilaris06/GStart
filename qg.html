@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="manifest"
+        href='data:application/json;charset=utf-8,%7B%22name%22%3A%22PRAXIS%20COMMANDEMENT%22%2C%22short_name%22%3A%22PRAXIS%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23050505%22%2C%22theme_color%22%3A%22%23050505%22%7D'>
+    <title>Centre de commandement Praxis</title>
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="apple-touch-icon-180x180.png">
+
+    <!-- Fonts & Icons -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Chakra+Petch:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0" />
+
+    <!-- MapLibre GL JS -->
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+
+    <!-- PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <style>
+        :root {
+            --color-bg: #050505;
+            --color-surface: #121214;
+            --color-surface-light: #1c1c1f;
+            --color-accent: #3b82f6;
+            --color-red: #ef4444;
+            --color-green: #22c55e;
+            --color-yellow: #eab308;
+            --color-text: #e4e4e7;
+            --color-dim: #71717a;
+            --sidebar-width: 340px;
+            --font-ui: 'Chakra Petch', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --tactical-contact: #ef4444;
+            --tactical-clear: #22c55e;
+            --tactical-progression: #3b82f6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-ui);
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--color-surface);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-header .brand {
+            font-weight: 800;
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-header .brand span {
+            color: var(--color-accent);
+        }
+
+        .sidebar-tabs {
+            display: flex;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            font-size: 0.75rem;
+            text-align: center;
+            cursor: pointer;
+            color: var(--color-dim);
+            font-weight: bold;
+        }
+
+        .tab-btn.active {
+            color: white;
+            border-bottom: 2px solid var(--color-accent);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-btn {
+            position: relative;
+        }
+
+        .unread-dot {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            background: var(--color-red);
+            border-radius: 50%;
+            display: none;
+            box-shadow: 0 0 10px var(--color-red);
+        }
+
+        .unread-dot.active {
+            display: block;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.5);
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: none;
+        }
+
+        .sidebar-content.active {
+            display: block;
+        }
+
+        /* Session Item */
+        .session-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .session-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .session-item.active {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .session-item.selected {
+            border-color: var(--color-accent);
+            background: rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+        }
+
+        .session-color {
+            width: 4px;
+            height: 100%;
+            position: absolute;
+            left: 0;
+            top: 0;
+            border-radius: 4px 0 0 4px;
+        }
+
+        .btn-session-close {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            color: var(--color-dim);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .btn-session-close:hover {
+            color: var(--color-red);
+        }
+
+        /* Main Courante (Logbook) */
+        .log-entry {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 6px 0;
+            color: #aaa;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .log-time {
+            color: var(--color-dim);
+            margin-right: 5px;
+        }
+
+        .log-msg {
+            color: var(--color-text);
+        }
+
+        .log-msg.important {
+            color: var(--color-red);
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+        }
+
+        .log-msg.chat {
+            color: #fff;
+            border-left: 2px solid var(--color-accent);
+            padding-left: 5px;
+        }
+
+        .log-msg.system {
+            color: var(--color-accent);
+            opacity: 0.8;
+        }
+
+
+        .log-group {
+            font-weight: 800;
+            color: var(--g-color, var(--color-accent));
+            margin-right: 4px;
+        }
+
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .add-session {
+            display: flex;
+            gap: 8px;
+        }
+
+        input {
+            background: #000;
+            border: 1px solid #333;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            flex: 1;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--color-accent);
+        }
+
+        .btn {
+            background: var(--color-accent);
+            color: black;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: var(--font-ui);
+        }
+
+        /* --- MAP & OVERLAYS --- */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 500;
+        }
+
+        .map-btn {
+            width: 44px;
+            height: 44px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+        }
+
+        .map-btn.active {
+            color: var(--color-accent);
+        }
+
+        .ops-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            max-height: 250px;
+            background: rgba(5, 5, 5, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            z-index: 500;
+            display: none;
+        }
+
+        .ops-panel.active {
+            display: grid;
+        }
+
+        .op-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .op-card:hover {
+            border-color: var(--color-accent);
+        }
+
+        .op-card.following {
+            border-color: var(--color-green);
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+        }
+
+        .op-name {
+            font-weight: 800;
+            font-family: var(--font-mono);
+            font-size: 1rem;
+        }
+
+        .op-status {
+            text-transform: uppercase;
+            font-weight: bold;
+            font-size: 0.7rem;
+        }
+
+        .op-lastmsg {
+            font-size: 0.7rem;
+            color: var(--color-accent);
+            font-style: italic;
+            margin-top: 4px;
+            border-left: 2px solid var(--color-accent);
+            padding-left: 5px;
+        }
+
+        /* Compass */
+        .compass-ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 60px;
+            height: 60px;
+            z-index: 500;
+            pointer-events: none;
+        }
+
+        .compass-rose {
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="rgba(0,0,0,0.5)" stroke="white" stroke-width="2"/><text x="50" y="20" fill="white" font-weight="bold" font-family="monospace" text-anchor="middle">N</text><text x="50" y="85" fill="rgba(255,255,255,0.3)" font-family="monospace" text-anchor="middle">S</text><path d="M50 10 L50 90 M10 50 L90 50" stroke="rgba(255,255,255,0.2)"/></svg>') no-repeat center;
+            background-size: contain;
+            transition: transform 0.1s linear;
+        }
+
+        /* Toast */
+        #toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--color-accent);
+            color: black;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 800;
+            z-index: 9999;
+            display: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Tactical Markers */
+        .marker-wrapper {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform-origin: center;
+            cursor: pointer;
+        }
+
+        .marker-arrow {
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 24px solid var(--color-accent);
+            filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.8));
+        }
+
+        .marker-rotator {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        .marker-label {
+            position: absolute;
+            top: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+            border: 1px solid var(--color-accent);
+            z-index: 10;
+            font-family: var(--font-mono);
+            pointer-events: none;
+        }
+
+        .vision-cone {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle at 50% 100%, var(--v-color, rgba(59, 130, 246, 0.3)) 0%, transparent 60%);
+            clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
+            transform: translate(-50%, -100%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .ping-wrapper {
+            text-align: center;
+        }
+
+        .ping-icon {
+            color: var(--color-red);
+            font-size: 30px;
+            filter: drop-shadow(0 0 5px black);
+            animation: bounce 1s infinite;
+        }
+
+        .ping-label {
+            background: var(--color-red);
+            color: white;
+            padding: 2px 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-family: var(--font-mono);
+            white-space: nowrap;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-8px);
+            }
+
+            100% {
+                transform: translateY(0);
+            }
+        }
+
+        /* Follow Highlight */
+        .marker-wrapper.followed {
+            filter: brightness(1.5) drop-shadow(0 0 10px var(--color-green));
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: var(--color-surface);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 10px;
+            font-weight: 800;
+            font-family: var(--font-mono);
+        }
+
+        .close-btn {
+            cursor: pointer;
+            color: var(--color-dim);
+        }
+
+        .close-btn:hover {
+            color: white;
+        }
+
+        #ping-modal-image-container img {
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* --- MOBILE OPTIMIZATIONS --- */
+        #sidebar-toggle {
+            display: none;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1100;
+            background: var(--color-accent);
+            color: black;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                transform: translateX(-100%);
+                box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+            }
+
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+
+            #sidebar-toggle {
+                display: flex;
+            }
+
+            #sidebar-toggle.active {
+                left: 280px;
+                background: var(--color-red);
+            }
+
+            .compass-ui {
+                top: 80px;
+            }
+
+            .sidebar-header .brand {
+                font-size: 1rem;
+            }
+
+            .add-session input {
+                font-size: 16px;
+                height: 44px;
+            }
+
+            /* Prevent iOS zoom */
+            .add-session .btn {
+                height: 44px;
+                padding: 0 20px;
+            }
+
+            .ops-panel {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            }
+
+            .add-session {
+                width: 100%;
+            }
+
+            .add-session input {
+                min-width: 0;
+                flex: 1;
+            }
+
+            .add-session .btn {
+                flex-shrink: 0;
+            }
+        }
+
+        @media screen and (orientation: landscape) and (max-height: 500px) {
+            .sidebar-header {
+                padding: 10px;
+            }
+
+            .sidebar-footer {
+                padding: 10px;
+            }
+
+            .ops-panel {
+                max-height: 120px;
+                padding: 5px;
+            }
+
+            .op-card {
+                padding: 5px;
+                font-size: 0.7rem;
+            }
+
+            .compass-ui {
+                width: 40px;
+                height: 40px;
+                top: 10px;
+                right: 80px;
+                left: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="sidebar-toggle" onclick="UI.toggleSidebar()">
+        <span class="material-symbols-outlined">menu</span>
+    </div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="brand">Praxis <span>Commandement</span></div>
+        </div>
+
+        <div class="sidebar-tabs">
+            <div class="tab-btn active" onclick="UI.switchTab('sessions')">SESSIONS</div>
+            <div class="tab-btn" onclick="UI.switchTab('history')">HISTORIQUE</div>
+            <div class="tab-btn" onclick="UI.switchTab('logbook')">
+                MAIN COURANTE
+                <div id="log-unread" class="unread-dot"></div>
+            </div>
+        </div>
+
+        <div id="tab-sessions" class="sidebar-content active">
+            <div class="session-list" id="session-list"></div>
+        </div>
+
+        <div id="tab-history" class="sidebar-content">
+            <div style="font-size:0.7rem; color:var(--color-dim); margin-bottom:10px; text-transform:uppercase; font-weight:bold;"
+                id="history-title">SESSION: --</div>
+            <div id="history-list"></div>
+        </div>
+
+        <div id="tab-logbook" class="sidebar-content">
+            <div style="font-size:0.7rem; color:var(--color-dim); margin-bottom:10px; text-transform:uppercase; font-weight:bold;"
+                id="logbook-title">SESSION: --</div>
+            <div id="logbook-list"></div>
+        </div>
+
+        <div class="sidebar-footer" id="sidebar-footer">
+            <div style="font-size: 0.7rem; color: var(--color-dim); margin-bottom: 8px; font-weight: bold;">SURVEILLANCE
+                GROUPE</div>
+            <div class="add-session">
+                <input type="text" id="input-session-id" placeholder="ID CANAL..." maxlength="8">
+                <button class="btn" onclick="UI.addSession()">FOLLOW</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="map-container">
+        <div id="map"></div>
+
+        <div class="compass-ui">
+            <div class="compass-rose" id="compass-rose"></div>
+        </div>
+
+        <div class="map-overlay">
+            <div class="map-btn" onclick="MapService.toggleSatellite()" title="Satellite">
+                <span class="material-symbols-outlined">layers</span>
+            </div>
+            <div class="map-btn" onclick="UI.toggleOps()" title="Liste Opérateurs">
+                <span class="material-symbols-outlined">groups</span>
+            </div>
+            <div class="map-btn active" onclick="UI.toggleTrails()" id="btn-trails" title="Afficher Tracés">
+                <span class="material-symbols-outlined">timeline</span>
+            </div>
+            <div class="map-btn active" onclick="UI.togglePings()" id="btn-pings" title="Afficher/Masquer Pings">
+                <span class="material-symbols-outlined">layers_clear</span>
+            </div>
+            <div class="map-btn" onclick="UI.toggleCredits()" id="btn-credits" title="Informations Carte">
+                <span class="material-symbols-outlined">info</span>
+            </div>
+        </div>
+
+        <div id="ops-panel" class="ops-panel"></div>
+        <div id="attribution-overlay"
+            style="position:absolute; bottom:5px; right:5px; background:rgba(0,0,0,0.7); color:#777; font-size:10px; padding:2px 5px; border-radius:3px; display:none; z-index:1000;">
+            &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank"
+                style="color:#777">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions"
+                target="_blank" style="color:#777">CARTO</a>
+        </div>
+    </div>
+
+    <!-- Modal for Ping Details -->
+    <div id="ping-modal" class="modal-overlay" onclick="UI.closePingModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div>TACTICAL PING INFO</div>
+                <span class="material-symbols-outlined close-btn" onclick="UI.closePingModal()">close</span>
+            </div>
+            <div class="modal-body">
+                <div id="ping-modal-sender"
+                    style="font-weight: bold; color: var(--color-accent); font-family: var(--font-mono);">SOURCE: --
+                </div>
+                <div id="ping-modal-msg" style="margin: 10px 0; font-size: 1.1rem;">--</div>
+                <div id="ping-modal-image-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast">SYSTEM READY</div>
+
+    <script>
+        const PEER_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+        const SESSION_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#eab308', '#a855f7', '#06b6d4', '#ec4899', '#f97316'];
+
+        class TacticalGroup {
+            constructor(id, colorIndex) {
+                this.id = id;
+                this.color = SESSION_COLORS[colorIndex % SESSION_COLORS.length];
+                this.operators = {}; // opId -> data (including trail)
+                this.status = 'connecting';
+                this.conn = null;
+                this.hasCentered = false;
+                this.logs = [];    // Chronological feed
+                this.history = []; // Tactical history (significant events)
+            }
+        }
+
+        const MapService = {
+            map: null, isSatellite: false, showTrails: true, showPings: true,
+            markers: {}, pingMarkers: {}, followId: null,
+
+            init: () => {
+                MapService.map = new maplibregl.Map({
+                    container: 'map',
+                    style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+                    center: [2.35, 48.85], zoom: 12,
+                    attributionControl: false
+                });
+                MapService.map.on('rotate', () => {
+                    const bearing = MapService.map.getBearing();
+                    document.getElementById('compass-rose').style.transform = `rotate(${-bearing}deg)`;
+                });
+                MapService.map.on('load', () => {
+                    MapService.map.addSource('trails', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+                    MapService.map.addLayer({
+                        id: 'trails-layer', type: 'line', source: 'trails',
+                        layout: { 'line-join': 'round', 'line-cap': 'round' },
+                        paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-dasharray': [2, 2] }
+                    });
+                });
+            },
+
+            toggleSatellite: () => {
+                MapService.isSatellite = !MapService.isSatellite;
+                const style = MapService.isSatellite
+                    ? { 'version': 8, 'sources': { 'raster-tiles': { 'type': 'raster', 'tiles': ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], 'tileSize': 256 } }, 'layers': [{ 'id': 'raster', 'type': 'raster', 'source': 'raster-tiles' }] }
+                    : 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+                MapService.map.setStyle(style);
+                MapService.map.once('style.load', () => MapService.refreshTrails());
+            },
+
+            updateOpMarker: (op, color) => {
+                if (!op.lat || !op.lng) return;
+                const id = op.id;
+                const statusColors = { 'CONTACT': '#ef4444', 'CLEAR': '#22c55e', 'PROGRESSION': '#3b82f6' };
+                const tactColor = statusColors[op.status?.toUpperCase()] || color;
+
+                if (!MapService.markers[id]) {
+                    const el = document.createElement('div');
+                    el.className = 'marker-wrapper';
+                    el.innerHTML = `
+                        <div class="marker-rotator" style="transform: rotate(${op.head || 0}deg)">
+                            <div class="vision-cone" style="--v-color: ${tactColor}33"></div>
+                            <div class="marker-arrow" style="border-bottom-color: ${tactColor}"></div>
+                        </div>
+                        <div class="marker-label" style="border-color: ${tactColor}">${op.callsign}</div>`;
+                    el.onclick = () => UI.followOp(id);
+                    MapService.markers[id] = new maplibregl.Marker({ element: el })
+                        .setLngLat([op.lng, op.lat])
+                        .addTo(MapService.map);
+                } else {
+                    const el = MapService.markers[id].getElement();
+                    const rotator = el.querySelector('.marker-rotator');
+                    const label = el.querySelector('.marker-label');
+                    const cone = el.querySelector('.vision-cone');
+                    const arrow = el.querySelector('.marker-arrow');
+
+                    if (rotator) rotator.style.transform = `rotate(${op.head || 0}deg)`;
+                    if (cone) cone.style.setProperty('--v-color', tactColor + '33');
+                    if (arrow) arrow.style.borderBottomColor = tactColor;
+                    if (label) label.style.borderColor = tactColor;
+
+                    MapService.markers[id].setLngLat([op.lng, op.lat]);
+                    el.classList.toggle('followed', MapService.followId === id);
+                }
+                if (MapService.followId === id) MapService.map.easeTo({ center: [op.lng, op.lat], duration: 500 });
+                MapService.refreshTrails();
+            },
+
+            addPingMarker: (ping, groupColor) => {
+                const colors = { ami: '#22c55e', friendly: '#22c55e', adversaire: '#ef4444', hostile: '#ef4444', rens: '#eab308', intel: '#eab308' };
+                const color = colors[ping.type?.toLowerCase()] || groupColor;
+                const id = ping.id;
+                const el = document.createElement('div');
+                el.className = 'ping-wrapper';
+                el.style.cursor = 'pointer';
+                el.innerHTML = `<div class="ping-label" style="background: ${color}">${ping.sender}: ${ping.msg}</div><span class="material-symbols-outlined ping-icon" style="color: ${color}">location_on</span>`;
+                el.onclick = () => UI.showPingDetails(ping, color);
+
+                if (MapService.pingMarkers[id]) MapService.pingMarkers[id].remove();
+                const marker = new maplibregl.Marker({ element: el }).setLngLat([ping.lng, ping.lat]).addTo(MapService.map);
+                if (!MapService.showPings) el.style.display = 'none';
+                MapService.pingMarkers[id] = marker;
+
+                setTimeout(() => {
+                    if (MapService.pingMarkers[id]) {
+                        MapService.pingMarkers[id].remove();
+                        delete MapService.pingMarkers[id];
+                    }
+                }, 120000);
+            },
+
+            refreshTrails: () => {
+                if (!MapService.map.getSource('trails')) return;
+                const features = [];
+                Object.values(NetService.groups).forEach(g => {
+                    Object.values(g.operators).forEach(op => {
+                        if (op.trail && op.trail.length > 1) {
+                            features.push({ type: 'Feature', properties: { color: g.color }, geometry: { type: 'LineString', coordinates: op.trail } });
+                        }
+                    });
+                });
+                MapService.map.getSource('trails').setData({ type: 'FeatureCollection', features });
+            }
+        };
+
+        const NetService = {
+            groups: {}, localPeer: null,
+            imageBuffers: {}, // id -> { chunks: [], total: 0, fullData: null }
+            updateBuffer: { ops: {}, logs: [], pings: [] },
+
+            init: () => {
+                NetService.localPeer = new Peer(null, { config: PEER_CONFIG });
+                NetService.localPeer.on('open', () => {
+                    UI.toast("RÉSEAU COMTAC ACTIF");
+                    NetService.loadFromLocal();
+                });
+                setInterval(NetService.processUpdateBuffer, 1000);
+            },
+            followSession: (hostId) => {
+                if (NetService.groups[hostId]) return;
+                const group = new TacticalGroup(hostId, Object.keys(NetService.groups).length);
+                NetService.groups[hostId] = group;
+                const conn = NetService.localPeer.connect(hostId, { metadata: { role: 'COMMAND', callsign: 'HQ-COMTAC' }, reliable: true });
+                conn.on('open', () => { group.status = 'active'; UI.log(`Connexion établie`, false, group); conn.send({ type: 'FULL_REQ' }); UI.renderSessions(); });
+                conn.on('data', (d) => NetService.handleData(group, d));
+                conn.on('close', () => { group.status = 'disconnected'; UI.log(`Liaison rompue`, true, group); UI.renderSessions(); });
+                group.conn = conn;
+                UI.renderSessions();
+                NetService.saveToLocal();
+            },
+            saveToLocal: () => {
+                const ids = Object.keys(NetService.groups);
+                localStorage.setItem('comtac_sessions', JSON.stringify(ids));
+            },
+            loadFromLocal: () => {
+                const saved = localStorage.getItem('comtac_sessions');
+                if (saved) {
+                    try {
+                        const ids = JSON.parse(saved);
+                        ids.forEach(id => NetService.followSession(id));
+                    } catch (e) { console.error("Err persistent sessions", e); }
+                }
+            },
+            handleData: (group, d) => {
+                const processOp = (u) => {
+                    if (!u) return;
+                    NetService.updateBuffer.ops[u.id] = { user: u, group: group };
+                };
+
+                if (d.type === 'SYNC' || d.type === 'FULL') (d.list || [d.user]).forEach(processOp);
+                if (d.type === 'UPDATE') processOp(d.user);
+                if (d.type === 'PING') NetService.updateBuffer.pings.push({ ping: d.ping, group: group });
+                if (d.type === 'CHAT') NetService.updateBuffer.logs.push({ msg: d.msg, sender: d.sender, group: group, type: 'chat' });
+                if (d.type === 'LOG') NetService.updateBuffer.logs.push({ msg: d.msg, group, important: d.severity === 'important' });
+
+                if (d.type === 'IMAGE_CHUNK') {
+                    NetService.handleImageChunk(d);
+                }
+            },
+
+            processUpdateBuffer: () => {
+                const opsToUpdate = Object.values(NetService.updateBuffer.ops);
+                if (opsToUpdate.length === 0 && NetService.updateBuffer.logs.length === 0 && NetService.updateBuffer.pings.length === 0) return;
+
+                NetService.updateBuffer.pings.forEach(({ ping, group }) => {
+                    MapService.addPingMarker(ping, group.color);
+                });
+
+                opsToUpdate.forEach(({ user: u, group }) => {
+                    const old = group.operators[u.id];
+                    u.trail = (old && old.trail) ? old.trail : [];
+                    if (u.lat && (!old || old.lat !== u.lat || old.lng !== u.lng)) {
+                        u.trail.push([u.lng, u.lat]);
+                        if (u.trail.length > 100) u.trail.shift();
+                    }
+                    group.operators[u.id] = u;
+                    MapService.updateOpMarker(u, group.color);
+
+                    if (old && old.status !== u.status) {
+                        NetService.updateBuffer.logs.push({ msg: `${u.callsign} -> STATUT: ${u.status}`, group, important: u.status === 'CONTACT' });
+                    }
+                    if (u.lastMsg && (!old || old.lastMsg !== u.lastMsg)) {
+                        NetService.updateBuffer.logs.push({ msg: `${u.callsign}: ${u.lastMsg}`, group });
+                    }
+
+                    // Auto-center on first sync
+                    if (!group.hasCentered && Object.keys(group.operators).length > 0) {
+                        const ops = Object.values(group.operators);
+                        MapService.map.fitBounds(ops.reduce((b, o) => b.extend([o.lng, o.lat]), new maplibregl.LngLatBounds()), { padding: 80, duration: 2000 });
+                        group.hasCentered = true;
+                    }
+                });
+
+                NetService.updateBuffer.logs.forEach(l => {
+                    const group = l.group;
+                    if (!group) return;
+                    const logEntry = { time: new Date().toLocaleTimeString(), msg: l.msg, important: l.important, type: l.type };
+                    group.logs.unshift(logEntry);
+                    if (group.logs.length > 200) group.logs.pop();
+
+                    if (l.important || l.type === 'chat') {
+                        group.history.unshift(logEntry);
+                        if (group.history.length > 50) group.history.pop();
+                    }
+
+                    if (UI.selectedId === group.id) UI.renderSessionDetails();
+                    else document.getElementById('log-unread').classList.add('active');
+                });
+
+                NetService.updateBuffer.ops = {};
+                NetService.updateBuffer.logs = [];
+                NetService.updateBuffer.pings = [];
+                UI.renderOps();
+            },
+
+            handleImageChunk: (d) => {
+                if (!NetService.imageBuffers[d.id]) {
+                    NetService.imageBuffers[d.id] = { chunks: [], total: d.total };
+                }
+                const buffer = NetService.imageBuffers[d.id];
+                buffer.chunks[d.index] = d.chunk;
+
+                let receivedCount = 0;
+                for (let i = 0; i < buffer.total; i++) if (buffer.chunks[i]) receivedCount++;
+
+                if (receivedCount === buffer.total) {
+                    const fullData = buffer.chunks.join('');
+                    NetService.imageBuffers[d.id].fullData = fullData;
+                    UI.toast("PHOTO RÉCEPTIONNÉE");
+                }
+            },
+            disconnect: (hostId) => {
+                const g = NetService.groups[hostId];
+                if (g) {
+                    if (g.conn) g.conn.close();
+                    Object.keys(g.operators).forEach(id => { if (MapService.markers[id]) MapService.markers[id].remove(); delete MapService.markers[id]; });
+                    delete NetService.groups[hostId];
+                    UI.renderSessions(); UI.renderOps();
+                    NetService.saveToLocal();
+                }
+            }
+        };
+
+        const UI = {
+            switchTab: (t) => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                const btn = document.querySelector(`.tab-btn[onclick*="${t}"]`);
+                if (btn) btn.classList.add('active');
+                document.querySelectorAll('.sidebar-content').forEach(c => c.classList.remove('active'));
+                document.getElementById(`tab-${t}`).classList.add('active');
+                if (t === 'logbook') document.getElementById('log-unread').classList.remove('active');
+            },
+            addSession: () => {
+                const el = document.getElementById('input-session-id'); const id = el.value.trim().toUpperCase();
+                if (id.length < 4) return; NetService.followSession(id); el.value = '';
+                if (!UI.selectedId) UI.selectedId = id;
+            },
+            renderSessions: () => {
+                const list = document.getElementById('session-list'); list.innerHTML = '';
+                Object.values(NetService.groups).forEach(g => {
+                    const div = document.createElement('div'); div.className = `session-item ${g.status === 'active' ? 'active' : ''} ${UI.selectedId === g.id ? 'selected' : ''}`;
+                    div.innerHTML = `<div class="session-color" style="background:${g.color}"></div><span class="material-symbols-outlined btn-session-close" onclick="event.stopPropagation(); NetService.disconnect('${g.id}')">cancel</span><div class="session-id"><span># ${g.id}</span> <span style="font-size:0.6rem; color:${g.status === 'active' ? 'var(--color-green)' : 'var(--color-red)'}">${g.status.toUpperCase()}</span></div><div class="session-stats">${Object.keys(g.operators).length} UNITÉS</div>`;
+                    div.onclick = () => {
+                        UI.selectedId = g.id;
+                        const ops = Object.values(g.operators);
+                        if (ops.length > 0) MapService.map.fitBounds(ops.reduce((b, o) => b.extend([o.lng, o.lat]), new maplibregl.LngLatBounds()), { padding: 50 });
+                        UI.renderSessions();
+                        UI.renderSessionDetails();
+                        if (window.innerWidth <= 768) UI.toggleSidebar();
+                    };
+                    list.appendChild(div);
+                });
+            },
+            renderSessionDetails: () => {
+                const group = NetService.groups[UI.selectedId];
+                if (!group) return;
+
+                document.getElementById('history-title').innerText = `HISTORIQUE: ${group.id}`;
+                document.getElementById('logbook-title').innerText = `MAIN COURANTE: ${group.id}`;
+
+                const hList = document.getElementById('history-list');
+                hList.innerHTML = group.history.map(e => `<div class="log-entry"><span class="log-time">${e.time}</span><span class="log-msg ${e.important ? 'important' : ''}">${e.msg}</span></div>`).join('');
+
+                const lList = document.getElementById('logbook-list');
+                lList.innerHTML = group.logs.map(e => `<div class="log-entry"><span class="log-time">${e.time}</span><span class="log-msg ${e.important ? 'important' : ''} ${e.type || ''}">${e.msg}</span></div>`).join('');
+            },
+            selectedId: null,
+            renderOps: () => {
+                const panel = document.getElementById('ops-panel'); panel.innerHTML = '';
+                Object.values(NetService.groups).forEach(g => {
+                    Object.values(g.operators).forEach(op => {
+                        const card = document.createElement('div'); card.className = `op-card status-${op.status} ${MapService.followId === op.id ? 'following' : ''}`;
+                        const msg = op.lastMsg ? `<div class="op-lastmsg">${op.lastMsg}</div>` : '';
+                        card.innerHTML = `<div class="op-status" style="color:${g.color}">${op.status} | GROUP ${g.id}</div><div class="op-name">${op.callsign}</div>${msg}<div class="op-meta">BAT: ${op.bat || '--'}% | HEAD: ${Math.round(op.head || 0)}°</div>`;
+                        card.onclick = () => UI.followOp(op.id); panel.appendChild(card);
+                    });
+                });
+            },
+            followOp: (id) => {
+                MapService.followId = (MapService.followId === id) ? null : id;
+                UI.toast(MapService.followId ? `SUIVI: ${id.substring(0, 8)}` : "SUIVI DÉSACTIVÉ");
+                UI.renderOps();
+                if (window.innerWidth <= 768 && MapService.followId) UI.toggleSidebar();
+            },
+            toggleOps: () => document.getElementById('ops-panel').classList.toggle('active'),
+            toggleSidebar: () => {
+                const sidebar = document.getElementById('sidebar');
+                const toggle = document.getElementById('sidebar-toggle');
+                sidebar.classList.toggle('mobile-open');
+                toggle.classList.toggle('active', sidebar.classList.contains('mobile-open'));
+                const icon = toggle.querySelector('.material-symbols-outlined');
+                icon.innerText = sidebar.classList.contains('mobile-open') ? 'close' : 'menu';
+            },
+            toggleCredits: () => {
+                const attr = document.getElementById('attribution-overlay');
+                const btn = document.getElementById('btn-credits');
+                const isHidden = attr.style.display === 'none' || attr.style.display === '';
+                attr.style.display = isHidden ? 'block' : 'none';
+                btn.classList.toggle('active', isHidden);
+            },
+            toggleTrails: () => {
+                MapService.showTrails = !MapService.showTrails;
+                document.getElementById('btn-trails').classList.toggle('active', MapService.showTrails);
+                if (MapService.map.getLayer('trails-layer')) {
+                    MapService.map.setLayoutProperty('trails-layer', 'visibility', MapService.showTrails ? 'visible' : 'none');
+                }
+                UI.toast(MapService.showTrails ? "TRACÉS AFFICHÉS" : "TRACÉS MASQUÉS");
+            },
+            log: (msg, important = false, group = null, type = '') => {
+                // Legacy log replaced by session-specific buffers, but kept for system messages if needed
+                if (!group) {
+                    const list = document.getElementById('logbook-list');
+                    const entry = document.createElement('div'); entry.className = 'log-entry';
+                    entry.innerHTML = `<span class="log-time">${new Date().toLocaleTimeString()}</span><span class="log-msg ${important ? 'important' : ''} ${type}">${msg}</span>`;
+                    list.prepend(entry);
+                    return;
+                }
+            },
+            togglePings: () => {
+                MapService.showPings = !MapService.showPings;
+                const btn = document.getElementById('btn-pings');
+                if (btn) btn.classList.toggle('active', !MapService.showPings); // Active when masked? Or inactive? Let's say active means "Masqué" in this context if we keep the clear icon, or active means "En cours d'affichage". User usually prefers active = functional/visible.
+                // Let's go with: active class means the filter is ON (pings are HIDDEN) or active means VISIBLE.
+                // The trail button has active when trails are shown. Let's align.
+                btn.classList.toggle('active', MapService.showPings);
+                Object.values(MapService.pingMarkers).forEach(m => {
+                    m.getElement().style.display = MapService.showPings ? 'block' : 'none';
+                });
+                UI.toast(MapService.showPings ? "PINGS AFFICHÉS" : "PINGS MASQUÉS");
+            },
+
+            showPingDetails: (ping, color) => {
+                document.getElementById('ping-modal-sender').innerText = `SOURCE: ${ping.sender}`;
+                document.getElementById('ping-modal-sender').style.color = color;
+                document.getElementById('ping-modal-msg').innerHTML = `
+                    <div style="font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 0.8rem; opacity: 0.7;">TYPE: ${ping.type || 'N/A'}</div>
+                    <div>${ping.msg}</div>
+                `;
+                const imgContainer = document.getElementById('ping-modal-image-container');
+                imgContainer.innerHTML = '';
+
+                if (ping.image) {
+                    const img = document.createElement('img');
+                    img.src = ping.image.startsWith('data:') ? ping.image : `data:image/jpeg;base64,${ping.image}`;
+                    imgContainer.appendChild(img);
+                } else if (ping.photoId && NetService.imageBuffers[ping.photoId]?.fullData) {
+                    const img = document.createElement('img');
+                    const data = NetService.imageBuffers[ping.photoId].fullData;
+                    img.src = data.startsWith('data:') ? data : `data:image/jpeg;base64,${data}`;
+                    imgContainer.appendChild(img);
+                } else if (ping.photoId) {
+                    imgContainer.innerHTML = '<div style="color:var(--color-dim); font-size:0.8rem; text-align:center; padding:20px;">Chargement de la photo...</div>';
+                }
+
+                document.getElementById('ping-modal').style.display = 'flex';
+            },
+
+            closePingModal: () => {
+                document.getElementById('ping-modal').style.display = 'none';
+            },
+
+            toast: (msg, err = false) => {
+                const t = document.getElementById('toast'); t.innerText = msg; t.style.background = err ? 'var(--color-red)' : 'var(--color-accent)'; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 3000);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => { MapService.init(); NetService.init(); });
+    </script>
+</body>
+
+</html>

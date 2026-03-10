@@ -274,11 +274,13 @@
 
     function cleanDateDigits(str) {
       if (!str) return "";
-      return str.replace(/[OI]/g, (match) => match === 'O' ? '0' : '1')
+      return str.replace(/O/g, '0')
+                .replace(/I/g, '1')
                 .replace(/[l]/g, '1')
                 .replace(/[S]/g, '5')
                 .replace(/[Z]/g, '2')
-                .replace(/[B]/g, '8');
+                .replace(/[B]/g, '8')
+                .replace(/Q/g, '0');
     }
 
     function strictDateFormatter(rawDate, type = 'birth') {
@@ -356,24 +358,24 @@
       const rawUpper = rawText.toUpperCase();
 
       const sortedDates = extractSortedDates(rawUpper);
-      const noSpace = rawUpper.replace(/[\s\n]+/g, '');
+      const noSpace = rawUpper.replace(/[\s\n]+/g, '').replace(/[«]/g, '<');
 
       // 1. PASSEPORT MRZ
       let mrzPass1 = noSpace.match(/P[A-Z<]*FRA([A-Z0-9]+)<<([A-Z0-9<]+)/);
-      let mrzPass2 = noSpace.match(/([A-Z0-9]{9})[0-9O][A-Z<]{3}([0-9O]{6})[0-9O][MF<]([0-9O]{6})/);
+      let mrzPass2 = noSpace.match(/([A-Z0-9]{9})[0-9A-Z][A-Z<]{3}([0-9A-Z]{6})[0-9A-Z][MF<]([0-9A-Z]{6})/);
 
       // 2. ANCIENNE CNI FRANÇAISE MRZ
-      let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z]+)[<C]+.*?([0-9O]{12})[0-9O]([A-Z]+)[<C]+.*?([0-9O]{6})/);
+      let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z]+)[<C]+.*?([0-9A-Z]{12})[0-9A-Z]([A-Z]+)[<C]+.*?([0-9A-Z]{6})/);
 
       // 3. NOUVELLE CNI FRANÇAISE MRZ (TD1)
-      let mrzCniNew = noSpace.match(/I[A-Z<C]FRA([A-Z0-9]{9})[0-9O].{15}([0-9O]{6})[0-9O][MF<]([0-9O]{6})[0-9O][A-Z<C]{3}.{11}([A-Z]+)<<([A-Z<C]+)/);
+      let mrzCniNew = noSpace.match(/I[A-Z<C]FRA([A-Z0-9]{9})[0-9A-Z].{15}([0-9A-Z]{6})[0-9A-Z][MF<]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}.{11}([A-Z]+)<<([A-Z<C]+)/);
 
       // 4. PERMIS DE CONDUIRE MRZ
       let mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9A-Z]{6})([A-ZÀ-Ÿ]+)<</);
 
-      // 5. TITRE DE SÉJOUR MRZ (TD1 Spécial 3 lignes fusionnées)
-      // Capture Nom composé ([A-Z0-9<]+?) et remplace les O parasites
-      let mrzTitreSejour = noSpace.match(/I[R<C]FRA([A-Z0-9]{9,10})[<C]+.*?([0-9O]{6})[0-9O][MF<C]([0-9O]{6})[0-9O]([A-Z<C]{3}).*?([A-Z0-9<]+?)<<([A-Z0-9<C]+)/);
+      // 5. TITRE DE SÉJOUR MRZ (TD1 3 Lignes Fusionnées)
+      // Tolérance totale aux caractères alphanumériques dans les dates grâce à [0-9A-Z]
+      let mrzTitreSejour = noSpace.match(/I[R<C]FRA([A-Z0-9]{9,10})[<C]+.*?([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z]([A-Z<C]{3})[0-9A-Z<C]*?([A-Z0-9]{2,})[<C]+([A-Z0-9<C]{2,})/);
 
       // --- APPLICATION DES VÉRITÉS ABSOLUES MRZ ---
       if (mrzPass1 && mrzPass2) {
@@ -406,8 +408,11 @@
           fields.birthDate = cleanDateDigits(mrzTitreSejour[2]);
           fields.expirationDate = cleanDateDigits(mrzTitreSejour[3]);
           fields.nationality = mrzTitreSejour[4].replace(/[<C]/g, '');
-          // Correction OCR : les 0 lus au lieu des O dans les noms (ex: TRA0RE), et conservation des espaces pour les prénoms multiples
-          fields.lastName = mrzTitreSejour[5].replace(/0/g, 'O').replace(/<+/g, ' ').trim(); 
+          
+          let ln = mrzTitreSejour[5].replace(/0/g, 'O');
+          if (ln.endsWith('K') && ln.length > 3) ln = ln.slice(0, -1); // Élimine le 'K' parasite à la place d'un chevron
+          fields.lastName = ln;
+          
           fields.firstName = mrzTitreSejour[6].replace(/[<C]+/g, ' ').replace(/0/g, 'O').trim();
       }
       else {
@@ -437,7 +442,7 @@
               }
 
               let m4a = l.match(/^4[aA][\s.,:-]+(?:.*?)?(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/i);
-              if (m4a && !fields.issueDate) issueDate = m4a[1];
+              if (m4a && !fields.issueDate) fields.issueDate = m4a[1];
 
               let m4b = l.match(/^4[bB8][\s.,:-]+(?:.*?)?(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/i);
               if (m4b && !fields.expirationDate) fields.expirationDate = m4b[1];
@@ -466,6 +471,13 @@
               let cniNum = l.match(/(?:NATIONALE.*?N[°0O]?|N\s*:)\s*([0-9OA-Z]{12})/i);
               if (cniNum && !documentNumber) documentNumber = cniNum[1].replace(/[OQ]/gi, '0').replace(/A/gi, '4'); 
           }
+
+          // Fallbacks spécifiques Titre de Séjour (Lieu et Date visuels)
+          let lieuNaiss = rawText.match(/LIEU DE NAISSANCE.*?\n([A-ZÀ-Ÿ\-\s()]+)/i);
+          if (lieuNaiss && !fields.placeOfBirth) fields.placeOfBirth = lieuNaiss[1].replace(/[()]/g, '').trim();
+
+          let dateDeliv = rawUpper.match(/D[EÉ]LIVRANCE.*?\n(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
+          if (dateDeliv && !fields.issueDate) fields.issueDate = dateDeliv[1];
 
           if (fields.birthDate && !fields.placeOfBirth) {
               let cleanDate = fields.birthDate.replace(/\./g, '\\.');
@@ -834,3 +846,5 @@
   </script>
 </body>
 </html>
+
+

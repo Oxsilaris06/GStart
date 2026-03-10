@@ -371,8 +371,9 @@
       // 1b. PASSEPORT MRZ ALTERNATIF
       let mrzPassAlt = noSpace.match(/P[A-Z<C]*FRA([A-Z0-9]+?)[<C]{2,}([A-Z0-9]{9})[0-9A-Z][A-Z<C]{0,3}([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]+[0-9A-Z]{1,2}([A-Z<C]+)/);
 
-      // 2. ANCIENNE CNI FRANÇAISE MRZ (Ancré sur le M/F pour isoler la date et aspirer la totalité du prénom multi-mots)
-      let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z0-9]+)[<C]+.*?([0-9A-Z]{12})[0-9A-Z]([A-Z0-9<C]+?)([0-9A-Z]{6})[0-9A-Z][MF<C]/);
+      // 2. ANCIENNE CNI FRANÇAISE MRZ 
+      // FIX CRITIQUE: Force le prénom à commencer par une lettre pour isoler précisément le numéro de document
+      let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z0-9]+?)[<C]+.*?([0-9A-Z]{12})[0-9A-Z]([A-Z]+[A-Z0-9<C]*?)([0-9A-Z]{6})[0-9A-Z][MF<C]/);
 
       // 3. NOUVELLE CNI FRANÇAISE MRZ (TD1)
       let mrzCniNewFrench = noSpace.match(/I[A-Z0-9<C]FRA([A-Z0-9]+)[<C]+([A-Z0-9]{9})[0-9A-Z]([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]*[0-9A-Z]?([A-Z0-9]+[A-Z0-9<C]*)/);
@@ -486,7 +487,8 @@
                   fields.birthDate = cniDateLieu[1];
               }
 
-              let cniLieu = l.match(/(?:^|\s)[AÀaà]\s*:\s*([A-ZÀ-Ÿ\-\s]{3,})/i);
+              // FIX CRITIQUE: Permet de détecter le 'à: VILLE' même avec des espaces avant
+              let cniLieu = l.match(/(?:^|\s)[AÀaà]\s*[:;]\s*([A-ZÀ-Ÿ\-\s]+)/i);
               if (cniLieu && !fields.placeOfBirth) fields.placeOfBirth = cniLieu[1].trim();
 
               let cniNum = l.match(/(?:NATIONALE.*?N[°0O]?|N\s*:)\s*([0-9OA-Z]{12})/i);
@@ -866,3 +868,5 @@
   </script>
 </body>
 </html>
+
+

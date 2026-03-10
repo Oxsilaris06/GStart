@@ -371,8 +371,9 @@
       // 4. PERMIS DE CONDUIRE MRZ
       let mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9A-Z]{6})([A-ZÀ-Ÿ]+)<</);
 
-      // 5. TITRE DE SÉJOUR MRZ (TD1 Spécial)
-      let mrzTitreSejour = noSpace.match(/I[R<C]FRA([A-Z0-9]{9,10})[<C]+.*?([0-9O]{6})[0-9O][MF<C]([0-9O]{6})[0-9O]([A-Z<C]{3}).*?([A-Z0-9]+)<<([A-Z0-9<C]+)/);
+      // 5. TITRE DE SÉJOUR MRZ (TD1 Spécial 3 lignes fusionnées)
+      // Capture Nom composé ([A-Z0-9<]+?) et remplace les O parasites
+      let mrzTitreSejour = noSpace.match(/I[R<C]FRA([A-Z0-9]{9,10})[<C]+.*?([0-9O]{6})[0-9O][MF<C]([0-9O]{6})[0-9O]([A-Z<C]{3}).*?([A-Z0-9<]+?)<<([A-Z0-9<C]+)/);
 
       // --- APPLICATION DES VÉRITÉS ABSOLUES MRZ ---
       if (mrzPass1 && mrzPass2) {
@@ -405,7 +406,8 @@
           fields.birthDate = cleanDateDigits(mrzTitreSejour[2]);
           fields.expirationDate = cleanDateDigits(mrzTitreSejour[3]);
           fields.nationality = mrzTitreSejour[4].replace(/[<C]/g, '');
-          fields.lastName = mrzTitreSejour[5].replace(/0/g, 'O'); // Répare les 0 au lieu de O dans le nom
+          // Correction OCR : les 0 lus au lieu des O dans les noms (ex: TRA0RE), et conservation des espaces pour les prénoms multiples
+          fields.lastName = mrzTitreSejour[5].replace(/0/g, 'O').replace(/<+/g, ' ').trim(); 
           fields.firstName = mrzTitreSejour[6].replace(/[<C]+/g, ' ').replace(/0/g, 'O').trim();
       }
       else {
@@ -435,7 +437,7 @@
               }
 
               let m4a = l.match(/^4[aA][\s.,:-]+(?:.*?)?(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/i);
-              if (m4a && !fields.issueDate) fields.issueDate = m4a[1];
+              if (m4a && !fields.issueDate) issueDate = m4a[1];
 
               let m4b = l.match(/^4[bB8][\s.,:-]+(?:.*?)?(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/i);
               if (m4b && !fields.expirationDate) fields.expirationDate = m4b[1];

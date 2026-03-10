@@ -99,7 +99,6 @@
     
     <div class="w-full max-w-sm flex flex-col items-center gap-5">
       
-      <!-- Bouton Moteur Centré -->
       <div id="engine-indicator" class="engine-badge-centered engine-wasm" onclick="showFlagsModal()">Moteur: Détection...</div>
       
       <div class="text-center flex flex-col items-center">
@@ -371,12 +370,11 @@
       // 1b. PASSEPORT MRZ ALTERNATIF
       let mrzPassAlt = noSpace.match(/P[A-Z<C]*FRA([A-Z0-9]+?)[<C]{2,}([A-Z0-9]{9})[0-9A-Z][A-Z<C]{0,3}([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]+[0-9A-Z]{1,2}([A-Z<C]+)/);
 
-      // 2. NOUVELLE CNI FRANÇAISE MRZ (TD1 format carte bancaire) - Vérifié avant l'Ancienne CNI
-      let mrzCniNewFrench = noSpace.match(/I[A-Z0-9<C]FRA([A-Z0-9]+)[<C]+([A-Z0-9]{9})[0-9A-Z]([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]+[0-9]*([A-Z]+[A-Z0-9<C]*)/);
-      let mrzCniNewStandard = noSpace.match(/I[A-Z<C]FRA([A-Z0-9]{9})[0-9A-Z].{15}([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}.{11}([A-Z]+)[<C]+([A-Z<C]+)/);
+      // 2. NOUVELLE CNI FRANÇAISE MRZ (TD1) - DOIT PASSER AVANT L'ANCIENNE !
+      let mrzCniNew = noSpace.match(/I[A-Z<C]FRA([A-Z0-9]{9})[0-9A-Z][<C]+([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]+[0-9A-Z]?([A-Z]+)[<C]{2,}([A-Z<C]+)/);
 
-      // 3. ANCIENNE CNI FRANÇAISE MRZ (Plastifiée bleue)
-      let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z0-9]+?)[<C]+.*?([0-9A-Z]{12})[0-9A-Z]([A-Z]+[A-Z0-9<C]*?)([0-9A-Z]{6})[0-9A-Z][MF<C]/);
+      // 3. ANCIENNE CNI FRANÇAISE MRZ - Verrouillée sur [0-9OQ]{12} pour ne pas voler la nouvelle CNI
+      let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z0-9]+?)[<C]+.*?([0-9OQ]{12})[0-9OQ]([A-Z]+[A-Z0-9<C]*?)([0-9OQ]{6})[0-9OQ][MF<C]/);
 
       // 4. PERMIS DE CONDUIRE MRZ
       let mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9A-Z]{6})([A-ZÀ-Ÿ]+)<</);
@@ -403,26 +401,18 @@
           fields.nationality = 'FRA';
           fields.firstName = mrzPassAlt[5].replace(/0/g, 'O').split(/<+/)[0].trim();
       }
-      else if (mrzCniNewFrench) {
+      else if (mrzCniNew) {
           format = 'CNI';
-          fields.lastName = mrzCniNewFrench[1].replace(/0/g, 'O');
-          documentNumber = mrzCniNewFrench[2].replace(/O/g, '0');
-          fields.birthDate = cleanDateDigits(mrzCniNewFrench[3]);
-          fields.expirationDate = cleanDateDigits(mrzCniNewFrench[4]);
-          fields.firstName = mrzCniNewFrench[5].replace(/0/g, 'O').split(/<+/)[0].trim();
-      }
-      else if (mrzCniNewStandard) {
-          format = 'CNI';
-          documentNumber = mrzCniNewStandard[1].replace(/O/g, '0');
-          fields.birthDate = cleanDateDigits(mrzCniNewStandard[2]);
-          fields.expirationDate = cleanDateDigits(mrzCniNewStandard[3]);
-          fields.lastName = mrzCniNewStandard[4].replace(/0/g, 'O').replace(/<+/g, ' ').trim();
-          fields.firstName = mrzCniNewStandard[5].replace(/0/g, 'O').split(/<+/)[0].trim();
+          documentNumber = mrzCniNew[1].replace(/O/g, '0');
+          fields.birthDate = cleanDateDigits(mrzCniNew[2]);
+          fields.expirationDate = cleanDateDigits(mrzCniNew[3]);
+          fields.lastName = mrzCniNew[4].replace(/0/g, 'O').replace(/<+/g, ' ').trim();
+          fields.firstName = mrzCniNew[5].replace(/0/g, 'O').split(/<+/)[0].trim();
       }
       else if (mrzCniOld) {
           format = 'CNI';
           fields.lastName = mrzCniOld[1].replace(/0/g, 'O');
-          documentNumber = mrzCniOld[2].replace(/O/g, '0');
+          documentNumber = mrzCniOld[2].replace(/[OQ]/g, '0');
           fields.firstName = mrzCniOld[3].replace(/[0-9]/g, '').split(/<+/)[0].trim();
           fields.birthDate = cleanDateDigits(mrzCniOld[4]);
       }
@@ -481,7 +471,7 @@
               let cniPrenom = l.match(/^(?:PR[EÉ]NOM.*?)[.\s:]+([A-ZÀ-Ÿ\-, ]{2,})/i);
               if (cniPrenom && !fields.firstName) fields.firstName = cniPrenom[1].replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
 
-              let cniDateLieu = l.match(/N[EÉeé].*?LE\s*[:\s]*(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/i);
+              let cniDateLieu = l.match(/N[EÉ](?:E)?\s*LE\s*[:\s]*(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/i);
               if (cniDateLieu && !fields.birthDate) {
                   fields.birthDate = cniDateLieu[1];
               }

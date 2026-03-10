@@ -40,7 +40,6 @@
     .progress-bar-container { width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 8px; }
     .progress-bar { height: 100%; background: #3b82f6; width: 0%; transition: width 0.3s linear; }
 
-    /* Custom Checkbox */
     .custom-checkbox { accent-color: #3b82f6; width: 1.1rem; height: 1.1rem; cursor: pointer; }
   </style>
 </head>
@@ -48,7 +47,7 @@
 <body>
   <div id="copy-toast" class="copy-toast">✅ Copié !</div>
 
-  <!-- MODAL CONSEIL (Avec Checkbox) -->
+  <!-- MODAL CONSEIL -->
   <div id="modal-advice" class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm hidden flex-col items-center justify-center px-6">
     <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
       <div class="text-4xl mb-4">💡</div>
@@ -102,7 +101,7 @@
     <div class="text-center mb-6 mt-4">
       <div class="text-6xl mb-4">🛡️</div>
       <h1 class="text-2xl font-bold mb-2">Borderforce Scanner</h1>
-      <p class="text-slate-400 text-sm">Activez le mode natif !</p>
+      <p class="text-slate-400 text-sm">Consensus 8-Scans Multi-Pass</p>
     </div>
 
     <!-- Sélecteur avec Material Icons -->
@@ -252,8 +251,9 @@
       return clean;
     }
 
-    // Corrige les erreurs OCR fréquentes dans les dates (I->1, O->0, S->5)
+    // Corrige les erreurs OCR fréquentes dans les dates MRZ
     function cleanDateDigits(str) {
+      if (!str) return "";
       return str.replace(/[OI]/g, (match) => match === 'O' ? '0' : '1')
                 .replace(/[l]/g, '1')
                 .replace(/[S]/g, '5')
@@ -265,6 +265,7 @@
       if (!rawDate) return null;
       const cleaned = cleanDateDigits(rawDate);
       
+      // Formateur Date MRZ (ex: 970515 -> 15.05.1997)
       if (/^\d{6}$/.test(cleaned)) {
         let yy = parseInt(cleaned.substring(0,2), 10);
         let mm = cleaned.substring(2,4);
@@ -274,6 +275,7 @@
         return `${dd}.${mm}.${yyyy}`;
       }
       
+      // Formateur Date Classique
       const match = cleaned.match(/\b(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})\b/);
       if (match) {
           let dd = match[1], mm = match[2], yyyy = match[3];
@@ -284,11 +286,12 @@
       return null;
     }
 
+    // Extracteur de Dates Chronologique (La plus ancienne = Naissance)
     function extractSortedDates(rawText) {
       const dateRegex = /(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})/g;
       let match;
       let dates = [];
-      const cleanText = cleanDateDigits(rawText); // Applique le fix OCR
+      const cleanText = cleanDateDigits(rawText); 
       
       while ((match = dateRegex.exec(cleanText)) !== null) {
           let dd = parseInt(match[1], 10), mm = parseInt(match[2], 10), yyyy = parseInt(match[3], 10);
@@ -307,105 +310,108 @@
 
     function getStrictDocType(format, rawText) {
       if (selectedDocType !== 'AUTO') return selectedDocType;
-      if (format === 'TD3') return ALLOWED_DOC_TYPES.PASSEPORT;
+      if (format === 'PASSEPORT') return ALLOWED_DOC_TYPES.PASSEPORT;
       if (format === 'PERMIS_FR') return ALLOWED_DOC_TYPES.PERMIS_FR;
       
       const upperText = (rawText || '').toUpperCase();
-      if (format === 'TD1') {
-        if (upperText.includes('IRFRA') || upperText.includes('SEJOUR') || upperText.includes('RESIDENT')) return ALLOWED_DOC_TYPES.TITRE_SEJOUR;
-        return ALLOWED_DOC_TYPES.CNI;
-      }
+      if (format === 'TD1' || upperText.includes('IDENTIT')) return ALLOWED_DOC_TYPES.CNI;
       if (upperText.includes('PERMIS') && upperText.includes('CONDUIRE')) return ALLOWED_DOC_TYPES.PERMIS_FR;
       if (upperText.includes('PASSEPORT') || upperText.includes('RASSPORT')) return ALLOWED_DOC_TYPES.PASSEPORT;
-      if (upperText.includes('SEJOUR')) return ALLOWED_DOC_TYPES.TITRE_SEJOUR;
-      if (upperText.includes('IDENTIT')) return ALLOWED_DOC_TYPES.CNI;
+      if (upperText.includes('SEJOUR') || upperText.includes('RESIDENT')) return ALLOWED_DOC_TYPES.TITRE_SEJOUR;
 
       return null;
     }
 
     // =====================================================================
-    // EXTRACTION CHIRURGICALE UNIFIÉE
+    // EXTRACTION CHIRURGICALE STRICTE (Le Cerveau Anti-Bruit)
     // =====================================================================
-    function extractDocumentData(rawText, blocks) {
+    function extractDocumentData(rawText) {
       if (!rawText) return {};
       let format = null, documentNumber = null, fields = {};
       const rawUpper = rawText.toUpperCase();
-      const lines = rawUpper.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-      // --- 1. DATES CHRONOLOGIQUES ---
+      // 1. DATES CHRONOLOGIQUES DE SECOURS
       const sortedDates = extractSortedDates(rawUpper);
-      if (sortedDates.length > 0) {
-          fields.birthDate = sortedDates[0].str; 
-          if (sortedDates.length > 1) fields.expirationDate = sortedDates[sortedDates.length - 1].str;
-          if (sortedDates.length > 2) fields.issueDate = sortedDates[1].str;
-      }
 
-      // --- 2. LE MRZ SNIPER (Passeport & Permis) ---
-      // Retire TOUS les espaces et sauts de lignes pour recoller les morceaux
+      // --- LOGIQUE PASSEPORT (VÉRITÉ ABSOLUE PAR LE MRZ) ---
+      // On retire TOUS les espaces et sauts de ligne pour coller le MRZ
       const noSpace = rawUpper.replace(/[\s\n]+/g, '');
       
-      // Passeport (Résout le bug "1 57" et "19DI" grâce au cleanDateDigits et Regex flexible)
-      // Cherche: P<FRA + Nom (sans <) + << + Prénoms + < + Num(9) + Check + FRA + Naissance(6) + Check + Sexe + Expiration(6)
-      const mrzPass = noSpace.match(/P[A-Z<]FRA([A-Z0-9]+)<<([A-Z0-9<]+?)[<]+([A-Z0-9]{9})[0-9A-Z<]FRA([0-9A-Z]{6})[0-9A-Z<][MF<]([0-9A-Z]{6})/); 
+      // Cherche la Ligne 1 : P<FRA + Nom + << + Prénoms
+      let mrzL1 = noSpace.match(/P[A-Z<]*FRA([A-Z0-9]+)<<([A-Z0-9<]+)/);
+      // Cherche la Ligne 2 : Numéro(9) + Check(1) + FRA + DDN(6) + Check(1) + Sexe(1) + Exp(6)
+      let mrzL2 = noSpace.match(/([A-Z0-9]{9})[0-9O][A-Z<]{3}([0-9O]{6})[0-9O][MF<]([0-9O]{6})/);
 
-      if (mrzPass) {
+      if (mrzL1 && mrzL2) {
           format = 'PASSEPORT';
-          fields.lastName = mrzPass[1].replace(/</g, ' ').trim();
-          fields.firstName = mrzPass[2].replace(/</g, ' ').trim();
-          documentNumber = mrzPass[3].replace(/O/g, '0');
-          fields.birthDate = cleanDateDigits(mrzPass[4]);
-          fields.expirationDate = cleanDateDigits(mrzPass[5]);
+          fields.lastName = mrzL1[1].replace(/</g, ' ').trim();
+          fields.firstName = mrzL1[2].replace(/</g, ' ').trim();
+          documentNumber = mrzL2[1].replace(/O/g, '0');
+          fields.birthDate = cleanDateDigits(mrzL2[2]);
+          fields.expirationDate = cleanDateDigits(mrzL2[3]);
           fields.nationality = 'FRA';
-      }
-
-      // Permis de Conduire (Résout D1FRA24 AN... avec espaces)
-      const mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9A-Z]{6})([A-ZÀ-Ÿ]+)<</);
-      if (mrzPermis && !format) {
-         format = 'PERMIS_FR';
-         documentNumber = mrzPermis[1].replace(/O/g, '0');
-         fields.expirationDate = cleanDateDigits(mrzPermis[2]);
-         fields.lastName = mrzPermis[3];
-      }
-
-      // Filet de sécurité classique ICAO
-      const mrzLines = rawUpper.split('\n').map(l => l.replace(/[\s]+/g, '<').replace(/[^A-Z0-9<]/g, '').trim()).filter(l => l.length >= 25);
-      if (mrzLines.length >= 2 && !format) {
-        let patched = [...mrzLines];
-        if (patched[0].startsWith('IR')) patched[0] = 'ID' + patched[0].substring(2);
-        try { 
-          const mrz = mrzParse(patched); 
-          if(mrz) { 
-             format = mrz.format; documentNumber = mrz.documentNumber; Object.assign(fields, mrz.fields); 
-          }
-        } catch (e) {}
-      }
-
-      // --- 3. ANCRES EUROPÉENNES (Pour Permis et CNI) ---
-      for (let i = 0; i < lines.length; i++) {
-          let l = lines[i];
-
-          let m1 = l.match(/^(?:1[.,\s:]+)(?:[A-Z0-9]\s*)?([A-ZÀ-Ÿ\-]{2,}(?:\s+[A-ZÀ-Ÿ\-]{2,})*)/);
-          if (m1 && !fields.lastName) fields.lastName = m1[1];
-
-          let m2 = l.match(/^(?:2[.,\s:]+)(?:[A-Z0-9]\s*)?([A-ZÀ-Ÿ\-]{2,}(?:\s+[A-ZÀ-Ÿ\-]{2,})*)/);
-          if (m2 && !fields.firstName) fields.firstName = m2[1];
-
-          let m3 = l.match(/^(?:3[\s.,:-]+)(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})\s*(?:\(?([^)\n]+)\)?)?/);
-          if (m3) {
-              if (!fields.birthDate) fields.birthDate = m3[1];
-              if (m3[2] && !fields.placeOfBirth) fields.placeOfBirth = m3[2].replace(/[<()]/g, '').trim();
+      } 
+      else {
+          // --- LOGIQUE PERMIS DE CONDUIRE ET CNI (ANCRES EUROPÉENNES) ---
+          const mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9A-Z]{6})([A-ZÀ-Ÿ]+)<</);
+          if (mrzPermis) {
+             format = 'PERMIS_FR';
+             documentNumber = mrzPermis[1].replace(/O/g, '0');
+             fields.expirationDate = cleanDateDigits(mrzPermis[2]);
+             fields.lastName = mrzPermis[3];
           }
 
-          let m4c = l.match(/^(?:4[cC][\s.,:-]+)(.+)/);
-          if (m4c && !fields.issuedBy) fields.issuedBy = m4c[1].trim();
+          // Découpe ligne par ligne pour chercher les ancres (1., 2., 3., etc.)
+          const lines = rawUpper.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+          
+          for (let i = 0; i < lines.length; i++) {
+              let l = lines[i];
 
-          let m5 = l.match(/^(?:[5S6][\s.,:-]+)([A-Z0-9]{5,15})/);
-          if (m5 && !documentNumber) documentNumber = m5[1].replace(/O/g, '0');
-      }
+              // 1. Nom
+              let m1 = l.match(/^(?:1[.,\s:]+)(?:[A-Z0-9]\s*)?([A-ZÀ-Ÿ\-]{2,}(?:\s+[A-ZÀ-Ÿ\-]{2,})*)/);
+              if (m1 && !fields.lastName) fields.lastName = m1[1];
 
-      if (fields.birthDate && !fields.placeOfBirth) {
-          let bMatch = rawUpper.match(new RegExp(fields.birthDate.replace(/\./g, '.') + '\\s*\\n\\s*\\(?([A-ZÀ-Ÿ\\-\\s]+)\\)?'));
-          if (bMatch) fields.placeOfBirth = bMatch[1].trim();
+              // 2. Prénom
+              let m2 = l.match(/^(?:2[.,\s:]+)(?:[A-Z0-9]\s*)?([A-ZÀ-Ÿ\-]{2,}(?:\s+[A-ZÀ-Ÿ\-]{2,})*)/);
+              if (m2 && !fields.firstName) fields.firstName = m2[1];
+
+              // 3. Date et lieu de naissance
+              let m3 = l.match(/^(?:3[\s.,:-]+)(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})\s*(?:\(?([^)\n]+)\)?)?/);
+              if (m3) {
+                  if (!fields.birthDate) fields.birthDate = m3[1];
+                  if (m3[2] && !fields.placeOfBirth) fields.placeOfBirth = m3[2].replace(/[<()]/g, '').trim();
+              }
+
+              // 4a. Délivré le
+              let m4a = l.match(/^(?:4[aA][\s.,:-]+)(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
+              if (m4a && !fields.issueDate) fields.issueDate = m4a[1];
+
+              // 4b. Expire le
+              let m4b = l.match(/^(?:4[bB8][\s.,:-]+)(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
+              if (m4b && !fields.expirationDate) fields.expirationDate = m4b[1];
+
+              // 4c. Délivré par
+              let m4c = l.match(/^(?:4[cC][\s.,:-]+)(.+)/);
+              if (m4c && !fields.issuedBy) fields.issuedBy = m4c[1].replace(/4[A-Z0-9].*$/, '').trim(); // Coupe de sécurité
+
+              // 5. N° de permis
+              let m5 = l.match(/^(?:[5S6][\s.,:-]+)([A-Z0-9]{5,15})/);
+              if (m5 && !documentNumber) documentNumber = m5[1].replace(/O/g, '0');
+          }
+
+          // Fallback Lieu de naissance sur la ligne d'en dessous
+          if (fields.birthDate && !fields.placeOfBirth) {
+              let cleanDate = fields.birthDate.replace(/\./g, '\\.');
+              let bMatch = rawUpper.match(new RegExp(cleanDate + '\\s*\\n\\s*\\(?([A-ZÀ-Ÿ\\-\\s]{3,})\\)?'));
+              if (bMatch) fields.placeOfBirth = bMatch[1].trim();
+          }
+
+          // Remplissage Dates Manquantes via Chronologie
+          if (sortedDates.length > 0) {
+              if (!fields.birthDate) fields.birthDate = sortedDates[0].str; 
+              if (sortedDates.length > 1 && !fields.expirationDate) fields.expirationDate = sortedDates[sortedDates.length - 1].str;
+              if (sortedDates.length > 2 && !fields.issueDate) fields.issueDate = sortedDates[1].str;
+          }
       }
 
       return { format, documentNumber, fields };
@@ -525,23 +531,21 @@
       if (imageSource === 'camera') ctx.drawImage(video, 0, 0, srcW, srcH);
       else ctx.drawImage(imageSource, 0, 0, srcW, srcH);
 
-      let rawText = "", blocks = [];
+      let rawText = "";
       if (ocrEngine === 'NATIVE') {
         try {
           const detector = new TextDetector(); const detectedTexts = await detector.detect(canvas);
           rawText = detectedTexts.map(t => t.rawValue).join('\n');
-          blocks = detectedTexts.map(t => ({ text: t.rawValue, rect: { y: t.boundingBox.y } }));
         } catch (e) { }
       } else {
         ctx.filter = 'contrast(1.5) grayscale(1)'; ctx.drawImage(canvas, 0, 0); ctx.filter = 'none';
         const { data } = await tesseractWorker.recognize(canvas); rawText = data.text;
-        if (data.lines) blocks = data.lines.map(l => ({ text: l.text, rect: { y: l.bbox.y0 } }));
       }
-      return { rawText, blocks };
+      return rawText;
     }
 
     // =====================================================================
-    // CAMERA & VIDÉO : BOUCLE DE 8 SCANS (CONSENSUS MULTI-FRAMES)
+    // CAMERA & VIDÉO : L'ÉLECTION SUR 8 SCANS
     // =====================================================================
     async function startCamera() {
       switchView('scanning'); 
@@ -551,7 +555,6 @@
       
       document.getElementById('scan-feedback').innerText = `Acquisition des données (0/${MAX_FRAMES})...`;
       document.getElementById('timeout-progress').style.width = '0%';
-      document.getElementById('btn-force').classList.remove('hidden');
       
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
@@ -562,7 +565,6 @@
     function stopVideo() { isScanning = false; if (scanTimeout) clearTimeout(scanTimeout); if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop()); }
     function cancelScan() { stopVideo(); switchView('ready'); }
     
-    // Forcer arrête immédiatement la boucle et traite ce qu'on a déjà
     function forceCapture() { 
       if (!isScanning) return; 
       stopVideo(); 
@@ -572,16 +574,15 @@
     async function scanLoop() {
       if (!isScanning || !video.srcObject || video.paused) return;
       try {
-        const { rawText, blocks } = await extractTextData('camera');
+        const rawText = await extractTextData('camera');
         
-        // On sauvegarde le texte de chaque cliché
-        scanFrames.push({ rawText, blocks });
+        scanFrames.push(rawText);
         frameCount++;
 
-        document.getElementById('scan-feedback').innerText = `Acquisition frame (${frameCount}/${MAX_FRAMES})...`;
+        document.getElementById('scan-feedback').innerText = `Acquisition image (${frameCount}/${MAX_FRAMES})...`;
         document.getElementById('timeout-progress').style.width = `${(frameCount / MAX_FRAMES) * 100}%`;
 
-        // Dès qu'on a nos 8 photos, on stop la caméra et on lance l'élection (Consensus)
+        // Lancement du super-vote à 8 frames
         if (frameCount >= MAX_FRAMES) {
             stopVideo();
             processConsensusAndShowResult();
@@ -589,33 +590,27 @@
         }
       } catch (e) { }
       
-      // Pause entre chaque cliché pour laisser le temps au téléphone de faire la mise au point
       scanTimeout = setTimeout(scanLoop, ocrEngine === 'NATIVE' ? 250 : 800);
     }
 
-    // Le Grand Vote : Compare les 8 frames + le Super-Texte
     function processConsensusAndShowResult() {
         let allResults = [];
         let megaRawText = "";
-        let megaBlocks = [];
 
-        // 1. On extrait les données de chaque frame individuellement
-        for (let frame of scanFrames) {
-            megaRawText += frame.rawText + "\n";
-            if (frame.blocks) megaBlocks = megaBlocks.concat(frame.blocks);
-            
-            const rawData = extractDocumentData(frame.rawText, frame.blocks);
-            const strictData = applyStrictRules(rawData, frame.rawText);
+        // Phase 1 : Traitement individuel
+        for (let rawText of scanFrames) {
+            megaRawText += rawText + "\n";
+            const rawData = extractDocumentData(rawText);
+            const strictData = applyStrictRules(rawData, rawText);
             allResults.push(strictData.strictFields);
         }
 
-        // 2. On extrait les données depuis la fusion de toutes les frames (Super-Texte)
-        // Très utile si le haut est sur la frame 1 et le bas sur la frame 8
-        const megaRawData = extractDocumentData(megaRawText, megaBlocks);
+        // Phase 2 : Traitement du Super-Texte Fusionné
+        const megaRawData = extractDocumentData(megaRawText);
         const megaStrictData = applyStrictRules(megaRawData, megaRawText);
         allResults.push(megaStrictData.strictFields);
 
-        // 3. ÉLECTION : Pour chaque champ, on compte les votes et on prend le gagnant
+        // Phase 3 : Le Dépouillement (Consensus)
         let finalConsensus = {};
         for (const key of FIELD_ORDER) {
             let counts = {};
@@ -641,7 +636,6 @@
         
         let score = 0; Object.values(finalConsensus).forEach(val => { if (val !== null) score++; });
         
-        // On affiche le résultat gagnant, et on met le Mega-Texte dans la boîte de debug
         showResult({ isOptimal, score, strictFields: finalConsensus }, megaRawText, !isOptimal);
     }
 
@@ -654,8 +648,8 @@
       
       const img = new Image();
       img.onload = async () => {
-        const { rawText, blocks } = await extractTextData(img);
-        const rawData = extractDocumentData(rawText, blocks);
+        const rawText = await extractTextData(img);
+        const rawData = extractDocumentData(rawText);
         const strictData = applyStrictRules(rawData, rawText);
         
         const isOptimal = (strictData.strictFields['Type de document'] && strictData.strictFields['N° de titre'] && strictData.strictFields['Nom'] && strictData.strictFields['Date de naissance']);
@@ -725,5 +719,3 @@
   </script>
 </body>
 </html>
-
-

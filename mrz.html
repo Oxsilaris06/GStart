@@ -99,6 +99,7 @@
     
     <div class="w-full max-w-sm flex flex-col items-center gap-5">
       
+      <!-- Bouton Moteur Centré -->
       <div id="engine-indicator" class="engine-badge-centered engine-wasm" onclick="showFlagsModal()">Moteur: Détection...</div>
       
       <div class="text-center flex flex-col items-center">
@@ -142,6 +143,11 @@
           <span class="material-symbols-outlined text-[1.2rem]">image</span> Importer de la galerie
           <input type="file" id="fileUpload" accept="image/*" class="hidden" />
         </label>
+
+        <!-- Bouton Historique -->
+        <button onclick="openHistoryView()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3.5 rounded-xl font-bold text-[0.95rem] transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 mt-1 border border-indigo-500/50">
+          <span class="material-symbols-outlined text-[1.2rem]">history</span> Historique des scans
+        </button>
       </div>
 
       <div class="text-center w-full opacity-40 text-[9px] text-slate-500 tracking-[0.2em] uppercase font-bold mt-1">
@@ -205,7 +211,27 @@
       </details>
     </div>
     <div class="px-5 pb-6 w-full max-w-lg mx-auto">
-      <button onclick="resetApp()" class="w-full bg-white/10 hover:bg-white/20 py-4 rounded-xl font-bold text-sm transition-all">Nouveau scan</button>
+      <button onclick="resetApp()" class="w-full bg-white/10 hover:bg-white/20 py-4 rounded-xl font-bold text-sm transition-all">Retour à l'accueil</button>
+    </div>
+  </div>
+
+  <!-- 5. HISTORIQUE -->
+  <div id="view-history" class="view fixed inset-0 z-50 bg-[#0a0a0f] flex flex-col overflow-y-auto">
+    <div class="px-5 py-6 flex-1 w-full max-w-lg mx-auto">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-xl font-bold">Historique</h2>
+        <button onclick="clearHistory()" class="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 border border-red-500/20">
+          <span class="material-symbols-outlined text-[1rem]">delete</span> Purger
+        </button>
+      </div>
+      <p class="text-[0.65rem] text-slate-400 mb-6">Les scans sont automatiquement supprimés après 6 heures.</p>
+      
+      <div id="history-list" class="flex flex-col gap-2">
+        <!-- Rempli dynamiquement -->
+      </div>
+    </div>
+    <div class="px-5 pb-6 w-full max-w-lg mx-auto">
+      <button onclick="resetApp()" class="w-full bg-white/10 hover:bg-white/20 py-4 rounded-xl font-bold text-sm transition-all">Retour à l'accueil</button>
     </div>
   </div>
 
@@ -250,7 +276,83 @@
     ];
 
     // =====================================================================
-    // FORMATAGE STRICT ET CORRECTIONS CHIRURGICALES
+    // SYSTÈME D'HISTORIQUE (Local Storage - Rétention 6h)
+    // =====================================================================
+    function cleanOldHistory() {
+        let history = JSON.parse(localStorage.getItem('borderforce_history') || '[]');
+        const now = Date.now();
+        const sixHours = 6 * 60 * 60 * 1000;
+        
+        // Ne garde que les scans de moins de 6 heures
+        const filteredHistory = history.filter(item => now - item.timestamp < sixHours);
+        localStorage.setItem('borderforce_history', JSON.stringify(filteredHistory));
+        return filteredHistory;
+    }
+
+    function saveToHistory(validatedData, rawText, isPartialFallback) {
+        // Ne sauvegarde que s'il y a un minimum de données viables (Type ou Nom ou Prénom)
+        if (!validatedData.strictFields['Type de document'] && !validatedData.strictFields['Nom']) return;
+
+        let history = cleanOldHistory();
+        const now = Date.now();
+
+        history.unshift({
+            id: now,
+            timestamp: now,
+            data: validatedData,
+            rawText: rawText,
+            isPartialFallback: isPartialFallback
+        });
+
+        localStorage.setItem('borderforce_history', JSON.stringify(history));
+    }
+
+    function openHistoryView() {
+        const history = cleanOldHistory();
+        const container = document.getElementById('history-list');
+        container.innerHTML = '';
+
+        if (history.length === 0) {
+            container.innerHTML = '<p class="text-sm text-slate-500 text-center py-8 font-medium">Aucun scan récent (dernières 6h).</p>';
+        } else {
+            history.forEach(item => {
+                const d = new Date(item.timestamp);
+                const timeStr = d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+                
+                const typeStr = item.data.strictFields['Type de document'] || 'INCONNU';
+                const nomStr = item.data.strictFields['Nom'] || '';
+                const prenomStr = item.data.strictFields['Prénom'] || '';
+                const identite = (nomStr + ' ' + prenomStr).trim() || 'Identité non reconnue';
+
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left bg-white/5 hover:bg-white/10 p-4 rounded-xl border border-white/5 transition-colors flex items-center justify-between gap-3';
+                btn.innerHTML = `
+                    <div class="flex flex-col overflow-hidden">
+                        <span class="text-[0.65rem] text-slate-400 font-mono mb-1 font-bold tracking-widest">${timeStr} • ${typeStr.toUpperCase()}</span>
+                        <span class="text-[0.95rem] font-bold text-white truncate">${identite}</span>
+                    </div>
+                    <span class="material-symbols-outlined text-slate-500">chevron_right</span>
+                `;
+                
+                // Clic sur l'historique recharge la vue résultat avec les données de l'époque
+                btn.onclick = () => {
+                    showResult(item.data, item.rawText, item.isPartialFallback, false); // false = ne pas sauvegarder en boucle
+                };
+                container.appendChild(btn);
+            });
+        }
+        switchView('history');
+    }
+
+    function clearHistory() {
+        localStorage.removeItem('borderforce_history');
+        openHistoryView();
+        showToast('🗑️ Historique purgé');
+    }
+
+
+    // =====================================================================
+    // FORMATAGE STRICT ET CORRECTIONS CHIRURGICALES (INCHANGÉ)
     // =====================================================================
     function containsForbiddenWord(text) {
       if (!text) return false;
@@ -354,7 +456,7 @@
     }
 
     // =====================================================================
-    // EXTRACTION CHIRURGICALE UNIFIÉE
+    // EXTRACTION CHIRURGICALE UNIFIÉE (INCHANGÉ)
     // =====================================================================
     function extractDocumentData(rawText) {
       if (!rawText) return {};
@@ -370,10 +472,11 @@
       // 1b. PASSEPORT MRZ ALTERNATIF
       let mrzPassAlt = noSpace.match(/P[A-Z<C]*FRA([A-Z0-9]+?)[<C]{2,}([A-Z0-9]{9})[0-9A-Z][A-Z<C]{0,3}([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]+[0-9A-Z]{1,2}([A-Z<C]+)/);
 
-      // 2. NOUVELLE CNI FRANÇAISE MRZ (TD1) - DOIT PASSER AVANT L'ANCIENNE !
-      let mrzCniNew = noSpace.match(/I[A-Z<C]FRA([A-Z0-9]{9})[0-9A-Z][<C]+([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]+[0-9A-Z]?([A-Z]+)[<C]{2,}([A-Z<C]+)/);
+      // 2. NOUVELLE CNI FRANÇAISE MRZ (TD1 format carte bancaire)
+      let mrzCniNewFrench = noSpace.match(/I[A-Z0-9<C]FRA([A-Z0-9]+)[<C]+([A-Z0-9]{9})[0-9A-Z]([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]+[0-9]*([A-Z]+[A-Z0-9<C]*)/);
+      let mrzCniNewStandard = noSpace.match(/I[A-Z<C]FRA([A-Z0-9]{9})[0-9A-Z].{15}([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}.{11}([A-Z]+)[<C]+([A-Z<C]+)/);
 
-      // 3. ANCIENNE CNI FRANÇAISE MRZ - Verrouillée sur [0-9OQ]{12} pour ne pas voler la nouvelle CNI
+      // 3. ANCIENNE CNI FRANÇAISE MRZ (Plastifiée bleue)
       let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z0-9]+?)[<C]+.*?([0-9OQ]{12})[0-9OQ]([A-Z]+[A-Z0-9<C]*?)([0-9OQ]{6})[0-9OQ][MF<C]/);
 
       // 4. PERMIS DE CONDUIRE MRZ
@@ -401,13 +504,21 @@
           fields.nationality = 'FRA';
           fields.firstName = mrzPassAlt[5].replace(/0/g, 'O').split(/<+/)[0].trim();
       }
-      else if (mrzCniNew) {
+      else if (mrzCniNewFrench) {
           format = 'CNI';
-          documentNumber = mrzCniNew[1].replace(/O/g, '0');
-          fields.birthDate = cleanDateDigits(mrzCniNew[2]);
-          fields.expirationDate = cleanDateDigits(mrzCniNew[3]);
-          fields.lastName = mrzCniNew[4].replace(/0/g, 'O').replace(/<+/g, ' ').trim();
-          fields.firstName = mrzCniNew[5].replace(/0/g, 'O').split(/<+/)[0].trim();
+          fields.lastName = mrzCniNewFrench[1].replace(/0/g, 'O');
+          documentNumber = mrzCniNewFrench[2].replace(/O/g, '0');
+          fields.birthDate = cleanDateDigits(mrzCniNewFrench[3]);
+          fields.expirationDate = cleanDateDigits(mrzCniNewFrench[4]);
+          fields.firstName = mrzCniNewFrench[5].replace(/0/g, 'O').split(/<+/)[0].trim();
+      }
+      else if (mrzCniNewStandard) {
+          format = 'CNI';
+          documentNumber = mrzCniNewStandard[1].replace(/O/g, '0');
+          fields.birthDate = cleanDateDigits(mrzCniNewStandard[2]);
+          fields.expirationDate = cleanDateDigits(mrzCniNewStandard[3]);
+          fields.lastName = mrzCniNewStandard[4].replace(/0/g, 'O').replace(/<+/g, ' ').trim();
+          fields.firstName = mrzCniNewStandard[5].replace(/0/g, 'O').split(/<+/)[0].trim();
       }
       else if (mrzCniOld) {
           format = 'CNI';
@@ -532,7 +643,7 @@
     }
 
     // =====================================================================
-    // GESTION DES MODALES
+    // GESTION DES MODALES ET VUES
     // =====================================================================
     function showAdviceModal() {
       if (localStorage.getItem('borderforce_hide_advice') === 'true') {
@@ -567,7 +678,7 @@
     // MOTEUR OCR & APP INIT
     // =====================================================================
     window.addEventListener('DOMContentLoaded', async () => {
-      ['loading', 'ready', 'scanning', 'result'].forEach(n => views[n] = document.getElementById('view-' + n));
+      ['loading', 'ready', 'scanning', 'result', 'history'].forEach(n => views[n] = document.getElementById('view-' + n));
       video = document.getElementById('video-stream');
       canvas = document.getElementById('canvas-mrz');
       ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -582,6 +693,8 @@
           });
         });
       });
+      
+      cleanOldHistory(); // Nettoyage au démarrage
       await loadEngines();
     });
 
@@ -732,7 +845,9 @@
         
         let score = 0; Object.values(finalConsensus).forEach(val => { if (val !== null) score++; });
         
-        showResult({ isOptimal, score, strictFields: finalConsensus }, megaRawText, !isOptimal);
+        const validatedData = { isOptimal, score, strictFields: finalConsensus };
+        saveToHistory(validatedData, megaRawText, !isOptimal);
+        showResult(validatedData, megaRawText, !isOptimal, true);
     }
 
     // =====================================================================
@@ -751,7 +866,9 @@
         const isOptimal = (strictData.strictFields['Type de document'] && strictData.strictFields['N° de titre'] && strictData.strictFields['Nom'] && strictData.strictFields['Date de naissance']);
         let score = 0; Object.values(strictData.strictFields).forEach(val => { if (val !== null) score++; });
         
-        showResult({ isOptimal, score, strictFields: strictData.strictFields }, rawText, !isOptimal);
+        const validatedData = { isOptimal, score, strictFields: strictData.strictFields };
+        saveToHistory(validatedData, rawText, !isOptimal);
+        showResult(validatedData, rawText, !isOptimal, true);
       };
       img.src = URL.createObjectURL(file);
     }
@@ -799,7 +916,7 @@
       container.appendChild(row);
     }
 
-    function showResult(validatedData, rawText, isPartialFallback) {
+    function showResult(validatedData, rawText, isPartialFallback, fromNewScan = false) {
       switchView('result'); finalFields = {}; 
       const badge = document.getElementById('res-valid-badge');
       if (validatedData.isOptimal) { badge.className = 'valid-badge'; badge.innerText = '✅ DONNÉES COMPLÈTES'; } 

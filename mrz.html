@@ -258,11 +258,11 @@
       if (!name) return null;
       let clean = name;
       
-      clean = clean.replace(/[a-z]/g, ''); // Fix : Suppression radicale des minuscules (ex: GUYn)
+      clean = clean.replace(/[a-z]/g, ''); 
       clean = clean.toUpperCase();
       
       clean = clean.replace(OCR_NOISE, '');
-      clean = clean.replace(/^[0-9]+[.\-:]?\s*/g, ''); // Fix : Nettoie les ancres sans supprimer de lettres (ex: ICOLAS)
+      clean = clean.replace(/^[0-9]+[.\-:]?\s*/g, ''); 
       
       clean = clean.replace(/[^\w\s\-À-Ÿ,]/g, ' ').trim();
       clean = clean.replace(/^,+|,+$/g, '').trim();
@@ -293,7 +293,7 @@
         let yyyy;
 
         if (type === 'expiry') {
-            yyyy = '20' + cleaned.substring(0,2); // Fix : L'expiration est toujours dans le futur/présent
+            yyyy = '20' + cleaned.substring(0,2); 
         } else {
             yyyy = (yy > currentYear ? '19' : '20') + cleaned.substring(0,2);
         }
@@ -336,6 +336,7 @@
       if (format === 'PASSEPORT') return ALLOWED_DOC_TYPES.PASSEPORT;
       if (format === 'PERMIS_FR') return ALLOWED_DOC_TYPES.PERMIS_FR;
       if (format === 'CNI') return ALLOWED_DOC_TYPES.CNI;
+      if (format === 'TITRE_SEJOUR') return ALLOWED_DOC_TYPES.TITRE_SEJOUR;
       
       const upperText = (rawText || '').toUpperCase();
       if (format === 'TD1' || upperText.includes('IDENTIT')) return ALLOWED_DOC_TYPES.CNI;
@@ -361,7 +362,7 @@
       let mrzPass1 = noSpace.match(/P[A-Z<]*FRA([A-Z0-9]+)<<([A-Z0-9<]+)/);
       let mrzPass2 = noSpace.match(/([A-Z0-9]{9})[0-9O][A-Z<]{3}([0-9O]{6})[0-9O][MF<]([0-9O]{6})/);
 
-      // 2. ANCIENNE CNI FRANÇAISE MRZ (Extrêmement tolérant aux erreurs OCR comme "C" au lieu de "<")
+      // 2. ANCIENNE CNI FRANÇAISE MRZ
       let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z]+)[<C]+.*?([0-9O]{12})[0-9O]([A-Z]+)[<C]+.*?([0-9O]{6})/);
 
       // 3. NOUVELLE CNI FRANÇAISE MRZ (TD1)
@@ -370,7 +371,10 @@
       // 4. PERMIS DE CONDUIRE MRZ
       let mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9A-Z]{6})([A-ZÀ-Ÿ]+)<</);
 
-      // --- APLLICATION DES VÉRITÉS ABSOLUES MRZ ---
+      // 5. TITRE DE SÉJOUR MRZ (TD1 Spécial)
+      let mrzTitreSejour = noSpace.match(/I[R<C]FRA([A-Z0-9]{9,10})[<C]+.*?([0-9O]{6})[0-9O][MF<C]([0-9O]{6})[0-9O]([A-Z<C]{3}).*?([A-Z0-9]+)<<([A-Z0-9<C]+)/);
+
+      // --- APPLICATION DES VÉRITÉS ABSOLUES MRZ ---
       if (mrzPass1 && mrzPass2) {
           format = 'PASSEPORT';
           fields.lastName = mrzPass1[1].replace(/</g, ' ').trim();
@@ -395,6 +399,15 @@
           fields.lastName = mrzCniNew[4].replace(/<+/g, ' ').trim();
           fields.firstName = mrzCniNew[5].replace(/[<C]+/g, ' ').trim();
       }
+      else if (mrzTitreSejour) {
+          format = 'TITRE_SEJOUR';
+          documentNumber = mrzTitreSejour[1].replace(/O/g, '0');
+          fields.birthDate = cleanDateDigits(mrzTitreSejour[2]);
+          fields.expirationDate = cleanDateDigits(mrzTitreSejour[3]);
+          fields.nationality = mrzTitreSejour[4].replace(/[<C]/g, '');
+          fields.lastName = mrzTitreSejour[5].replace(/0/g, 'O'); // Répare les 0 au lieu de O dans le nom
+          fields.firstName = mrzTitreSejour[6].replace(/[<C]+/g, ' ').replace(/0/g, 'O').trim();
+      }
       else {
           if (mrzPermis) {
              format = 'PERMIS_FR';
@@ -403,13 +416,12 @@
              fields.lastName = mrzPermis[3];
           }
 
-          // --- LECTURE DES ANCRES VISUELLES (Permis & CNI) ---
+          // --- LECTURE DES ANCRES VISUELLES ---
           const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
           
           for (let i = 0; i < lines.length; i++) {
               let l = lines[i];
 
-              // Ancres Permis Européen (1. à 5.)
               let m1 = l.match(/^1[\s.,:-]+(?:[0-9]\s*|[A-Z]\s+)?(.*)/i);
               if (m1 && !fields.lastName) fields.lastName = m1[1];
 
@@ -434,7 +446,6 @@
               let m5 = l.match(/^[5S6][\s.,:-]+([A-Z0-9]{5,15})/i);
               if (m5 && !documentNumber) documentNumber = m5[1].replace(/O/g, '0');
 
-              // Ancres Ancienne CNI Française (Visuel)
               let cniNom = l.match(/^(?:NOM|NQM)[.\s:]+([A-ZÀ-Ÿ\-]{2,})/i);
               if (cniNom && !fields.lastName) fields.lastName = cniNom[1];
 
@@ -450,19 +461,16 @@
               let cniLieu = l.match(/^(?:[AÀ]\s*:|[:;])\s*([A-ZÀ-Ÿ\-\s]+)/i);
               if (cniLieu && !fields.placeOfBirth) fields.placeOfBirth = cniLieu[1].trim();
 
-              // Numéro Ancienne CNI : Correction "A" vs "4" spécifique
               let cniNum = l.match(/(?:NATIONALE.*?N[°0O]?|N\s*:)\s*([0-9OA-Z]{12})/i);
               if (cniNum && !documentNumber) documentNumber = cniNum[1].replace(/[OQ]/gi, '0').replace(/A/gi, '4'); 
           }
 
-          // Fallback Lieu de naissance sur la ligne d'en dessous
           if (fields.birthDate && !fields.placeOfBirth) {
               let cleanDate = fields.birthDate.replace(/\./g, '\\.');
               let bMatch = rawUpper.match(new RegExp(cleanDate + '\\s*\\n\\s*\\(?([A-ZÀ-Ÿ\\-\\s]{3,})\\)?'));
               if (bMatch) fields.placeOfBirth = bMatch[1].replace(/^[A-ZÀ-Ÿ]*LE\s+/i, '').trim();
           }
 
-          // Injection des dates de secours
           if (sortedDates.length > 0) {
               if (!fields.birthDate) fields.birthDate = sortedDates[0].str; 
               if (sortedDates.length > 1 && !fields.expirationDate) fields.expirationDate = sortedDates[sortedDates.length - 1].str;

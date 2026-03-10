@@ -15,6 +15,11 @@
     .view { display: none; }
     .view.active { display: flex; }
     
+    .field-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: rgba(255, 255, 255, 0.04); border-radius: 0.75rem; margin-bottom: 0.5rem; cursor: pointer; transition: background 0.2s; }
+    .field-row:hover { background: rgba(255, 255, 255, 0.08); }
+    .field-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; min-width: 7rem; }
+    .field-value { font-size: 1rem; font-weight: 600; color: #f1f5f9; flex: 1; word-break: break-all; }
+    
     .valid-badge { background: #22c55e22; color: #22c55e; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; }
     .partial-badge { background: #3b82f622; color: #3b82f6; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; }
     .invalid-badge { background: #ef444422; color: #ef4444; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; }
@@ -261,7 +266,13 @@
 
     function cleanName(name) {
       if (!name) return null;
-      let clean = name.toUpperCase();
+      let clean = name;
+      
+      // Correction BUG : on supprime les minuscules parasites (ex: GUYn -> GUY) 
+      // AVANT de tout forcer en majuscule, sinon le 'n' devient un 'N' légitime.
+      clean = clean.replace(/[a-z]/g, '');
+      clean = clean.toUpperCase();
+      
       clean = clean.replace(OCR_NOISE, '');
       clean = clean.replace(/^[0-9]+[.\-:]?\s+/g, '');
       clean = clean.replace(/[^\w\s\-À-Ÿ,]/g, ' ').trim();
@@ -281,7 +292,8 @@
                 .replace(/[B]/g, '8');
     }
 
-    function strictDateFormatter(rawDate) {
+    // Le paramètre type ("birth", "issue", "expiry") permet d'éviter l'erreur 1939 vs 2039
+    function strictDateFormatter(rawDate, type = 'birth') {
       if (!rawDate) return null;
       const cleaned = cleanDateDigits(rawDate);
       
@@ -290,7 +302,18 @@
         let mm = cleaned.substring(2,4);
         let dd = cleaned.substring(4,6);
         let currentYear = new Date().getFullYear() % 100;
-        let yyyy = (yy > currentYear + 10 ? '19' : '20') + cleaned.substring(0,2);
+        let yyyy;
+
+        if (type === 'expiry') {
+            // Une expiration est forcément dans le futur ou passé récent -> 20xx
+            yyyy = '20' + cleaned.substring(0,2);
+        } else if (type === 'issue') {
+             // Une émission est dans le passé. Si > année actuelle, c'était dans les années 1900
+             yyyy = (yy > currentYear ? '19' : '20') + cleaned.substring(0,2);
+        } else {
+             // Une naissance. Si yy est supérieur à l'année actuelle (ex: 97 > 24), c'est forcément 1997.
+             yyyy = (yy > currentYear ? '19' : '20') + cleaned.substring(0,2);
+        }
         return `${dd}.${mm}.${yyyy}`;
       }
       
@@ -422,11 +445,11 @@
         'N° de titre': null,
         'Nom': cleanName(extractedData.fields?.lastName),
         'Prénom': cleanName(extractedData.fields?.firstName),
-        'Date de naissance': strictDateFormatter(extractedData.fields?.birthDate),
+        'Date de naissance': strictDateFormatter(extractedData.fields?.birthDate, 'birth'),
         'Lieu de naissance': extractedData.fields?.placeOfBirth,
-        'Date d\'émission': strictDateFormatter(extractedData.fields?.issueDate),
+        'Date d\'émission': strictDateFormatter(extractedData.fields?.issueDate, 'issue'),
         'Délivré par': extractedData.fields?.issuedBy,
-        'Date de péremption': strictDateFormatter(extractedData.fields?.expirationDate),
+        'Date de péremption': strictDateFormatter(extractedData.fields?.expirationDate, 'expiry'),
         'Sexe': extractedData.fields?.sex,
         'Nationalité': extractedData.fields?.nationality
       };
@@ -669,7 +692,7 @@
     }
 
     // =====================================================================
-    // AFFICHAGE ET EXPORT (CASES À COCHER 2 LIGNES)
+    // AFFICHAGE ET EXPORT
     // =====================================================================
     function resetApp() { switchView('ready'); }
 

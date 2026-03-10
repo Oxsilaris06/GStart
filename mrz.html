@@ -258,14 +258,11 @@
       if (!name) return null;
       let clean = name;
       
-      // FIX CRITIQUE: Suppression des lettres minuscules OCR (ex: GUYn, ICOLASa) 
-      // AVANT de passer en majuscule, sinon la lettre parasite devient légitime.
-      clean = clean.replace(/[a-z]/g, '');
+      clean = clean.replace(/[a-z]/g, ''); // Fix : Suppression radicale des minuscules (ex: GUYn)
       clean = clean.toUpperCase();
       
       clean = clean.replace(OCR_NOISE, '');
-      // Supprime les ancres 1. ou 2. (Gère même s'il n'y a pas d'espace)
-      clean = clean.replace(/^[0-9]+[.\-:]?\s*/g, '');
+      clean = clean.replace(/^[0-9]+[.\-:]?\s*/g, ''); // Fix : Nettoie les ancres sans supprimer de lettres (ex: ICOLAS)
       
       clean = clean.replace(/[^\w\s\-À-Ÿ,]/g, ' ').trim();
       clean = clean.replace(/^,+|,+$/g, '').trim();
@@ -284,7 +281,6 @@
                 .replace(/[B]/g, '8');
     }
 
-    // FIX CRITIQUE: Le contexte 'type' force l'année 20xx pour les expirations
     function strictDateFormatter(rawDate, type = 'birth') {
       if (!rawDate) return null;
       const cleaned = cleanDateDigits(rawDate);
@@ -297,10 +293,8 @@
         let yyyy;
 
         if (type === 'expiry') {
-            // Une expiration est toujours dans le futur (ou passé récent) : 20xx
-            yyyy = '20' + cleaned.substring(0,2);
+            yyyy = '20' + cleaned.substring(0,2); // Fix : L'expiration est toujours dans le futur/présent
         } else {
-            // Une naissance ou émission : si c'est > à l'année actuelle, c'est forcément 19xx
             yyyy = (yy > currentYear ? '19' : '20') + cleaned.substring(0,2);
         }
         return `${dd}.${mm}.${yyyy}`;
@@ -363,12 +357,12 @@
       const sortedDates = extractSortedDates(rawUpper);
       const noSpace = rawUpper.replace(/[\s\n]+/g, '');
 
-      // 1. PASSEPORT MRZ (Vérité Absolue)
+      // 1. PASSEPORT MRZ
       let mrzPass1 = noSpace.match(/P[A-Z<]*FRA([A-Z0-9]+)<<([A-Z0-9<]+)/);
       let mrzPass2 = noSpace.match(/([A-Z0-9]{9})[0-9O][A-Z<]{3}([0-9O]{6})[0-9O][MF<]([0-9O]{6})/);
 
-      // 2. ANCIENNE CNI FRANÇAISE MRZ (TD2 36 Chars - 100% Infaillible)
-      let mrzCniOld = noSpace.match(/I[D1O]FRA([A-Z]+)[<0-9A-ZC]{10,35}?([0-9A-Z]{12})[0-9O]([A-Z<C]{14})([0-9O]{6})[0-9O][MF<][0-9O]/);
+      // 2. ANCIENNE CNI FRANÇAISE MRZ (Extrêmement tolérant aux erreurs OCR comme "C" au lieu de "<")
+      let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z]+)[<C]+.*?([0-9O]{12})[0-9O]([A-Z]+)[<C]+.*?([0-9O]{6})/);
 
       // 3. NOUVELLE CNI FRANÇAISE MRZ (TD1)
       let mrzCniNew = noSpace.match(/I[A-Z<C]FRA([A-Z0-9]{9})[0-9O].{15}([0-9O]{6})[0-9O][MF<]([0-9O]{6})[0-9O][A-Z<C]{3}.{11}([A-Z]+)<<([A-Z<C]+)/);
@@ -376,7 +370,7 @@
       // 4. PERMIS DE CONDUIRE MRZ
       let mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9A-Z]{6})([A-ZÀ-Ÿ]+)<</);
 
-      // --- APLLICATION DES VÉRITÉS MRZ ---
+      // --- APLLICATION DES VÉRITÉS ABSOLUES MRZ ---
       if (mrzPass1 && mrzPass2) {
           format = 'PASSEPORT';
           fields.lastName = mrzPass1[1].replace(/</g, ' ').trim();
@@ -390,7 +384,7 @@
           format = 'CNI';
           fields.lastName = mrzCniOld[1];
           documentNumber = mrzCniOld[2].replace(/O/g, '0');
-          fields.firstName = mrzCniOld[3].replace(/[<C]+/g, ' ').trim();
+          fields.firstName = mrzCniOld[3];
           fields.birthDate = cleanDateDigits(mrzCniOld[4]);
       }
       else if (mrzCniNew) {
@@ -409,28 +403,25 @@
              fields.lastName = mrzPermis[3];
           }
 
-          // --- LECTURE DES ANCRES VISUELLES ---
+          // --- LECTURE DES ANCRES VISUELLES (Permis & CNI) ---
           const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
           
           for (let i = 0; i < lines.length; i++) {
               let l = lines[i];
 
-              // Ancre "1." (Nom) - Le (?:[0-9]\s*|[A-Z]\s+)? absorbe le bruit OCR sans manger la 1ère lettre du nom
+              // Ancres Permis Européen (1. à 5.)
               let m1 = l.match(/^1[\s.,:-]+(?:[0-9]\s*|[A-Z]\s+)?(.*)/i);
               if (m1 && !fields.lastName) fields.lastName = m1[1];
 
-              // Ancre "2." (Prénom)
               let m2 = l.match(/^2[\s.,:-]+(?:[0-9]\s*|[A-Z]\s+)?(.*)/i);
               if (m2 && !fields.firstName) fields.firstName = m2[1];
 
-              // Ancre "3." (Date et Lieu)
               let m3 = l.match(/^3[\s.,:-]+(?:.*?)?(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})\s*(?:\(?([^)\n]+)\)?)?/i);
               if (m3) {
                   if (!fields.birthDate) fields.birthDate = m3[1];
                   if (m3[2] && !fields.placeOfBirth) fields.placeOfBirth = m3[2].replace(/[<()]/g, '').trim();
               }
 
-              // Ancre "4a." "4b." "4c."
               let m4a = l.match(/^4[aA][\s.,:-]+(?:.*?)?(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/i);
               if (m4a && !fields.issueDate) fields.issueDate = m4a[1];
 
@@ -440,11 +431,10 @@
               let m4c = l.match(/^4[cC][\s.,:-]+(.+)/i);
               if (m4c && !fields.issuedBy) fields.issuedBy = m4c[1].replace(/4[A-Z0-9].*$/, '').trim();
 
-              // Ancre "5." (Numéro)
               let m5 = l.match(/^[5S6][\s.,:-]+([A-Z0-9]{5,15})/i);
               if (m5 && !documentNumber) documentNumber = m5[1].replace(/O/g, '0');
 
-              // Fallback Ancienne CNI / Sans numéro
+              // Ancres Ancienne CNI Française (Visuel)
               let cniNom = l.match(/^(?:NOM|NQM)[.\s:]+([A-ZÀ-Ÿ\-]{2,})/i);
               if (cniNom && !fields.lastName) fields.lastName = cniNom[1];
 
@@ -456,6 +446,13 @@
                   if(!fields.birthDate) fields.birthDate = cniDateLieu[1];
                   if(cniDateLieu[2] && !fields.placeOfBirth) fields.placeOfBirth = cniDateLieu[2].trim();
               }
+
+              let cniLieu = l.match(/^(?:[AÀ]\s*:|[:;])\s*([A-ZÀ-Ÿ\-\s]+)/i);
+              if (cniLieu && !fields.placeOfBirth) fields.placeOfBirth = cniLieu[1].trim();
+
+              // Numéro Ancienne CNI : Correction "A" vs "4" spécifique
+              let cniNum = l.match(/(?:NATIONALE.*?N[°0O]?|N\s*:)\s*([0-9OA-Z]{12})/i);
+              if (cniNum && !documentNumber) documentNumber = cniNum[1].replace(/[OQ]/gi, '0').replace(/A/gi, '4'); 
           }
 
           // Fallback Lieu de naissance sur la ligne d'en dessous
@@ -465,7 +462,7 @@
               if (bMatch) fields.placeOfBirth = bMatch[1].replace(/^[A-ZÀ-Ÿ]*LE\s+/i, '').trim();
           }
 
-          // Fallback final des dates
+          // Injection des dates de secours
           if (sortedDates.length > 0) {
               if (!fields.birthDate) fields.birthDate = sortedDates[0].str; 
               if (sortedDates.length > 1 && !fields.expirationDate) fields.expirationDate = sortedDates[sortedDates.length - 1].str;
@@ -486,7 +483,7 @@
         'Lieu de naissance': extractedData.fields?.placeOfBirth,
         'Date d\'émission': strictDateFormatter(extractedData.fields?.issueDate, 'issue'),
         'Délivré par': extractedData.fields?.issuedBy,
-        'Date de péremption': strictDateFormatter(extractedData.fields?.expirationDate, 'expiry'), // Fix appliqué
+        'Date de péremption': strictDateFormatter(extractedData.fields?.expirationDate, 'expiry'),
         'Sexe': extractedData.fields?.sex,
         'Nationalité': extractedData.fields?.nationality
       };

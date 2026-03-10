@@ -14,7 +14,7 @@
     
     .field-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: rgba(255, 255, 255, 0.04); border-radius: 0.75rem; margin-bottom: 0.5rem; cursor: pointer; transition: background 0.2s; }
     .field-row:hover { background: rgba(255, 255, 255, 0.08); }
-    .field-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; min-width: 6rem; }
+    .field-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; min-width: 7rem; }
     .field-value { font-size: 1rem; font-weight: 600; color: #f1f5f9; flex: 1; word-break: break-all; }
     
     .valid-badge { background: #22c55e22; color: #22c55e; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; }
@@ -55,8 +55,8 @@
     <div id="engine-indicator" class="engine-badge engine-wasm">Moteur: Détection...</div>
     <div class="text-center mb-8">
       <div class="text-6xl mb-4">🛡️</div>
-      <h1 class="text-2xl font-bold mb-2">Scanner 2 Temps</h1>
-      <p class="text-slate-400 text-sm">Extraction Blindée Anti-Bruit</p>
+      <h1 class="text-2xl font-bold mb-2">Extraction Chirurgicale</h1>
+      <p class="text-slate-400 text-sm">Post-processing ancres & MRZ</p>
     </div>
 
     <div class="doc-selector mb-6" id="ready-selector">
@@ -71,7 +71,7 @@
       Scanner le document
     </button>
     <label class="w-full max-w-sm mt-4 bg-white/5 hover:bg-white/10 py-4 rounded-xl font-bold text-lg transition-all text-center cursor-pointer block border border-white/10">
-      Importer une photo
+      Importer une photo de la galerie
       <input type="file" id="fileUpload" accept="image/*" class="hidden" />
     </label>
   </div>
@@ -90,7 +90,7 @@
 
     <div class="absolute bottom-8 left-0 w-full px-6">
       <div class="bg-black/80 backdrop-blur-md p-4 rounded-2xl border border-slate-800 text-center">
-        <p id="scan-feedback" class="text-sm font-medium text-blue-400 mb-1 animate-pulse">Temps 1 : Recherche d'une lecture parfaite...</p>
+        <p id="scan-feedback" class="text-sm font-medium text-blue-400 mb-1 animate-pulse">Recherche d'une lecture parfaite...</p>
         <div class="progress-bar-container mb-3">
           <div id="timeout-progress" class="progress-bar"></div>
         </div>
@@ -164,7 +164,12 @@
       'PERMIS_FR': 'Permis de conduire'
     };
 
-    const FIELD_ORDER = ['Type de document', 'N° de titre', 'Nom', 'Prénom', 'Date de naissance', 'Sexe', 'Nationalité', 'Date d\'émission', 'Date de péremption'];
+    // Ordre d'affichage des champs mis à jour
+    const FIELD_ORDER = [
+      'Type de document', 'N° de titre', 'Nom', 'Prénom', 
+      'Date de naissance', 'Lieu de naissance', 'Sexe', 'Nationalité', 
+      'Date d\'émission', 'Délivré par', 'Date de péremption'
+    ];
     
     // =====================================================================
     // GESTION DU CONSENSUS (VOTE MULTI-FRAMES)
@@ -201,7 +206,7 @@
     }
 
     // =====================================================================
-    // FILTRES BLINDÉS & DATES CHRONOLOGIQUES
+    // FORMATAGE STRICT
     // =====================================================================
     function containsForbiddenWord(text) {
       if (!text) return false;
@@ -209,54 +214,141 @@
       return FORBIDDEN_WORDS.some(word => upper.includes(word.replace(/[^A-Z]/g, '')));
     }
 
-    // Extrait intelligemment TOUTES les dates et les trie chronologiquement
-    function extractSortedDates(rawText) {
-      // Regex permissive qui capture "4324.05.2024" sans s'étouffer
-      const dateRegex = /(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})/g;
-      let match;
-      let dates = [];
-      while ((match = dateRegex.exec(rawText)) !== null) {
-          let dd = parseInt(match[1], 10), mm = parseInt(match[2], 10), yyyy = parseInt(match[3], 10);
-          if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31 && yyyy >= 1900 && yyyy <= 2100) {
-              dates.push({
-                  str: `${match[1].padStart(2, '0')}.${match[2].padStart(2, '0')}.${match[3]}`,
-                  val: yyyy * 10000 + mm * 100 + dd
-              });
-          }
-      }
-      // Dédoublonnage et tri mathématique du plus ancien au plus récent
-      const unique = []; const seen = new Set();
-      for(let d of dates) { if(!seen.has(d.str)) { seen.add(d.str); unique.push(d); } }
-      unique.sort((a,b) => a.val - b.val);
-      return unique;
-    }
-
     function cleanName(name) {
       if (!name) return null;
       let clean = name.toUpperCase();
       clean = clean.replace(OCR_NOISE, '');
-      // Enlève l'ancre numérotée et ses parasites (ex: "2 4NICOLAS" -> "NICOLAS")
-      clean = clean.replace(/^[0-9]+[\s.,:\-]*[0-9A-Z]?\s+/g, '');
+      clean = clean.replace(/^[0-9]+[.\-:]?\s+/g, '');
       clean = clean.replace(/[^\w\s\-À-Ÿ,]/g, ' ').trim();
       clean = clean.replace(/^,+|,+$/g, '').trim();
       clean = clean.replace(/\s+/g, ' ');
 
-      if (clean.length < 2) return null;
-      if (containsForbiddenWord(clean)) return null;
+      if (clean.length < 2 || containsForbiddenWord(clean)) return null;
       return clean;
     }
 
     function strictDateFormatter(rawDate) {
       if (!rawDate) return null;
+      
+      // Format MRZ YYMMDD (ex: 970515)
       if (/^\d{6}$/.test(rawDate)) {
-        let yy = parseInt(rawDate.substring(0,2));
+        let yy = parseInt(rawDate.substring(0,2), 10);
         let mm = rawDate.substring(2,4);
         let dd = rawDate.substring(4,6);
-        let yyyy = (yy > 50 ? '19' : '20') + rawDate.substring(0,2);
+        // Règle logique pour le siècle (ex: 97 -> 1997, 24 -> 2024)
+        let currentYear = new Date().getFullYear() % 100;
+        let yyyy = (yy > currentYear + 10 ? '19' : '20') + rawDate.substring(0,2);
         return `${dd}.${mm}.${yyyy}`;
       }
-      // La date est déjà propre grâce à extractSortedDates
-      return rawDate;
+      
+      // Format classique JJ.MM.AAAA
+      const match = rawDate.match(/\b(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})\b/);
+      if (match) {
+          let dd = match[1], mm = match[2], yyyy = match[3];
+          if (parseInt(mm) >= 1 && parseInt(mm) <= 12 && parseInt(dd) >= 1 && parseInt(dd) <= 31) {
+              return `${dd}.${mm}.${yyyy}`;
+          }
+      }
+      return null;
+    }
+
+    // =====================================================================
+    // EXTRACTION CHIRURGICALE (POST-PROCESSING)
+    // =====================================================================
+    function postProcessGalleryData(rawText) {
+      if (!rawText) return {};
+      let format = null, documentNumber = null, fields = {};
+      const rawUpper = rawText.toUpperCase();
+      const lines = rawUpper.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+      // -----------------------------------------------------------------
+      // STRATÉGIE 1 : MRZ MANUEL POUR PASSEPORT (P<FRA...)
+      // Gère les erreurs de checksum de la librairie causées par la photo
+      // -----------------------------------------------------------------
+      const noSpace = rawUpper.replace(/\s+/g, '');
+      const mrzPass = noSpace.match(/P[A-Z<]FRA([A-Z0-9<]+)<<([A-Z0-9<]+)/); // Ligne 1
+      const mrzPassL2 = noSpace.match(/([A-Z0-9<]{9})\d[A-Z]{3}(\d{6})\d[MF<](\d{6})/); // Ligne 2
+
+      if (mrzPass && mrzPassL2) {
+          format = 'PASSEPORT';
+          fields.lastName = mrzPass[1].replace(/</g, ' ').trim();
+          fields.firstName = mrzPass[2].replace(/</g, ' ').trim();
+          fields.nationality = 'FRA';
+          
+          documentNumber = mrzPassL2[1].replace(/</g, '');
+          fields.birthDate = mrzPassL2[2]; // ex: 970515 (sera formaté plus tard)
+          fields.expirationDate = mrzPassL2[3];
+      }
+
+      // MRZ Permis
+      const mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9]{6})([A-ZÀ-Ÿ]+)<</);
+      if (mrzPermis && !format) {
+         format = 'PERMIS_FR';
+         documentNumber = mrzPermis[1].replace(/O/g, '0');
+         fields.expirationDate = mrzPermis[2];
+         fields.lastName = mrzPermis[3];
+      }
+
+      // Si la librairie trouve quelque chose, on fusionne
+      const mrzLines = rawUpper.split('\n').map(l => l.replace(/[\s]+/g, '<').replace(/[^A-Z0-9<]/g, '').trim()).filter(l => l.length >= 25);
+      if (mrzLines.length >= 2) {
+        let patched = [...mrzLines];
+        if (patched[0].startsWith('IR')) patched[0] = 'ID' + patched[0].substring(2);
+        try { 
+          const mrz = mrzParse(patched); 
+          if(mrz) { 
+             if(!format) format = mrz.format; 
+             if(!documentNumber) documentNumber = mrz.documentNumber; 
+             Object.assign(fields, mrz.fields); 
+          }
+        } catch (e) {}
+      }
+
+      // -----------------------------------------------------------------
+      // STRATÉGIE 2 : EXTRACTION PAR ANCRES NUMÉROTÉES (PERMIS EU)
+      // -----------------------------------------------------------------
+      for (let i = 0; i < lines.length; i++) {
+          let l = lines[i];
+
+          // 1. = Nom
+          let m1 = l.match(/^(?:1[.,\s:]+)(?:[A-Z0-9]\s*)?([A-ZÀ-Ÿ\-]{2,}(?:\s+[A-ZÀ-Ÿ\-]{2,})*)/);
+          if (m1 && !fields.lastName) fields.lastName = m1[1];
+
+          // 2. = Prénom
+          let m2 = l.match(/^(?:2[.,\s:]+)(?:[A-Z0-9]\s*)?([A-ZÀ-Ÿ\-]{2,}(?:\s+[A-ZÀ-Ÿ\-]{2,})*)/);
+          if (m2 && !fields.firstName) fields.firstName = m2[1];
+
+          // 3. = Date et lieu de naissance (ex: "3 15.05.1997 (ST JEAN DE BRAYE)")
+          let m3 = l.match(/^(?:3[\s.,:-]+)(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})\s*(?:\(?([^)\n]+)\)?)?/);
+          if (m3) {
+              if (!fields.birthDate) fields.birthDate = m3[1];
+              if (m3[2] && !fields.placeOfBirth) fields.placeOfBirth = m3[2].replace(/[<()]/g, '').trim();
+          }
+
+          // 4a. = Délivré le
+          let m4a = l.match(/^(?:4[aA][\s.,:-]+)(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
+          if (m4a && !fields.issueDate) fields.issueDate = m4a[1];
+
+          // 4b. = Expire le
+          let m4b = l.match(/^(?:4[bB8][\s.,:-]+)(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
+          if (m4b && !fields.expirationDate) fields.expirationDate = m4b[1];
+
+          // 4c. = Délivré par (ex: "4c. préfet 06")
+          let m4c = l.match(/^(?:4[cC][\s.,:-]+)(.+)/);
+          if (m4c && !fields.issuedBy) fields.issuedBy = m4c[1].trim();
+
+          // 5. = N° de permis
+          let m5 = l.match(/^(?:[5S][\s.,:-]+)([A-Z0-9]{5,15})/);
+          if (m5 && !documentNumber) documentNumber = m5[1].replace(/O/g, '0');
+      }
+
+      // Fallback Lieu de naissance s'il est sur la ligne d'en dessous de la date
+      if (fields.birthDate && !fields.placeOfBirth) {
+          let bMatch = rawUpper.match(new RegExp(fields.birthDate.replace(/\./g, '.') + '\\s*\\n\\s*\\(?([A-ZÀ-Ÿ\\-\\s]+)\\)?'));
+          if (bMatch) fields.placeOfBirth = bMatch[1].trim();
+      }
+
+      return { format, documentNumber, fields };
     }
 
     function getStrictDocType(format, rawText) {
@@ -277,80 +369,6 @@
       return null;
     }
 
-    // =====================================================================
-    // LE CŒUR DE L'EXTRACTION "ANTI-BRUIT"
-    // =====================================================================
-    function parseRawData(rawText, blocks) {
-      if (!rawText) return {};
-      let format = null, documentNumber = null, fields = {};
-      const rawUpper = rawText.toUpperCase();
-
-      // --- 1. DATES CHRONOLOGIQUES (Infaillible) ---
-      const sortedDates = extractSortedDates(rawUpper);
-      if (sortedDates.length > 0) {
-          fields.birthDate = sortedDates[0].str; // La plus ancienne
-          if (sortedDates.length > 1) fields.expirationDate = sortedDates[sortedDates.length - 1].str; // La plus récente
-          if (sortedDates.length > 2) fields.issueDate = sortedDates[1].str; // Celle du milieu
-      }
-
-      // --- 2. VÉRITÉ ABSOLUE : MRZ DEPOLLUÉ (Ignore tous les espaces) ---
-      const noSpace = rawUpper.replace(/\s+/g, '');
-      
-      // Permis de conduire
-      let mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9]{6})([A-ZÀ-Ÿ]+)<</);
-      if (mrzPermis) {
-         format = 'PERMIS_FR';
-         if(!documentNumber) documentNumber = mrzPermis[1].replace(/O/g, '0');
-         if(!fields.expirationDate) fields.expirationDate = mrzPermis[2];
-         if(!fields.lastName) fields.lastName = mrzPermis[3];
-      }
-
-      // CNI (TD1)
-      let mrzCni = noSpace.match(/I[A-Z<]FRA([A-Z0-9]{9})\d[A-Z0-9]{14}([0-9]{6})\d[MF<]([0-9]{6})\d/);
-      if (mrzCni && !documentNumber) { format = 'CNI'; documentNumber = mrzCni[1].replace(/</g, ''); }
-
-      // Passeport (TD3)
-      let mrzPass = noSpace.match(/P[A-Z<]FRA([A-Z0-9<]{9})\d[A-Z]{3}([0-9]{6})\d[MF<]([0-9]{6})\d/);
-      if (mrzPass && !documentNumber) { format = 'PASSEPORT'; documentNumber = mrzPass[1].replace(/</g, ''); }
-
-      // Librairie Standard en Filet de sécurité
-      const mrzLines = rawUpper.split('\n').map(l => l.replace(/[\s]+/g, '<').replace(/[^A-Z0-9<]/g, '').trim()).filter(l => l.length >= 25);
-      if (mrzLines.length >= 2) {
-        let patched = [...mrzLines];
-        if (patched[0].startsWith('IR')) patched[0] = 'ID' + patched[0].substring(2);
-        try { 
-          const mrz = mrzParse(patched); 
-          if(mrz) { 
-             if(!format) format = mrz.format; 
-             if(!documentNumber) documentNumber = mrz.documentNumber; 
-             Object.assign(fields, mrz.fields); 
-          }
-        } catch (e) {}
-      }
-
-      // --- 3. ANCRES EUROPÉENNES (Spécial Bruit OCR) ---
-      // Ancre 1 : Nom de famille
-      const m1 = rawUpper.match(/(?:^|\n)\s*1[\s.,:-]+(?:[0-9A-Z]\s*)?([A-ZÀ-Ÿ]{3,}(?:\s+[A-ZÀ-Ÿ]{2,})*)/);
-      if (m1 && !fields.lastName) fields.lastName = m1[1];
-
-      // Ancre 2 : Prénom (Capture 'NICOLAS PATRICK GUYN' malgré le '4' devant)
-      const m2 = rawUpper.match(/(?:^|\n)\s*2[\s.,:-]+(?:[0-9A-Z]\s*)?([A-ZÀ-Ÿ]{3,}(?:\s+[A-ZÀ-Ÿ]{2,})*)/);
-      if (m2 && !fields.firstName) fields.firstName = m2[1];
-
-      // Ancre 5 ou 6 : Numéro de document
-      const m5 = rawUpper.match(/(?:^|\n)\s*[56][\s.,:-]+([A-Z0-9]{9})/);
-      if (m5 && !documentNumber) documentNumber = m5[1].replace(/O/g, '0');
-
-      // --- 4. ULTIME FALLBACK NUMÉRO (Permis) ---
-      if (!documentNumber) {
-          // Cherche le pattern exact : 2 chiffres + 2 lettres + 5 chiffres
-          const permisNum = rawUpper.match(/\b(\d{2}[A-Z0-9]{2}\d{5})\b/);
-          if (permisNum) documentNumber = permisNum[1].replace(/O/g, '0');
-      }
-
-      return { format, documentNumber, fields };
-    }
-
     function applyStrictRules(extractedData, rawText) {
       const strictResult = {
         'Type de document': getStrictDocType(extractedData.format, rawText),
@@ -358,7 +376,9 @@
         'Nom': cleanName(extractedData.fields?.lastName),
         'Prénom': cleanName(extractedData.fields?.firstName),
         'Date de naissance': strictDateFormatter(extractedData.fields?.birthDate),
+        'Lieu de naissance': extractedData.fields?.placeOfBirth,
         'Date d\'émission': strictDateFormatter(extractedData.fields?.issueDate),
+        'Délivré par': extractedData.fields?.issuedBy,
         'Date de péremption': strictDateFormatter(extractedData.fields?.expirationDate),
         'Sexe': extractedData.fields?.sex,
         'Nationalité': extractedData.fields?.nationality
@@ -369,7 +389,6 @@
         strictResult['N° de titre'] = docNum.toUpperCase().replace(/[^A-Z0-9]/g, '');
       }
 
-      // Condition de perfection (Ce qui arrête la caméra)
       const isOptimal = (
         strictResult['Type de document'] !== null &&
         strictResult['N° de titre'] !== null &&
@@ -437,19 +456,17 @@
       if (imageSource === 'camera') ctx.drawImage(video, 0, 0, srcW, srcH);
       else ctx.drawImage(imageSource, 0, 0, srcW, srcH);
 
-      let rawText = "", blocks = [];
+      let rawText = "";
       if (ocrEngine === 'NATIVE') {
         try {
           const detector = new TextDetector(); const detectedTexts = await detector.detect(canvas);
           rawText = detectedTexts.map(t => t.rawValue).join('\n');
-          blocks = detectedTexts.map(t => ({ text: t.rawValue, rect: { y: t.boundingBox.y } }));
         } catch (e) { }
       } else {
         ctx.filter = 'contrast(1.5) grayscale(1)'; ctx.drawImage(canvas, 0, 0); ctx.filter = 'none';
         const { data } = await tesseractWorker.recognize(canvas); rawText = data.text;
-        if (data.lines) blocks = data.lines.map(l => ({ text: l.text, rect: { y: l.bbox.y0 } }));
       }
-      return { rawText, blocks };
+      return rawText;
     }
 
     // =====================================================================
@@ -474,8 +491,9 @@
     async function scanLoop() {
       if (!isScanning || !video.srcObject || video.paused) return;
       try {
-        const { rawText, blocks } = await extractTextData('camera');
-        const strictData = applyStrictRules(parseRawData(rawText, blocks), rawText);
+        const rawText = await extractTextData('camera');
+        // Dans la vidéo, on utilise le même parser surpuissant que la galerie
+        const strictData = applyStrictRules(postProcessGalleryData(rawText), rawText);
         
         updateConsensus(strictData);
         const finalConsensus = getConsensusFields();
@@ -498,18 +516,22 @@
       scanTimeout = setTimeout(scanLoop, ocrEngine === 'NATIVE' ? 150 : 800);
     }
 
+    // =====================================================================
+    // UPLOAD PHOTO GALERIE (Traitement Lourd)
+    // =====================================================================
     function handleFileUpload(event) {
       const file = event.target.files[0]; if (!file) return;
-      switchView('loading'); document.getElementById('load-status').innerText = "Filtrage européen..."; resetConsensusBuffer();
+      switchView('loading'); document.getElementById('load-status').innerText = "Extraction chirurgicale en cours..."; 
+      resetConsensusBuffer();
+      
       const img = new Image();
       img.onload = async () => {
-        const { rawText, blocks } = await extractTextData(img);
-        const strictData = applyStrictRules(parseRawData(rawText, blocks), rawText);
-        updateConsensus(strictData);
-        const finalConsensus = getConsensusFields();
-        const isOptimal = (finalConsensus['Type de document'] && finalConsensus['N° de titre'] && finalConsensus['Nom'] && finalConsensus['Date de naissance']);
-        let score = 0; Object.values(finalConsensus).forEach(v => { if (v) score++; });
-        showResult({ isOptimal, score, strictFields: finalConsensus }, rawText, !isOptimal);
+        const rawText = await extractTextData(img);
+        // Post-processing complet sur l'image statique
+        const strictData = applyStrictRules(postProcessGalleryData(rawText), rawText);
+        
+        const isOptimal = (strictData.strictFields['Type de document'] && strictData.strictFields['N° de titre'] && strictData.strictFields['Nom'] && strictData.strictFields['Date de naissance']);
+        showResult({ isOptimal, score: strictData.score, strictFields: strictData.strictFields }, rawText, !isOptimal);
       };
       img.src = URL.createObjectURL(file);
     }
@@ -519,9 +541,18 @@
     // =====================================================================
     function resetApp() { switchView('ready'); }
 
+    function getIconForLabel(label) {
+        if (label.includes('Date')) return '📅';
+        if (label === 'Nom' || label === 'Prénom') return '👤';
+        if (label === 'Lieu de naissance') return '📍';
+        if (label === 'Délivré par') return '🏛️';
+        if (label.includes('N°')) return '🆔';
+        return '📋';
+    }
+
     function addFieldUI(container, label, value) {
       const row = document.createElement('div'); row.className = 'field-row';
-      const icon = label.includes('Date') ? '📅' : (label === 'Nom' || label === 'Prénom' ? '👤' : (label.includes('N°') ? '🆔' : '🏳️'));
+      const icon = getIconForLabel(label);
       row.innerHTML = `<span class="text-lg">${icon}</span><span class="field-label">${label}</span><span class="field-value">${value}</span>`;
       finalFields[label] = value;
       row.addEventListener('click', () => { navigator.clipboard.writeText(value).then(() => showToast(`✅ ${label} copié !`)).catch(()=>{}); });

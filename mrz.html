@@ -32,7 +32,6 @@
     .doc-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; box-shadow: 0 4px 12px rgba(59, 131, 246, 0.3); }
     .doc-btn .material-symbols-outlined { font-size: 1.15rem; }
 
-    /* Badge Natif réduit de 15% */
     .engine-badge { position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 12px; font-size: 0.6rem; font-weight: bold; backdrop-filter: blur(4px); cursor: pointer; transition: background 0.2s; z-index: 50;}
     .engine-badge:hover { background: rgba(255,255,255,0.2); }
     .engine-native { color: #4ade80; border: 1px solid #4ade8055; }
@@ -48,7 +47,7 @@
 <body>
   <div id="copy-toast" class="copy-toast">✅ Action réussie !</div>
 
-  <!-- MODAL CONSEIL (Avec Checkbox) -->
+  <!-- MODAL CONSEIL -->
   <div id="modal-advice" class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm hidden flex-col items-center justify-center px-6">
     <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
       <div class="text-4xl mb-4">💡</div>
@@ -57,7 +56,7 @@
       </p>
       
       <label class="flex items-center justify-center gap-2 mb-6 cursor-pointer text-slate-400 hover:text-slate-300 group">
-        <input type="checkbox" id="dont-show-again" class="custom-checkbox" style="width: 1rem; height: 1rem;">
+        <input type="checkbox" id="dont-show-again" class="custom-checkbox">
         <span class="text-xs select-none">J'ai compris, ne plus afficher</span>
       </label>
 
@@ -99,17 +98,13 @@
   <div id="view-ready" class="view fixed inset-0 z-50 bg-[#0a0a0f] flex flex-col items-center justify-center px-4 sm:px-8 relative">
     <div id="engine-indicator" class="engine-badge engine-wasm" onclick="showFlagsModal()">Moteur: Détection...</div>
     
-    <!-- Conteneur centré pour éviter le défilement -->
     <div class="w-full max-w-sm flex flex-col items-center gap-5">
-      
-      <!-- En-tête avec nouvelle icône -->
       <div class="text-center flex flex-col items-center">
         <span class="material-symbols-outlined text-blue-500 mb-2" style="font-size: 4.5rem; font-variation-settings: 'wght' 300;">detection_and_zone</span>
         <h1 class="text-2xl font-bold mb-1">Borderforce Scanner</h1>
         <p class="text-slate-400 text-xs">Consensus 8-Scans Multi-Pass</p>
       </div>
 
-      <!-- Sélecteur de type -->
       <div class="doc-selector" id="ready-selector">
         <button class="doc-btn active" data-type="AUTO">
           <span class="material-symbols-outlined">document_scanner</span>AUTO
@@ -128,9 +123,7 @@
         </button>
       </div>
 
-      <!-- Actions dynamiques -->
       <div class="w-full flex flex-col gap-3 items-center">
-        <!-- Avertissement si moteur natif absent -->
         <div id="wasm-warning" class="hidden w-full p-3.5 bg-facc15/10 border border-facc15/30 rounded-xl text-facc15 text-xs text-center cursor-pointer transition-all hover:bg-facc15/20" onclick="showFlagsModal()">
           <span class="material-symbols-outlined align-middle mr-1" style="font-size: 1.1rem;">warning</span>
           Scanner vidéo indisponible.<br>
@@ -147,11 +140,9 @@
         </label>
       </div>
 
-      <!-- Footer solidaire des boutons -->
       <div class="text-center w-full opacity-40 text-[9px] text-slate-500 tracking-[0.2em] uppercase font-bold mt-2">
         G/ Maheux - Adj Rustenholtz
       </div>
-      
     </div>
   </div>
 
@@ -191,10 +182,8 @@
       </div>
       <p class="text-[0.65rem] text-slate-400 mb-5">Décochez les informations que vous ne souhaitez pas partager.</p>
       
-      <!-- Conteneur des champs interactifs (2 lignes) -->
       <div id="res-fields" class="flex flex-col gap-2 mb-6"></div>
 
-      <!-- Actions Copier / Partager -->
       <div class="flex gap-3 mb-6">
         <button onclick="copySelectedFields()" class="flex-1 bg-blue-600 hover:bg-blue-500 py-3.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-600/20 flex flex-col items-center justify-center gap-1">
           <span class="material-symbols-outlined text-[1.2rem]">content_copy</span>
@@ -230,6 +219,7 @@
     let tesseractWorker = null;
     let isScanning = false;
     let selectedDocType = 'AUTO';
+    let finalFields = {};
 
     const MAX_FRAMES = 8;
     let scanFrames = [];
@@ -256,7 +246,7 @@
     ];
 
     // =====================================================================
-    // FORMATAGE STRICT ET CORRECTIONS
+    // FORMATAGE STRICT ET CORRECTIONS "CHIRURGICALES"
     // =====================================================================
     function containsForbiddenWord(text) {
       if (!text) return false;
@@ -268,13 +258,13 @@
       if (!name) return null;
       let clean = name;
       
-      // Correction BUG : on supprime les minuscules parasites (ex: GUYn -> GUY) 
-      // AVANT de tout forcer en majuscule, sinon le 'n' devient un 'N' légitime.
+      // FIX 1: On éradique toutes les lettres minuscules AVANT le toUpperCase
+      // Cela évite de transformer le 'n' parasite de 'GUYn' en un 'N' légitime.
       clean = clean.replace(/[a-z]/g, '');
       clean = clean.toUpperCase();
       
       clean = clean.replace(OCR_NOISE, '');
-      clean = clean.replace(/^[0-9]+[.\-:]?\s+/g, '');
+      clean = clean.replace(/^[0-9.,\-:;\s]+/g, '');
       clean = clean.replace(/[^\w\s\-À-Ÿ,]/g, ' ').trim();
       clean = clean.replace(/^,+|,+$/g, '').trim();
       clean = clean.replace(/\s+/g, ' ');
@@ -292,7 +282,7 @@
                 .replace(/[B]/g, '8');
     }
 
-    // Le paramètre type ("birth", "issue", "expiry") permet d'éviter l'erreur 1939 vs 2039
+    // FIX 2: Le paramètre 'type' indique si on formatte une naissance ou une expiration
     function strictDateFormatter(rawDate, type = 'birth') {
       if (!rawDate) return null;
       const cleaned = cleanDateDigits(rawDate);
@@ -303,21 +293,19 @@
         let dd = cleaned.substring(4,6);
         let currentYear = new Date().getFullYear() % 100;
         let yyyy;
-
+        
+        // Expiration : Toujours dans le siècle actuel (ou futur)
         if (type === 'expiry') {
-            // Une expiration est forcément dans le futur ou passé récent -> 20xx
             yyyy = '20' + cleaned.substring(0,2);
-        } else if (type === 'issue') {
-             // Une émission est dans le passé. Si > année actuelle, c'était dans les années 1900
-             yyyy = (yy > currentYear ? '19' : '20') + cleaned.substring(0,2);
         } else {
-             // Une naissance. Si yy est supérieur à l'année actuelle (ex: 97 > 24), c'est forcément 1997.
-             yyyy = (yy > currentYear ? '19' : '20') + cleaned.substring(0,2);
+            // Naissance ou Émission : Si c'est supérieur à l'année actuelle, c'est forcément 19xx
+            yyyy = (yy > currentYear ? '19' : '20') + cleaned.substring(0,2);
         }
         return `${dd}.${mm}.${yyyy}`;
       }
       
-      const match = cleaned.match(/\b(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})\b/);
+      // Extraction permissive d'une date (tolère des chiffres collés autour)
+      const match = cleaned.match(/(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})/);
       if (match) {
           let dd = match[1], mm = match[2], yyyy = match[3];
           if (parseInt(mm) >= 1 && parseInt(mm) <= 12 && parseInt(dd) >= 1 && parseInt(dd) <= 31) {
@@ -363,12 +351,13 @@
     }
 
     // =====================================================================
-    // EXTRACTION CHIRURGICALE UNIFIÉE
+    // EXTRACTION DU TEXTE (L'INTELLIGENCE)
     // =====================================================================
     function extractDocumentData(rawText) {
       if (!rawText) return {};
       let format = null, documentNumber = null, fields = {};
       const rawUpper = rawText.toUpperCase();
+
       const sortedDates = extractSortedDates(rawUpper);
 
       const noSpace = rawUpper.replace(/[\s\n]+/g, '');
@@ -393,42 +382,39 @@
              fields.lastName = mrzPermis[3];
           }
 
-          const lines = rawUpper.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+          // On découpe la ligne originale pour conserver les minuscules parasites
+          const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
           
           for (let i = 0; i < lines.length; i++) {
               let l = lines[i];
 
-              let m1 = l.match(/^(?:1[.,\s:]+)(?:[A-Z0-9]\s*)?([A-ZÀ-Ÿ\-]{2,}(?:\s+[A-ZÀ-Ÿ\-]{2,})*)/);
+              let m1 = l.match(/^1[\s.,:-]+(?:[0-9]\s*|[A-Z]\s+)?(.*)/i);
               if (m1 && !fields.lastName) fields.lastName = m1[1];
 
-              let m2 = l.match(/^(?:2[.,\s:]+)(?:[A-Z0-9]\s*)?([A-ZÀ-Ÿ\-]{2,}(?:\s+[A-ZÀ-Ÿ\-]{2,})*)/);
+              let m2 = l.match(/^2[\s.,:-]+(?:[0-9]\s*|[A-Z]\s+)?(.*)/i);
               if (m2 && !fields.firstName) fields.firstName = m2[1];
 
-              let m3 = l.match(/^(?:3[\s.,:-]+)(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})\s*(?:\(?([^)\n]+)\)?)?/);
+              let m3 = l.match(/^3[\s.,:-]+(?:.*?)?(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})\s*(?:\(?([^)\n]+)\)?)?/i);
               if (m3) {
                   if (!fields.birthDate) fields.birthDate = m3[1];
                   if (m3[2] && !fields.placeOfBirth) fields.placeOfBirth = m3[2].replace(/[<()]/g, '').trim();
               }
 
-              let m4a = l.match(/^(?:4[aA][\s.,:-]+)(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
-              if (m4a && !fields.issueDate) fields.issueDate = m4a[1];
-
-              let m4b = l.match(/^(?:4[bB8][\s.,:-]+)(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
-              if (m4b && !fields.expirationDate) fields.expirationDate = m4b[1];
-
-              let m4c = l.match(/^(?:4[cC][\s.,:-]+)(.+)/);
+              let m4c = l.match(/4[cC][\s.,:-]+(.+)/i);
               if (m4c && !fields.issuedBy) fields.issuedBy = m4c[1].replace(/4[A-Z0-9].*$/, '').trim();
 
-              let m5 = l.match(/^(?:[5S6][\s.,:-]+)([A-Z0-9]{5,15})/);
+              let m5 = l.match(/^[5S6][\s.,:-]+([A-Z0-9]{5,15})/i);
               if (m5 && !documentNumber) documentNumber = m5[1].replace(/O/g, '0');
           }
 
+          // Recherche multi-lignes pour le lieu de naissance
           if (fields.birthDate && !fields.placeOfBirth) {
               let cleanDate = fields.birthDate.replace(/\./g, '\\.');
               let bMatch = rawUpper.match(new RegExp(cleanDate + '\\s*\\n\\s*\\(?([A-ZÀ-Ÿ\\-\\s]{3,})\\)?'));
               if (bMatch) fields.placeOfBirth = bMatch[1].trim();
           }
 
+          // Injecte les dates triées de secours
           if (sortedDates.length > 0) {
               if (!fields.birthDate) fields.birthDate = sortedDates[0].str; 
               if (sortedDates.length > 1 && !fields.expirationDate) fields.expirationDate = sortedDates[sortedDates.length - 1].str;
@@ -449,7 +435,7 @@
         'Lieu de naissance': extractedData.fields?.placeOfBirth,
         'Date d\'émission': strictDateFormatter(extractedData.fields?.issueDate, 'issue'),
         'Délivré par': extractedData.fields?.issuedBy,
-        'Date de péremption': strictDateFormatter(extractedData.fields?.expirationDate, 'expiry'),
+        'Date de péremption': strictDateFormatter(extractedData.fields?.expirationDate, 'expiry'), // FIX CONTEXTE APPLIQUÉ
         'Sexe': extractedData.fields?.sex,
         'Nationalité': extractedData.fields?.nationality
       };
@@ -463,39 +449,7 @@
     }
 
     // =====================================================================
-    // GESTION DES MODALES
-    // =====================================================================
-    function showAdviceModal() {
-      if (localStorage.getItem('borderforce_hide_advice') === 'true') {
-        startCamera();
-      } else {
-        document.getElementById('modal-advice').classList.replace('hidden', 'flex');
-      }
-    }
-
-    function closeAdviceModal() {
-      document.getElementById('modal-advice').classList.replace('flex', 'hidden');
-    }
-
-    function confirmStartCamera() {
-      const dontShow = document.getElementById('dont-show-again').checked;
-      if (dontShow) {
-        localStorage.setItem('borderforce_hide_advice', 'true');
-      }
-      closeAdviceModal();
-      startCamera();
-    }
-
-    function showFlagsModal() {
-      document.getElementById('modal-flags').classList.replace('hidden', 'flex');
-    }
-
-    function closeFlagsModal() {
-      document.getElementById('modal-flags').classList.replace('flex', 'hidden');
-    }
-
-    // =====================================================================
-    // MOTEUR OCR & APP INIT
+    // APP INIT & MOTEURS
     // =====================================================================
     window.addEventListener('DOMContentLoaded', async () => {
       ['loading', 'ready', 'scanning', 'result'].forEach(n => views[n] = document.getElementById('view-' + n));
@@ -536,20 +490,16 @@
           ocrEngine = 'NATIVE';
           document.getElementById('engine-indicator').innerHTML = "⚡ Moteur Natif <span class='text-[7px] ml-1 bg-white/20 px-1 py-0.5 rounded-full'>INFO</span>";
           document.getElementById('engine-indicator').className = "engine-badge engine-native"; 
-          
           btnScan.classList.remove('hidden');
           warningWasm.classList.add('hidden');
-          
           bar.style.width = '100%';
         } else {
           ocrEngine = 'TESSERACT';
           document.getElementById('engine-indicator').innerHTML = "🐢 Moteur Web <span class='text-[7px] ml-1 bg-white/20 px-1 py-0.5 rounded-full'>INFO</span>";
           document.getElementById('engine-indicator').className = "engine-badge engine-wasm"; 
-          
           btnScan.classList.add('hidden');
           warningWasm.classList.remove('hidden');
           btnImport.className = "w-full py-3.5 rounded-xl font-bold text-base transition-all text-center cursor-pointer flex items-center justify-center gap-2 border border-blue-500 bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20";
-          
           bar.style.width = '60%';
           tesseractWorker = await Tesseract.createWorker('eng');
           await tesseractWorker.setParameters({ tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<', });
@@ -559,13 +509,26 @@
       } catch (err) { status.innerText = "Erreur: " + err.message; }
     }
 
+    // =====================================================================
+    // MODALES & FLUX VIDÉO
+    // =====================================================================
+    function showAdviceModal() {
+      if (localStorage.getItem('borderforce_hide_advice') === 'true') startCamera();
+      else document.getElementById('modal-advice').classList.replace('hidden', 'flex');
+    }
+    function closeAdviceModal() { document.getElementById('modal-advice').classList.replace('flex', 'hidden'); }
+    function confirmStartCamera() {
+      if (document.getElementById('dont-show-again').checked) localStorage.setItem('borderforce_hide_advice', 'true');
+      closeAdviceModal(); startCamera();
+    }
+    function showFlagsModal() { document.getElementById('modal-flags').classList.replace('hidden', 'flex'); }
+    function closeFlagsModal() { document.getElementById('modal-flags').classList.replace('flex', 'hidden'); }
+
     async function extractTextData(imageSource) {
       let srcW = imageSource === 'camera' ? video.videoWidth : imageSource.width;
       let srcH = imageSource === 'camera' ? video.videoHeight : imageSource.height;
       canvas.width = srcW; canvas.height = srcH;
-      if (imageSource === 'camera') ctx.drawImage(video, 0, 0, srcW, srcH);
-      else ctx.drawImage(imageSource, 0, 0, srcW, srcH);
-
+      ctx.drawImage(imageSource === 'camera' ? video : imageSource, 0, 0, srcW, srcH);
       let rawText = "";
       if (ocrEngine === 'NATIVE') {
         try {
@@ -579,18 +542,10 @@
       return rawText;
     }
 
-    // =====================================================================
-    // CAMERA & VIDÉO
-    // =====================================================================
     async function startCamera() {
-      switchView('scanning'); 
-      isScanning = true; 
-      scanFrames = [];
-      frameCount = 0;
-      
+      switchView('scanning'); isScanning = true; scanFrames = []; frameCount = 0;
       document.getElementById('scan-feedback').innerText = `Acquisition des données (0/${MAX_FRAMES})...`;
       document.getElementById('timeout-progress').style.width = '0%';
-      
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
         video.srcObject = stream; await video.play(); scanLoop();
@@ -599,100 +554,59 @@
 
     function stopVideo() { isScanning = false; if (scanTimeout) clearTimeout(scanTimeout); if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop()); }
     function cancelScan() { stopVideo(); switchView('ready'); }
-    
-    function forceCapture() { 
-      if (!isScanning) return; 
-      stopVideo(); 
-      processConsensusAndShowResult(); 
-    }
+    function forceCapture() { if (!isScanning) return; stopVideo(); processConsensusAndShowResult(); }
 
     async function scanLoop() {
       if (!isScanning || !video.srcObject || video.paused) return;
       try {
         const rawText = await extractTextData('camera');
-        
-        scanFrames.push(rawText);
-        frameCount++;
-
+        scanFrames.push(rawText); frameCount++;
         document.getElementById('scan-feedback').innerText = `Acquisition image (${frameCount}/${MAX_FRAMES})...`;
         document.getElementById('timeout-progress').style.width = `${(frameCount / MAX_FRAMES) * 100}%`;
-
-        if (frameCount >= MAX_FRAMES) {
-            stopVideo();
-            processConsensusAndShowResult();
-            return;
-        }
+        if (frameCount >= MAX_FRAMES) { stopVideo(); processConsensusAndShowResult(); return; }
       } catch (e) { }
-      
       scanTimeout = setTimeout(scanLoop, ocrEngine === 'NATIVE' ? 250 : 800);
     }
 
     function processConsensusAndShowResult() {
-        let allResults = [];
-        let megaRawText = "";
-
+        let allResults = []; let megaRawText = "";
         for (let rawText of scanFrames) {
             megaRawText += rawText + "\n";
-            const rawData = extractDocumentData(rawText);
-            const strictData = applyStrictRules(rawData, rawText);
-            allResults.push(strictData.strictFields);
+            allResults.push(applyStrictRules(extractDocumentData(rawText), rawText).strictFields);
         }
-
-        const megaRawData = extractDocumentData(megaRawText);
-        const megaStrictData = applyStrictRules(megaRawData, megaRawText);
-        allResults.push(megaStrictData.strictFields);
+        allResults.push(applyStrictRules(extractDocumentData(megaRawText), megaRawText).strictFields);
 
         let finalConsensus = {};
         for (const key of FIELD_ORDER) {
-            let counts = {};
-            let maxCount = 0;
-            let bestValue = null;
-            
+            let counts = {}; let maxCount = 0; let bestValue = null;
             for (let res of allResults) {
                 const val = res[key];
-                if (val) {
-                    counts[val] = (counts[val] || 0) + 1;
-                    if (counts[val] > maxCount) { maxCount = counts[val]; bestValue = val; }
-                }
+                if (val) { counts[val] = (counts[val] || 0) + 1; if (counts[val] > maxCount) { maxCount = counts[val]; bestValue = val; } }
             }
             finalConsensus[key] = bestValue;
         }
 
-        const isOptimal = (
-            finalConsensus['Type de document'] !== null && 
-            finalConsensus['N° de titre'] !== null && 
-            finalConsensus['Nom'] !== null && 
-            finalConsensus['Date de naissance'] !== null
-        );
-        
-        let score = 0; Object.values(finalConsensus).forEach(val => { if (val !== null) score++; });
-        
+        const isOptimal = (finalConsensus['Type de document'] && finalConsensus['N° de titre'] && finalConsensus['Nom'] && finalConsensus['Date de naissance']);
+        let score = 0; Object.values(finalConsensus).forEach(val => { if (val) score++; });
         showResult({ isOptimal, score, strictFields: finalConsensus }, megaRawText, !isOptimal);
     }
 
-    // =====================================================================
-    // UPLOAD PHOTO GALERIE
-    // =====================================================================
     function handleFileUpload(event) {
       const file = event.target.files[0]; if (!file) return;
       switchView('loading'); document.getElementById('load-status').innerText = "Extraction chirurgicale en cours..."; 
-      
       const img = new Image();
       img.onload = async () => {
         const rawText = await extractTextData(img);
-        const rawData = extractDocumentData(rawText);
-        const strictData = applyStrictRules(rawData, rawText);
-        
+        const strictData = applyStrictRules(extractDocumentData(rawText), rawText);
         const isOptimal = (strictData.strictFields['Type de document'] && strictData.strictFields['N° de titre'] && strictData.strictFields['Nom'] && strictData.strictFields['Date de naissance']);
-        let score = 0; Object.values(strictData.strictFields).forEach(val => { if (val !== null) score++; });
-        
+        let score = 0; Object.values(strictData.strictFields).forEach(val => { if (val) score++; });
         showResult({ isOptimal, score, strictFields: strictData.strictFields }, rawText, !isOptimal);
       };
       img.src = URL.createObjectURL(file);
     }
 
     // =====================================================================
-    // AFFICHAGE ET EXPORT
+    // AFFICHAGE RÉSULTATS (CHECKBOX ET 2 LIGNES)
     // =====================================================================
     function resetApp() { switchView('ready'); }
 
@@ -710,27 +624,16 @@
     function addFieldUI(container, label, value) {
       const row = document.createElement('div'); 
       row.className = 'flex flex-col gap-1 p-3 bg-white/5 hover:bg-white/10 rounded-xl cursor-pointer transition-colors';
-      
       const matIcon = getIconForLabel(label);
-
       row.innerHTML = `
         <div class="flex items-center gap-2 text-slate-400">
           <input type="checkbox" class="custom-checkbox field-cb" checked data-label="${label}" data-value="${value}">
           <span class="material-symbols-outlined text-[1rem]">${matIcon}</span>
           <span class="text-[0.65rem] uppercase tracking-widest font-semibold">${label} :</span>
         </div>
-        <div class="pl-8">
-          <span class="text-[0.95rem] font-bold text-white break-all">${value}</span>
-        </div>
+        <div class="pl-8"><span class="text-[0.95rem] font-bold text-white break-all">${value}</span></div>
       `;
-
-      row.addEventListener('click', (e) => { 
-          if(e.target.tagName !== 'INPUT') {
-            const cb = row.querySelector('.field-cb');
-            cb.checked = !cb.checked;
-          }
-      });
-
+      row.addEventListener('click', (e) => { if(e.target.tagName !== 'INPUT') { const cb = row.querySelector('.field-cb'); cb.checked = !cb.checked; } });
       container.appendChild(row);
     }
 
@@ -758,9 +661,7 @@
         const checkboxes = document.querySelectorAll('.field-cb:checked');
         if (checkboxes.length === 0) return null;
         const lines = [];
-        checkboxes.forEach(cb => {
-            lines.push(`${cb.dataset.label} : ${cb.dataset.value}`);
-        });
+        checkboxes.forEach(cb => { lines.push(`${cb.dataset.label} : ${cb.dataset.value}`); });
         return lines.join('\n');
     }
 
@@ -776,15 +677,9 @@
     function shareSelectedFields() {
       const text = getSelectedText();
       if (!text) { showToast('⚠️ Aucune ligne sélectionnée'); return; }
-      
       if (navigator.share) {
-          navigator.share({
-              title: 'Informations Identité',
-              text: text
-          }).catch(console.error);
-      } else {
-          showToast('⚠️ Partage natif non supporté sur ce navigateur');
-      }
+          navigator.share({ title: 'Extraction Borderforce', text: text }).catch(console.error);
+      } else { showToast('⚠️ Partage natif non supporté sur ce navigateur'); }
     }
 
     function showToast(msg) {

@@ -99,6 +99,7 @@
     
     <div class="w-full max-w-sm flex flex-col items-center gap-5">
       
+      <!-- Bouton Moteur Centré -->
       <div id="engine-indicator" class="engine-badge-centered engine-wasm" onclick="showFlagsModal()">Moteur: Détection...</div>
       
       <div class="text-center flex flex-col items-center">
@@ -370,13 +371,12 @@
       // 1b. PASSEPORT MRZ ALTERNATIF
       let mrzPassAlt = noSpace.match(/P[A-Z<C]*FRA([A-Z0-9]+?)[<C]{2,}([A-Z0-9]{9})[0-9A-Z][A-Z<C]{0,3}([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]+[0-9A-Z]{1,2}([A-Z<C]+)/);
 
-      // 2. ANCIENNE CNI FRANÇAISE MRZ
-      // FIX CRITIQUE: Force le prénom à commencer par une lettre pour éviter l'absorption des chiffres du code
-      let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z0-9]+?)[<C]+.*?([0-9A-Z]{12})[0-9A-Z]([A-Z]+[A-Z0-9<C]*?)([0-9A-Z]{6})[0-9A-Z][MF<C]/);
+      // 2. NOUVELLE CNI FRANÇAISE MRZ (TD1 format carte bancaire) - Vérifié avant l'Ancienne CNI
+      let mrzCniNewFrench = noSpace.match(/I[A-Z0-9<C]FRA([A-Z0-9]+)[<C]+([A-Z0-9]{9})[0-9A-Z]([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]+[0-9]*([A-Z]+[A-Z0-9<C]*)/);
+      let mrzCniNewStandard = noSpace.match(/I[A-Z<C]FRA([A-Z0-9]{9})[0-9A-Z].{15}([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}.{11}([A-Z]+)[<C]+([A-Z<C]+)/);
 
-      // 3. NOUVELLE CNI FRANÇAISE MRZ (TD1)
-      let mrzCniNewFrench = noSpace.match(/I[A-Z0-9<C]FRA([A-Z0-9]+)[<C]+([A-Z0-9]{9})[0-9A-Z]([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]*[0-9A-Z]?([A-Z0-9]+[A-Z0-9<C]*)/);
-      let mrzCniNewStandard = noSpace.match(/I[A-Z<C]FRA([A-Z0-9]{9})[0-9A-Z].{15}([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}.{11}([A-Z]+)<<([A-Z<C]+)/);
+      // 3. ANCIENNE CNI FRANÇAISE MRZ (Plastifiée bleue)
+      let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z0-9]+?)[<C]+.*?([0-9A-Z]{12})[0-9A-Z]([A-Z]+[A-Z0-9<C]*?)([0-9A-Z]{6})[0-9A-Z][MF<C]/);
 
       // 4. PERMIS DE CONDUIRE MRZ
       let mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9A-Z]{6})([A-ZÀ-Ÿ]+)<</);
@@ -388,7 +388,6 @@
       if (mrzPassStandard) {
           format = 'PASSEPORT';
           fields.lastName = mrzPassStandard[1].replace(/</g, ' ').trim();
-          // FIX: split sur les chevrons pour ne garder que le 1er prénom sans tuer les vrais "C"
           fields.firstName = mrzPassStandard[2].split(/<+/)[0].trim();
           documentNumber = mrzPassStandard[3].replace(/O/g, '0');
           fields.birthDate = cleanDateDigits(mrzPassStandard[4]);
@@ -403,13 +402,6 @@
           fields.expirationDate = cleanDateDigits(mrzPassAlt[4]);
           fields.nationality = 'FRA';
           fields.firstName = mrzPassAlt[5].replace(/0/g, 'O').split(/<+/)[0].trim();
-      }
-      else if (mrzCniOld) {
-          format = 'CNI';
-          fields.lastName = mrzCniOld[1].replace(/0/g, 'O');
-          documentNumber = mrzCniOld[2].replace(/O/g, '0');
-          fields.firstName = mrzCniOld[3].replace(/[0-9]/g, '').split(/<+/)[0].trim();
-          fields.birthDate = cleanDateDigits(mrzCniOld[4]);
       }
       else if (mrzCniNewFrench) {
           format = 'CNI';
@@ -426,6 +418,13 @@
           fields.expirationDate = cleanDateDigits(mrzCniNewStandard[3]);
           fields.lastName = mrzCniNewStandard[4].replace(/0/g, 'O').replace(/<+/g, ' ').trim();
           fields.firstName = mrzCniNewStandard[5].replace(/0/g, 'O').split(/<+/)[0].trim();
+      }
+      else if (mrzCniOld) {
+          format = 'CNI';
+          fields.lastName = mrzCniOld[1].replace(/0/g, 'O');
+          documentNumber = mrzCniOld[2].replace(/O/g, '0');
+          fields.firstName = mrzCniOld[3].replace(/[0-9]/g, '').split(/<+/)[0].trim();
+          fields.birthDate = cleanDateDigits(mrzCniOld[4]);
       }
       else if (mrzTitreSejour) {
           format = 'TITRE_SEJOUR';
@@ -487,8 +486,7 @@
                   fields.birthDate = cniDateLieu[1];
               }
 
-              // FIX CRITIQUE: Tolère les a, à, A, À suivis de deux points avec ou sans espaces
-              let cniLieu = l.match(/^[AÀaà]\s*[:;]\s*(.+)/i);
+              let cniLieu = l.match(/(?:^|\s)[AÀaà]\s*[:;]\s*([A-ZÀ-Ÿ\-\s]+)/i);
               if (cniLieu && !fields.placeOfBirth) fields.placeOfBirth = cniLieu[1].trim();
 
               let cniNum = l.match(/(?:NATIONALE.*?N[°0O]?|N\s*:)\s*([0-9OA-Z]{12})/i);
@@ -518,7 +516,6 @@
     }
 
     function applyStrictRules(extractedData, rawText) {
-      // FIX CRITIQUE: Forcer le premier prénom uniquement, même pour les lectures visuelles
       let rawFn = cleanName(extractedData.fields?.firstName);
       let primaryFn = rawFn ? rawFn.split(/\s+/)[0] : null;
 

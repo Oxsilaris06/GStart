@@ -56,7 +56,7 @@
     <div class="text-center mb-8">
       <div class="text-6xl mb-4">🛡️</div>
       <h1 class="text-2xl font-bold mb-2">Scanner 2 Temps</h1>
-      <p class="text-slate-400 text-sm">Mode optimal auto + Récupération partielle</p>
+      <p class="text-slate-400 text-sm">Extraction Blindée Anti-Bruit</p>
     </div>
 
     <div class="doc-selector mb-6" id="ready-selector">
@@ -83,7 +83,7 @@
     <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
       <div class="w-[90%] max-w-[400px] aspect-[1.58/1] border-2 border-blue-500/50 rounded-xl relative overflow-hidden">
         <div class="absolute bottom-0 left-0 w-full h-[30%] bg-blue-500/20 border-t border-blue-500/50 flex items-center justify-center">
-          <span class="text-blue-300/80 text-[10px] font-bold tracking-widest uppercase">Alignez la bande du bas ici</span>
+          <span class="text-blue-300/80 text-[10px] font-bold tracking-widest uppercase">Alignez le document</span>
         </div>
       </div>
     </div>
@@ -201,7 +201,7 @@
     }
 
     // =====================================================================
-    // FILTRES INTELLIGENTS & DATES
+    // FILTRES BLINDÉS & DATES CHRONOLOGIQUES
     // =====================================================================
     function containsForbiddenWord(text) {
       if (!text) return false;
@@ -211,24 +211,52 @@
 
     // Extrait intelligemment TOUTES les dates et les trie chronologiquement
     function extractSortedDates(rawText) {
-      const dateRegex = /\b(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})\b/g;
+      // Regex permissive qui capture "4324.05.2024" sans s'étouffer
+      const dateRegex = /(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})/g;
       let match;
       let dates = [];
       while ((match = dateRegex.exec(rawText)) !== null) {
           let dd = parseInt(match[1], 10), mm = parseInt(match[2], 10), yyyy = parseInt(match[3], 10);
           if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31 && yyyy >= 1900 && yyyy <= 2100) {
               dates.push({
-                  str: `${match[1]}.${match[2]}.${match[3]}`,
+                  str: `${match[1].padStart(2, '0')}.${match[2].padStart(2, '0')}.${match[3]}`,
                   val: yyyy * 10000 + mm * 100 + dd
               });
           }
       }
-      // Dédoublonnage
+      // Dédoublonnage et tri mathématique du plus ancien au plus récent
       const unique = []; const seen = new Set();
       for(let d of dates) { if(!seen.has(d.str)) { seen.add(d.str); unique.push(d); } }
-      // Tri du plus ancien au plus récent
       unique.sort((a,b) => a.val - b.val);
       return unique;
+    }
+
+    function cleanName(name) {
+      if (!name) return null;
+      let clean = name.toUpperCase();
+      clean = clean.replace(OCR_NOISE, '');
+      // Enlève l'ancre numérotée et ses parasites (ex: "2 4NICOLAS" -> "NICOLAS")
+      clean = clean.replace(/^[0-9]+[\s.,:\-]*[0-9A-Z]?\s+/g, '');
+      clean = clean.replace(/[^\w\s\-À-Ÿ,]/g, ' ').trim();
+      clean = clean.replace(/^,+|,+$/g, '').trim();
+      clean = clean.replace(/\s+/g, ' ');
+
+      if (clean.length < 2) return null;
+      if (containsForbiddenWord(clean)) return null;
+      return clean;
+    }
+
+    function strictDateFormatter(rawDate) {
+      if (!rawDate) return null;
+      if (/^\d{6}$/.test(rawDate)) {
+        let yy = parseInt(rawDate.substring(0,2));
+        let mm = rawDate.substring(2,4);
+        let dd = rawDate.substring(4,6);
+        let yyyy = (yy > 50 ? '19' : '20') + rawDate.substring(0,2);
+        return `${dd}.${mm}.${yyyy}`;
+      }
+      // La date est déjà propre grâce à extractSortedDates
+      return rawDate;
     }
 
     function getStrictDocType(format, rawText) {
@@ -250,97 +278,74 @@
     }
 
     // =====================================================================
-    // LE CŒUR DE L'EXTRACTION (SPÉCIAL EUROPE & BRUIT)
+    // LE CŒUR DE L'EXTRACTION "ANTI-BRUIT"
     // =====================================================================
     function parseRawData(rawText, blocks) {
       if (!rawText) return {};
       let format = null, documentNumber = null, fields = {};
       const rawUpper = rawText.toUpperCase();
 
-      // --- 1. DATES INTELLIGENTES (Tri mathématique) ---
+      // --- 1. DATES CHRONOLOGIQUES (Infaillible) ---
       const sortedDates = extractSortedDates(rawUpper);
       if (sortedDates.length > 0) {
-          fields.birthDate = sortedDates[0].str; // La plus ancienne = Naissance
-          if (sortedDates.length > 1) fields.expirationDate = sortedDates[sortedDates.length - 1].str; // La plus récente = Expiration
-          if (sortedDates.length > 2) fields.issueDate = sortedDates[1].str; // Celle du milieu = Émission
+          fields.birthDate = sortedDates[0].str; // La plus ancienne
+          if (sortedDates.length > 1) fields.expirationDate = sortedDates[sortedDates.length - 1].str; // La plus récente
+          if (sortedDates.length > 2) fields.issueDate = sortedDates[1].str; // Celle du milieu
       }
 
-      // --- 2. VÉRITÉ ABSOLUE : MRZ DÉPOLLUÉ ---
-      // On retire TOUS les espaces pour réparer le MRZ corrompu par la caméra
-      const mrzLines = rawUpper.split('\n')
-          .map(l => l.replace(/[\s]+/g, ''))
-          .filter(l => l.length >= 25 && l.includes('<'));
-
-      if (mrzLines.length >= 2) {
-          let patched = mrzLines.filter(l => l.length >= 30);
-          if (patched.length >= 2) {
-            if (patched[0].startsWith('IR')) patched[0] = 'ID' + patched[0].substring(2);
-            try { 
-              const mrz = mrzParse(patched); 
-              if(mrz) { format = mrz.format; documentNumber = mrz.documentNumber; Object.assign(fields, mrz.fields); }
-            } catch (e) {}
-          }
-      }
-
-      // Scanner MRZ Permis Français
-      const permisMrz = mrzLines.find(l => /^D[1I]FRA/.test(l));
-      if (permisMrz && !format) {
-          format = 'PERMIS_FR';
-          const numMatch = permisMrz.match(/^D[1I]FRA([A-Z0-9]{9})/);
-          if (numMatch) documentNumber = numMatch[1].replace(/O/g, '0');
-          
-          const nameMatch = permisMrz.match(/\d{6,}([A-ZÀ-Ÿ]+)<</);
-          if (nameMatch) fields.lastName = nameMatch[1];
-      }
-
-      // --- 3. ANCRES EUROPÉENNES (1. Nom, 2. Prénom) ---
-      // Utile si le MRZ n'a pas tout donné
-      const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+      // --- 2. VÉRITÉ ABSOLUE : MRZ DEPOLLUÉ (Ignore tous les espaces) ---
+      const noSpace = rawUpper.replace(/\s+/g, '');
       
-      let foundFirstNameIndex = -1;
-      for (let i = 0; i < lines.length; i++) {
-          let lUp = lines[i].toUpperCase();
-
-          // Reconnaissance du prénom ancré
-          if (/^2[.,\s]+[A-Z]/.test(lUp) && !fields.firstName) {
-              // On supprime l'ancre ET les lettres minuscules parasites ("GUYn" -> "GUY")
-              fields.firstName = lines[i].replace(/^2[.,\s]+/, '').replace(/[a-z]/g, '').replace(/\s+[A-Z]$/, '').trim();
-              foundFirstNameIndex = i;
-              
-              // Déduction maligne du Nom : c'est presque toujours la ligne valide juste au-dessus !
-              if (!fields.lastName && i > 0) {
-                  for(let j = i - 1; j >= 0; j--) {
-                      let prev = lines[j].toUpperCase().replace(/^[1.,\s]+/, '').replace(/[a-z]/g, '').trim();
-                      if (prev.length > 2 && !containsForbiddenWord(prev)) {
-                          fields.lastName = prev;
-                          break;
-                      }
-                  }
-              }
-          }
-
-          // Si jamais la ligne "1." est isolée et trouvée
-          if (/^1[.,\s]+[A-Z]/.test(lUp) && !fields.lastName) {
-              let possibleName = lines[i].replace(/^1[.,\s]+/, '').replace(/[a-z]/g, '').trim();
-              if (possibleName.length > 2 && !containsForbiddenWord(possibleName)) fields.lastName = possibleName;
-          }
-
-          // Numéro de document ancré
-          if (/(?:^|\s)5[.,\s]+([A-Z0-9]{9})/i.test(lines[i]) && !documentNumber) {
-              documentNumber = lines[i].match(/(?:^|\s)5[.,\s]+([A-Z0-9]{9})/i)[1].toUpperCase().replace(/O/g, '0');
-          }
+      // Permis de conduire
+      let mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9]{6})([A-ZÀ-Ÿ]+)<</);
+      if (mrzPermis) {
+         format = 'PERMIS_FR';
+         if(!documentNumber) documentNumber = mrzPermis[1].replace(/O/g, '0');
+         if(!fields.expirationDate) fields.expirationDate = mrzPermis[2];
+         if(!fields.lastName) fields.lastName = mrzPermis[3];
       }
 
-      // --- 4. FALLBACK FINAL NUMÉRO DOCUMENT ---
-      if (!documentNumber) {
-          const words = rawUpper.split(/[\s\n]+/);
-          for (let w of words) {
-              // Si 9 caractères, mix de lettres et chiffres
-              if (w.length === 9 && /[A-Z]{2,}/.test(w) && /[0-9]{2,}/.test(w)) {
-                  documentNumber = w.replace(/O/g, '0');
-                  break;
-              }
+      // CNI (TD1)
+      let mrzCni = noSpace.match(/I[A-Z<]FRA([A-Z0-9]{9})\d[A-Z0-9]{14}([0-9]{6})\d[MF<]([0-9]{6})\d/);
+      if (mrzCni && !documentNumber) { format = 'CNI'; documentNumber = mrzCni[1].replace(/</g, ''); }
+
+      // Passeport (TD3)
+      let mrzPass = noSpace.match(/P[A-Z<]FRA([A-Z0-9<]{9})\d[A-Z]{3}([0-9]{6})\d[MF<]([0-9]{6})\d/);
+      if (mrzPass && !documentNumber) { format = 'PASSEPORT'; documentNumber = mrzPass[1].replace(/</g, ''); }
+
+      // Librairie Standard en Filet de sécurité
+      const mrzLines = rawUpper.split('\n').map(l => l.replace(/[\s]+/g, '<').replace(/[^A-Z0-9<]/g, '').trim()).filter(l => l.length >= 25);
+      if (mrzLines.length >= 2) {
+        let patched = [...mrzLines];
+        if (patched[0].startsWith('IR')) patched[0] = 'ID' + patched[0].substring(2);
+        try { 
+          const mrz = mrzParse(patched); 
+          if(mrz) { 
+             if(!format) format = mrz.format; 
+             if(!documentNumber) documentNumber = mrz.documentNumber; 
+             Object.assign(fields, mrz.fields); 
           }
+        } catch (e) {}
+      }
+
+      // --- 3. ANCRES EUROPÉENNES (Spécial Bruit OCR) ---
+      // Ancre 1 : Nom de famille
+      const m1 = rawUpper.match(/(?:^|\n)\s*1[\s.,:-]+(?:[0-9A-Z]\s*)?([A-ZÀ-Ÿ]{3,}(?:\s+[A-ZÀ-Ÿ]{2,})*)/);
+      if (m1 && !fields.lastName) fields.lastName = m1[1];
+
+      // Ancre 2 : Prénom (Capture 'NICOLAS PATRICK GUYN' malgré le '4' devant)
+      const m2 = rawUpper.match(/(?:^|\n)\s*2[\s.,:-]+(?:[0-9A-Z]\s*)?([A-ZÀ-Ÿ]{3,}(?:\s+[A-ZÀ-Ÿ]{2,})*)/);
+      if (m2 && !fields.firstName) fields.firstName = m2[1];
+
+      // Ancre 5 ou 6 : Numéro de document
+      const m5 = rawUpper.match(/(?:^|\n)\s*[56][\s.,:-]+([A-Z0-9]{9})/);
+      if (m5 && !documentNumber) documentNumber = m5[1].replace(/O/g, '0');
+
+      // --- 4. ULTIME FALLBACK NUMÉRO (Permis) ---
+      if (!documentNumber) {
+          // Cherche le pattern exact : 2 chiffres + 2 lettres + 5 chiffres
+          const permisNum = rawUpper.match(/\b(\d{2}[A-Z0-9]{2}\d{5})\b/);
+          if (permisNum) documentNumber = permisNum[1].replace(/O/g, '0');
       }
 
       return { format, documentNumber, fields };
@@ -350,22 +355,21 @@
       const strictResult = {
         'Type de document': getStrictDocType(extractedData.format, rawText),
         'N° de titre': null,
-        'Nom': extractedData.fields?.lastName,
-        'Prénom': extractedData.fields?.firstName,
-        'Date de naissance': extractedData.fields?.birthDate,
-        'Date d\'émission': extractedData.fields?.issueDate,
-        'Date de péremption': extractedData.fields?.expirationDate,
+        'Nom': cleanName(extractedData.fields?.lastName),
+        'Prénom': cleanName(extractedData.fields?.firstName),
+        'Date de naissance': strictDateFormatter(extractedData.fields?.birthDate),
+        'Date d\'émission': strictDateFormatter(extractedData.fields?.issueDate),
+        'Date de péremption': strictDateFormatter(extractedData.fields?.expirationDate),
         'Sexe': extractedData.fields?.sex,
         'Nationalité': extractedData.fields?.nationality
       };
 
-      // Validation finale du Numéro
       const docNum = extractedData.documentNumber;
       if (docNum && docNum.length >= 5 && !containsForbiddenWord(docNum)) {
         strictResult['N° de titre'] = docNum.toUpperCase().replace(/[^A-Z0-9]/g, '');
       }
 
-      // Condition 1er temps (Optimal)
+      // Condition de perfection (Ce qui arrête la caméra)
       const isOptimal = (
         strictResult['Type de document'] !== null &&
         strictResult['N° de titre'] !== null &&

@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Scanner Identité Intelligent</title>
+  <title>Borderforce Scanner</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
@@ -40,10 +40,39 @@
 <body>
   <div id="copy-toast" class="copy-toast">✅ Copié !</div>
 
+  <!-- MODAL CONSEIL -->
+  <div id="modal-advice" class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm hidden flex-col items-center justify-center px-6">
+    <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
+      <div class="text-4xl mb-4">💡</div>
+      <p class="text-slate-300 text-sm mb-6 leading-relaxed">
+        Si le scanner échoue, <strong class="text-white">utilisez plutôt une photo prise au préalable</strong> dans votre galerie.
+      </p>
+      <div class="flex flex-col gap-3">
+        <button onclick="confirmStartCamera()" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-600/20">Continuer vers le scanner</button>
+        <button onclick="closeAdviceModal()" class="w-full bg-white/10 hover:bg-white/20 py-3 rounded-xl font-bold text-sm transition-all">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ASTUCE MOTEUR NATIF -->
+  <div id="modal-flags" class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm hidden flex-col items-center justify-center px-6">
+    <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-left shadow-2xl">
+      <h3 class="text-lg font-bold mb-2 text-emerald-400">Activer le Scanner Ultra-rapide</h3>
+      <p class="text-slate-300 text-xs mb-4 leading-relaxed">Pour des raisons de sécurité, cette option doit être activée manuellement sur Chrome Android :</p>
+      <ol class="text-slate-400 text-xs space-y-3 mb-6 list-decimal pl-4">
+        <li>Copiez cette adresse : <br><code class="text-blue-300 bg-black/50 px-2 py-1 rounded select-all mt-1 block">chrome://flags/#enable-experimental-web-platform-features</code></li>
+        <li>Ouvrez un nouvel onglet et collez l'adresse.</li>
+        <li>Passez le menu sur <strong class="text-white">Enabled</strong>.</li>
+        <li>Appuyez sur le bouton bleu <strong class="text-white">Relaunch</strong> en bas.</li>
+      </ol>
+      <button onclick="closeFlagsModal()" class="w-full bg-slate-700 hover:bg-slate-600 py-3 rounded-xl font-bold text-sm transition-all">J'ai compris</button>
+    </div>
+  </div>
+
   <!-- 1. CHARGEMENT -->
   <div id="view-loading" class="view active fixed inset-0 z-50 bg-[#0a0a0f] flex flex-col items-center justify-center px-8">
     <div class="text-5xl mb-6 animate-pulse">🔒</div>
-    <h1 class="text-xl font-bold mb-2">Scanner Intelligent</h1>
+    <h1 class="text-xl font-bold mb-2">Borderforce Scanner</h1>
     <div class="w-full max-w-xs bg-slate-800 rounded-full h-2 mt-4 overflow-hidden">
       <div id="load-progress" class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
     </div>
@@ -51,12 +80,12 @@
   </div>
 
   <!-- 2. PRÊT -->
-  <div id="view-ready" class="view fixed inset-0 z-50 bg-[#0a0a0f] flex flex-col items-center justify-center px-8">
-    <div id="engine-indicator" class="engine-badge engine-wasm">Moteur: Détection...</div>
-    <div class="text-center mb-8">
+  <div id="view-ready" class="view fixed inset-0 z-50 bg-[#0a0a0f] flex flex-col items-center justify-center px-8 relative">
+    <div id="engine-indicator" class="engine-badge engine-wasm cursor-pointer" onclick="showFlagsModal()">Moteur: Détection...</div>
+    <div class="text-center mb-8 mt-4">
       <div class="text-6xl mb-4">🛡️</div>
-      <h1 class="text-2xl font-bold mb-2">Scanner Unifié</h1>
-      <p class="text-slate-400 text-sm">Extraction Chirurgicale Temps Réel & Galerie</p>
+      <h1 class="text-2xl font-bold mb-2">Borderforce Scanner</h1>
+      <p class="text-slate-400 text-sm">Extraction Chirurgicale & MRZ</p>
     </div>
 
     <div class="doc-selector mb-6" id="ready-selector">
@@ -67,13 +96,17 @@
       <button class="doc-btn" data-type="CNI">🆔 CNI</button>
     </div>
 
-    <button onclick="startCamera()" class="w-full max-w-sm bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-blue-600/20">
+    <button onclick="showAdviceModal()" class="w-full max-w-sm bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-blue-600/20">
       Scanner le document
     </button>
     <label class="w-full max-w-sm mt-4 bg-white/5 hover:bg-white/10 py-4 rounded-xl font-bold text-lg transition-all text-center cursor-pointer block border border-white/10">
       Importer une photo de la galerie
       <input type="file" id="fileUpload" accept="image/*" class="hidden" />
     </label>
+
+    <div class="absolute bottom-4 text-center w-full pointer-events-none opacity-40 text-[9px] text-slate-500 tracking-[0.2em] uppercase font-bold">
+      G/ Maheux - Adj Rustenholtz
+    </div>
   </div>
 
   <!-- 3. SCANNER CAMÉRA -->
@@ -450,8 +483,8 @@
           document.getElementById('engine-indicator').className = "engine-badge engine-native"; bar.style.width = '100%';
         } else {
           ocrEngine = 'TESSERACT';
-          document.getElementById('engine-indicator').innerText = "🐢 Moteur Web";
-          document.getElementById('engine-indicator').className = "engine-badge engine-wasm"; bar.style.width = '60%';
+          document.getElementById('engine-indicator').innerHTML = "🐢 Moteur Web <span class='text-[8px] ml-1 bg-white/20 px-1.5 py-0.5 rounded-full'>INFO</span>";
+          document.getElementById('engine-indicator').className = "engine-badge engine-wasm cursor-pointer hover:bg-white/10"; bar.style.width = '60%';
           tesseractWorker = await Tesseract.createWorker('eng');
           await tesseractWorker.setParameters({ tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<', });
           bar.style.width = '100%';
@@ -478,6 +511,28 @@
         const { data } = await tesseractWorker.recognize(canvas); rawText = data.text;
       }
       return rawText;
+    }
+
+    // =====================================================================
+    // GESTION DES MODALES
+    // =====================================================================
+    function showAdviceModal() {
+      document.getElementById('modal-advice').classList.replace('hidden', 'flex');
+    }
+    function closeAdviceModal() {
+      document.getElementById('modal-advice').classList.replace('flex', 'hidden');
+    }
+    function confirmStartCamera() {
+      closeAdviceModal();
+      startCamera();
+    }
+    function showFlagsModal() {
+      if (ocrEngine !== 'NATIVE') {
+        document.getElementById('modal-flags').classList.replace('hidden', 'flex');
+      }
+    }
+    function closeFlagsModal() {
+      document.getElementById('modal-flags').classList.replace('flex', 'hidden');
     }
 
     // =====================================================================
@@ -623,3 +678,6 @@
   </script>
 </body>
 </html>
+
+
+

@@ -60,9 +60,9 @@
         <span class="text-xs select-none">J'ai compris, ne plus afficher</span>
       </label>
 
-      <div class="flex flex-col gap-3">
-        <button onclick="confirmStartCamera()" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-600/20">Continuer vers le scanner</button>
-        <button onclick="closeAdviceModal()" class="w-full bg-white/10 hover:bg-white/20 py-3 rounded-xl font-bold text-sm transition-all">Annuler</button>
+      <div class="flex flex-col items-center gap-3 w-full">
+        <button onclick="confirmStartCamera()" class="w-fit px-8 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-600/20">Continuer vers le scanner</button>
+        <button onclick="closeAdviceModal()" class="w-fit px-8 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm transition-all">Annuler</button>
       </div>
     </div>
   </div>
@@ -80,7 +80,7 @@
         <li>Passez le menu sur <strong class="text-white">Enabled</strong>.</li>
         <li>Appuyez sur le bouton bleu <strong class="text-white">Relaunch</strong> en bas.</li>
       </ol>
-      <button onclick="closeFlagsModal()" class="w-full bg-slate-700 hover:bg-slate-600 py-3 rounded-xl font-bold text-sm transition-all">J'ai compris</button>
+      <button onclick="closeFlagsModal()" class="w-fit px-10 py-3 mx-auto block bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-sm transition-all">J'ai compris</button>
     </div>
   </div>
 
@@ -99,20 +99,21 @@
     
     <div class="w-full max-w-sm flex flex-col items-center gap-5">
       
-      <!-- Bouton Moteur Centré -->
-      <div id="engine-indicator" class="engine-badge-centered engine-wasm" onclick="showFlagsModal()">Moteur: Détection...</div>
-      
-      <div class="text-center flex flex-col items-center">
-        <span class="material-symbols-outlined text-blue-500 mb-2" style="font-size: 4.5rem; font-variation-settings: 'wght' 300;">detection_and_zone</span>
-        <h1 class="text-2xl font-bold mb-1">Borderforce Scanner</h1>
-        <p class="text-amber-400 text-[0.65rem] leading-snug px-2 font-medium max-w-[18rem]">
+      <!-- En-tête : Titre -> Icône -> Moteur -->
+      <div class="text-center flex flex-col items-center gap-2 w-full">
+        <h1 class="text-2xl font-bold">Borderforce Scanner</h1>
+        <span class="material-symbols-outlined text-blue-500" style="font-size: 4.5rem; font-variation-settings: 'wght' 300;">detection_and_zone</span>
+        <div id="engine-indicator" class="engine-badge-centered engine-wasm" onclick="showFlagsModal()">Moteur: Détection...</div>
+        
+        <p class="text-amber-400 text-[0.65rem] leading-snug px-2 font-medium max-w-[18rem] mt-1">
           ⚠️ Vérifiez toujours manuellement les éléments scannés, des erreurs peuvent survenir ⚠️
         </p>
       </div>
 
+      <!-- Sélecteur GRID Portrait -->
       <div class="grid grid-cols-2 gap-2 w-full" id="ready-selector">
         <button class="doc-btn active col-span-2" data-type="AUTO">
-          <span class="material-symbols-outlined">document_scanner</span>AUTO
+          <span class="material-symbols-outlined">document_scanner</span>Détection automatique
         </button>
         <button class="doc-btn" data-type="PASSEPORT">
           <span class="material-symbols-outlined">book</span>PASS
@@ -128,6 +129,7 @@
         </button>
       </div>
 
+      <!-- Actions (w-fit pour encadrer le texte) -->
       <div class="w-full flex flex-col gap-3 items-center">
         <div id="wasm-warning" class="hidden w-full p-3 bg-facc15/10 border border-facc15/30 rounded-xl text-facc15 text-xs text-center cursor-pointer transition-all hover:bg-facc15/20" onclick="showFlagsModal()">
           <span class="material-symbols-outlined align-middle mr-1" style="font-size: 1.1rem;">warning</span>
@@ -135,21 +137,22 @@
           <span class="underline font-bold mt-1 inline-block">Cliquez ici pour l'activer.</span>
         </div>
 
-        <button id="btn-start-scan" onclick="showAdviceModal()" class="w-full bg-blue-600 hover:bg-blue-500 py-3.5 rounded-xl font-bold text-[0.95rem] transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
+        <button id="btn-start-scan" onclick="showAdviceModal()" class="w-fit px-8 py-3.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-[0.95rem] transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
           <span class="material-symbols-outlined text-[1.2rem]">photo_camera</span> Scanner le document
         </button>
 
-        <label id="btn-import-label" class="w-full py-3.5 rounded-xl font-bold text-[0.95rem] transition-all text-center cursor-pointer flex items-center justify-center gap-2 border border-white/10 bg-white/5 hover:bg-white/10">
+        <label id="btn-import-label" class="w-fit px-8 py-3.5 rounded-xl font-bold text-[0.95rem] transition-all text-center cursor-pointer flex items-center justify-center gap-2 border border-white/10 bg-white/5 hover:bg-white/10">
           <span class="material-symbols-outlined text-[1.2rem]">image</span> Importer de la galerie
           <input type="file" id="fileUpload" accept="image/*" class="hidden" />
         </label>
 
         <!-- Bouton Historique -->
-        <button onclick="openHistoryView()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3.5 rounded-xl font-bold text-[0.95rem] transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 mt-1 border border-indigo-500/50">
+        <button onclick="openHistoryView()" class="w-fit px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-[0.95rem] transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 border border-indigo-500/50">
           <span class="material-symbols-outlined text-[1.2rem]">history</span> Historique des scans
         </button>
       </div>
 
+      <!-- Footer -->
       <div class="text-center w-full opacity-40 text-[9px] text-slate-500 tracking-[0.2em] uppercase font-bold mt-1">
         G/ Maheux - Adj Rustenholtz
       </div>
@@ -175,9 +178,9 @@
           <div id="timeout-progress" class="progress-bar"></div>
         </div>
         
-        <div class="flex gap-2">
-          <button onclick="cancelScan()" class="flex-1 bg-white/10 py-3 rounded-lg font-bold text-sm">Annuler</button>
-          <button onclick="forceCapture()" class="flex-1 bg-slate-700 py-3 rounded-lg font-bold text-sm" id="btn-force">📸 Forcer</button>
+        <div class="flex justify-center gap-4">
+          <button onclick="cancelScan()" class="w-fit px-8 py-3 bg-white/10 hover:bg-white/20 rounded-lg font-bold text-sm transition-all">Annuler</button>
+          <button onclick="forceCapture()" class="w-fit px-8 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold text-sm transition-all" id="btn-force">📸 Forcer</button>
         </div>
       </div>
     </div>
@@ -194,12 +197,12 @@
       
       <div id="res-fields" class="flex flex-col gap-2 mb-6"></div>
 
-      <div class="flex gap-3 mb-6">
-        <button onclick="copySelectedFields()" class="flex-1 bg-blue-600 hover:bg-blue-500 py-3.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-600/20 flex flex-col items-center justify-center gap-1">
+      <div class="flex justify-center gap-4 mb-6">
+        <button onclick="copySelectedFields()" class="w-fit px-8 py-3.5 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-600/20 flex flex-col items-center justify-center gap-1">
           <span class="material-symbols-outlined text-[1.2rem]">content_copy</span>
           Copier
         </button>
-        <button onclick="shareSelectedFields()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 py-3.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-600/20 flex flex-col items-center justify-center gap-1">
+        <button onclick="shareSelectedFields()" class="w-fit px-8 py-3.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-600/20 flex flex-col items-center justify-center gap-1">
           <span class="material-symbols-outlined text-[1.2rem]">share</span>
           Partager
         </button>
@@ -210,8 +213,8 @@
         <pre id="res-raw" class="text-[10px] font-mono text-slate-500 mt-3 whitespace-pre-wrap break-all"></pre>
       </details>
     </div>
-    <div class="px-5 pb-6 w-full max-w-lg mx-auto">
-      <button onclick="resetApp()" class="w-full bg-white/10 hover:bg-white/20 py-4 rounded-xl font-bold text-sm transition-all">Retour à l'accueil</button>
+    <div class="px-5 pb-6 w-full max-w-lg mx-auto flex justify-center">
+      <button onclick="resetApp()" class="w-fit px-8 py-4 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm transition-all">Retour à l'accueil</button>
     </div>
   </div>
 
@@ -220,7 +223,7 @@
     <div class="px-5 py-6 flex-1 w-full max-w-lg mx-auto">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-xl font-bold">Historique</h2>
-        <button onclick="clearHistory()" class="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 border border-red-500/20">
+        <button onclick="clearHistory()" class="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 border border-red-500/20 w-fit">
           <span class="material-symbols-outlined text-[1rem]">delete</span> Purger
         </button>
       </div>
@@ -230,8 +233,8 @@
         <!-- Rempli dynamiquement -->
       </div>
     </div>
-    <div class="px-5 pb-6 w-full max-w-lg mx-auto">
-      <button onclick="resetApp()" class="w-full bg-white/10 hover:bg-white/20 py-4 rounded-xl font-bold text-sm transition-all">Retour à l'accueil</button>
+    <div class="px-5 pb-6 w-full max-w-lg mx-auto flex justify-center">
+      <button onclick="resetApp()" class="w-fit px-8 py-4 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-sm transition-all">Retour à l'accueil</button>
     </div>
   </div>
 
@@ -283,14 +286,12 @@
         const now = Date.now();
         const sixHours = 6 * 60 * 60 * 1000;
         
-        // Ne garde que les scans de moins de 6 heures
         const filteredHistory = history.filter(item => now - item.timestamp < sixHours);
         localStorage.setItem('borderforce_history', JSON.stringify(filteredHistory));
         return filteredHistory;
     }
 
     function saveToHistory(validatedData, rawText, isPartialFallback) {
-        // Ne sauvegarde que s'il y a un minimum de données viables (Type ou Nom ou Prénom)
         if (!validatedData.strictFields['Type de document'] && !validatedData.strictFields['Nom']) return;
 
         let history = cleanOldHistory();
@@ -334,9 +335,8 @@
                     <span class="material-symbols-outlined text-slate-500">chevron_right</span>
                 `;
                 
-                // Clic sur l'historique recharge la vue résultat avec les données de l'époque
                 btn.onclick = () => {
-                    showResult(item.data, item.rawText, item.isPartialFallback, false); // false = ne pas sauvegarder en boucle
+                    showResult(item.data, item.rawText, item.isPartialFallback, false);
                 };
                 container.appendChild(btn);
             });
@@ -352,7 +352,7 @@
 
 
     // =====================================================================
-    // FORMATAGE STRICT ET CORRECTIONS CHIRURGICALES (INCHANGÉ)
+    // FORMATAGE STRICT ET CORRECTIONS CHIRURGICALES
     // =====================================================================
     function containsForbiddenWord(text) {
       if (!text) return false;
@@ -456,7 +456,7 @@
     }
 
     // =====================================================================
-    // EXTRACTION CHIRURGICALE UNIFIÉE (INCHANGÉ)
+    // EXTRACTION CHIRURGICALE UNIFIÉE
     // =====================================================================
     function extractDocumentData(rawText) {
       if (!rawText) return {};
@@ -472,12 +472,12 @@
       // 1b. PASSEPORT MRZ ALTERNATIF
       let mrzPassAlt = noSpace.match(/P[A-Z<C]*FRA([A-Z0-9]+?)[<C]{2,}([A-Z0-9]{9})[0-9A-Z][A-Z<C]{0,3}([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]+[0-9A-Z]{1,2}([A-Z<C]+)/);
 
-      // 2. NOUVELLE CNI FRANÇAISE MRZ (TD1 format carte bancaire)
+      // 2. NOUVELLE CNI FRANÇAISE MRZ (TD1)
       let mrzCniNewFrench = noSpace.match(/I[A-Z0-9<C]FRA([A-Z0-9]+)[<C]+([A-Z0-9]{9})[0-9A-Z]([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]+[0-9]*([A-Z]+[A-Z0-9<C]*)/);
       let mrzCniNewStandard = noSpace.match(/I[A-Z<C]FRA([A-Z0-9]{9})[0-9A-Z].{15}([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}.{11}([A-Z]+)[<C]+([A-Z<C]+)/);
 
-      // 3. ANCIENNE CNI FRANÇAISE MRZ (Plastifiée bleue)
-      let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z0-9]+?)[<C]+.*?([0-9OQ]{12})[0-9OQ]([A-Z]+[A-Z0-9<C]*?)([0-9OQ]{6})[0-9OQ][MF<C]/);
+      // 3. ANCIENNE CNI FRANÇAISE MRZ 
+      let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z0-9]+?)[<C]+.*?([0-9A-Z]{12})[0-9A-Z]([A-Z]+[A-Z0-9<C]*?)([0-9A-Z]{6})[0-9A-Z][MF<C]/);
 
       // 4. PERMIS DE CONDUIRE MRZ
       let mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9A-Z]{6})([A-ZÀ-Ÿ]+)<</);
@@ -694,7 +694,7 @@
         });
       });
       
-      cleanOldHistory(); // Nettoyage au démarrage
+      cleanOldHistory();
       await loadEngines();
     });
 
@@ -727,7 +727,7 @@
           document.getElementById('engine-indicator').className = "engine-badge-centered engine-wasm"; 
           btnScan.classList.add('hidden');
           warningWasm.classList.remove('hidden');
-          btnImport.className = "w-full py-3.5 rounded-xl font-bold text-base transition-all text-center cursor-pointer flex items-center justify-center gap-2 border border-blue-500 bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20";
+          btnImport.className = "w-fit px-8 py-3.5 rounded-xl font-bold text-[0.95rem] transition-all text-center cursor-pointer flex items-center justify-center gap-2 border border-blue-500 bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20";
           bar.style.width = '60%';
           tesseractWorker = await Tesseract.createWorker('eng');
           await tesseractWorker.setParameters({ tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<', });
@@ -976,3 +976,5 @@
   </script>
 </body>
 </html>
+
+

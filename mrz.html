@@ -102,11 +102,13 @@
       <div class="text-center flex flex-col items-center">
         <span class="material-symbols-outlined text-blue-500 mb-2" style="font-size: 4.5rem; font-variation-settings: 'wght' 300;">detection_and_zone</span>
         <h1 class="text-2xl font-bold mb-1">Borderforce Scanner</h1>
-        <p class="text-slate-400 text-xs">Consensus 8-Scans Multi-Pass</p>
+        <p class="text-amber-400 text-[0.65rem] leading-snug px-2 font-medium max-w-[18rem]">
+          ⚠️ Vérifiez toujours manuellement les éléments scannés, des erreurs peuvent survenir ⚠️
+        </p>
       </div>
 
-      <div class="doc-selector" id="ready-selector">
-        <button class="doc-btn active" data-type="AUTO">
+      <div class="grid grid-cols-2 gap-2 w-full" id="ready-selector">
+        <button class="doc-btn active col-span-2" data-type="AUTO">
           <span class="material-symbols-outlined">document_scanner</span>AUTO
         </button>
         <button class="doc-btn" data-type="PASSEPORT">
@@ -124,23 +126,23 @@
       </div>
 
       <div class="w-full flex flex-col gap-3 items-center">
-        <div id="wasm-warning" class="hidden w-full p-3.5 bg-facc15/10 border border-facc15/30 rounded-xl text-facc15 text-xs text-center cursor-pointer transition-all hover:bg-facc15/20" onclick="showFlagsModal()">
+        <div id="wasm-warning" class="hidden w-full p-3 bg-facc15/10 border border-facc15/30 rounded-xl text-facc15 text-xs text-center cursor-pointer transition-all hover:bg-facc15/20" onclick="showFlagsModal()">
           <span class="material-symbols-outlined align-middle mr-1" style="font-size: 1.1rem;">warning</span>
           Scanner vidéo indisponible.<br>
           <span class="underline font-bold mt-1 inline-block">Cliquez ici pour l'activer.</span>
         </div>
 
-        <button id="btn-start-scan" onclick="showAdviceModal()" class="w-full bg-blue-600 hover:bg-blue-500 py-3.5 rounded-xl font-bold text-base transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
-          <span class="material-symbols-outlined">photo_camera</span> Scanner le document
+        <button id="btn-start-scan" onclick="showAdviceModal()" class="w-full bg-blue-600 hover:bg-blue-500 py-3.5 rounded-xl font-bold text-[0.95rem] transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-[1.2rem]">photo_camera</span> Scanner le document
         </button>
 
-        <label id="btn-import-label" class="w-full py-3.5 rounded-xl font-bold text-base transition-all text-center cursor-pointer flex items-center justify-center gap-2 border border-white/10 bg-white/5 hover:bg-white/10">
-          <span class="material-symbols-outlined">image</span> Importer de la galerie
+        <label id="btn-import-label" class="w-full py-3.5 rounded-xl font-bold text-[0.95rem] transition-all text-center cursor-pointer flex items-center justify-center gap-2 border border-white/10 bg-white/5 hover:bg-white/10">
+          <span class="material-symbols-outlined text-[1.2rem]">image</span> Importer de la galerie
           <input type="file" id="fileUpload" accept="image/*" class="hidden" />
         </label>
       </div>
 
-      <div class="text-center w-full opacity-40 text-[9px] text-slate-500 tracking-[0.2em] uppercase font-bold mt-2">
+      <div class="text-center w-full opacity-40 text-[9px] text-slate-500 tracking-[0.2em] uppercase font-bold mt-1">
         G/ Maheux - Adj Rustenholtz
       </div>
     </div>
@@ -360,17 +362,18 @@
       const sortedDates = extractSortedDates(rawUpper);
       const noSpace = rawUpper.replace(/[\s\n]+/g, '').replace(/[«]/g, '<');
 
-      // 1. PASSEPORT MRZ
+      // 1. PASSEPORT MRZ STANDARD (TD3)
       let mrzPass1 = noSpace.match(/P[A-Z<]*FRA([A-Z0-9]+)<<([A-Z0-9<]+)/);
       let mrzPass2 = noSpace.match(/([A-Z0-9]{9})[0-9A-Z][A-Z<]{3}([0-9A-Z]{6})[0-9A-Z][MF<]([0-9A-Z]{6})/);
+
+      // 1b. PASSEPORT MRZ ALTERNATIF (Prénom en fin de ligne 2)
+      let mrzPassAlt = noSpace.match(/P[A-Z<C]*FRA([A-Z0-9]+)[<C]+([A-Z0-9]{9})[0-9A-Z](?:[A-Z<C]{3})?([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z](?:[A-Z<C]{3})?[<C]+[0-9A-Z]{1,2}([A-Z<C]+)/);
 
       // 2. ANCIENNE CNI FRANÇAISE MRZ
       let mrzCniOld = noSpace.match(/I[D1lO]FRA([A-Z]+)[<C]+.*?([0-9A-Z]{12})[0-9A-Z]([A-Z]+)[<C]+.*?([0-9A-Z]{6})/);
 
-      // 3. NOUVELLE CNI FRANÇAISE MRZ (TD1 Spécifique France : Le nom est sur la ligne 1)
+      // 3. NOUVELLE CNI FRANÇAISE MRZ (TD1)
       let mrzCniNewFrench = noSpace.match(/I[A-Z0-9<C]FRA([A-Z0-9]+)[<C]+([A-Z0-9]{9})[0-9A-Z]([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}[<C]*[0-9A-Z]?([A-Z0-9]+[A-Z0-9<C]*)/);
-
-      // 3b. NOUVELLE CNI MRZ (Standard ICAO - Sécurité)
       let mrzCniNewStandard = noSpace.match(/I[A-Z<C]FRA([A-Z0-9]{9})[0-9A-Z].{15}([0-9A-Z]{6})[0-9A-Z][MF<C]([0-9A-Z]{6})[0-9A-Z][A-Z<C]{3}.{11}([A-Z]+)<<([A-Z<C]+)/);
 
       // 4. PERMIS DE CONDUIRE MRZ
@@ -389,6 +392,15 @@
           fields.expirationDate = cleanDateDigits(mrzPass2[3]);
           fields.nationality = 'FRA';
       } 
+      else if (mrzPassAlt) {
+          format = 'PASSEPORT';
+          fields.lastName = mrzPassAlt[1].replace(/0/g, 'O').trim();
+          documentNumber = mrzPassAlt[2].replace(/O/g, '0');
+          fields.birthDate = cleanDateDigits(mrzPassAlt[3]);
+          fields.expirationDate = cleanDateDigits(mrzPassAlt[4]);
+          fields.nationality = 'FRA';
+          fields.firstName = mrzPassAlt[5].replace(/0/g, 'O').replace(/[<C]+/g, ' ').trim();
+      }
       else if (mrzCniOld) {
           format = 'CNI';
           fields.lastName = mrzCniOld[1];

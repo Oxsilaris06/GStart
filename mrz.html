@@ -17,7 +17,7 @@
     
     .field-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: rgba(255, 255, 255, 0.04); border-radius: 0.75rem; margin-bottom: 0.5rem; cursor: pointer; transition: background 0.2s; }
     .field-row:hover { background: rgba(255, 255, 255, 0.08); }
-    .field-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; min-width: 7rem; }
+    .field-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; min-width: 6.5rem; }
     .field-value { font-size: 1rem; font-weight: 600; color: #f1f5f9; flex: 1; word-break: break-all; }
     
     .valid-badge { background: #22c55e22; color: #22c55e; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; }
@@ -40,12 +40,12 @@
     .progress-bar-container { width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 8px; }
     .progress-bar { height: 100%; background: #3b82f6; width: 0%; transition: width 0.3s linear; }
 
-    .custom-checkbox { accent-color: #3b82f6; width: 1.1rem; height: 1.1rem; cursor: pointer; }
+    .custom-checkbox { accent-color: #3b82f6; width: 1.25rem; height: 1.25rem; cursor: pointer; flex-shrink: 0; }
   </style>
 </head>
 
 <body>
-  <div id="copy-toast" class="copy-toast">✅ Copié !</div>
+  <div id="copy-toast" class="copy-toast">✅ Action réussie !</div>
 
   <!-- MODAL CONSEIL (Avec Checkbox) -->
   <div id="modal-advice" class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm hidden flex-col items-center justify-center px-6">
@@ -56,7 +56,7 @@
       </p>
       
       <label class="flex items-center justify-center gap-2 mb-6 cursor-pointer text-slate-400 hover:text-slate-300 group">
-        <input type="checkbox" id="dont-show-again" class="custom-checkbox">
+        <input type="checkbox" id="dont-show-again" class="custom-checkbox" style="width: 1rem; height: 1rem;">
         <span class="text-xs select-none">J'ai compris, ne plus afficher</span>
       </label>
 
@@ -134,17 +134,17 @@
       </div>
 
       <!-- Bouton Scanner Vidéo -->
-      <button id="btn-start-scan" onclick="showAdviceModal()" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-blue-600/20 mb-4">
-        Scanner le document
+      <button id="btn-start-scan" onclick="showAdviceModal()" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-blue-600/20 mb-4 flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined">photo_camera</span> Scanner le document
       </button>
 
       <!-- Bouton Import Galerie -->
-      <label id="btn-import-label" class="w-full py-4 rounded-xl font-bold text-lg transition-all text-center cursor-pointer block border">
-        Importer de la galerie
+      <label id="btn-import-label" class="w-full py-4 rounded-xl font-bold text-lg transition-all text-center cursor-pointer flex items-center justify-center gap-2 border">
+        <span class="material-symbols-outlined">image</span> Importer de la galerie
         <input type="file" id="fileUpload" accept="image/*" class="hidden" />
       </label>
       
-      <!-- Footer Discret repositionné -->
+      <!-- Footer Discret -->
       <div class="mt-8 text-center w-full pointer-events-none opacity-40 text-[9px] text-slate-500 tracking-[0.2em] uppercase font-bold">
         G/ Maheux - Adj Rustenholtz
       </div>
@@ -181,24 +181,34 @@
   <!-- 4. RÉSULTAT -->
   <div id="view-result" class="view fixed inset-0 z-50 bg-[#0a0a0f] flex flex-col overflow-y-auto">
     <div class="px-6 py-6 flex-1">
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-bold">Données Extraites</h2>
         <span id="res-valid-badge" class="valid-badge">—</span>
       </div>
+      <p class="text-xs text-slate-400 mb-6">Cochez les champs que vous souhaitez exporter.</p>
       
+      <!-- Conteneur des champs interactifs -->
       <div id="res-fields" class="space-y-2 mb-6"></div>
 
-      <button onclick="copyAllFields()" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold text-lg mb-4 transition-all shadow-lg shadow-blue-600/20">
-        📋 TOUT COPIER
-      </button>
+      <!-- Actions Copier / Partager -->
+      <div class="flex gap-3 mb-6">
+        <button onclick="copySelectedFields()" class="flex-1 bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-600/20 flex flex-col items-center justify-center gap-1">
+          <span class="material-symbols-outlined">content_copy</span>
+          Copier
+        </button>
+        <button onclick="shareSelectedFields()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 py-4 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-600/20 flex flex-col items-center justify-center gap-1">
+          <span class="material-symbols-outlined">share</span>
+          Partager
+        </button>
+      </div>
 
       <details class="bg-slate-900/50 rounded-xl p-4 border border-slate-800">
-        <summary class="text-xs text-slate-500 cursor-pointer">Données brutes non filtrées (Debug)</summary>
+        <summary class="text-xs text-slate-500 cursor-pointer outline-none">Données brutes non filtrées (Debug)</summary>
         <pre id="res-raw" class="text-[10px] font-mono text-slate-500 mt-3 whitespace-pre-wrap break-all"></pre>
       </details>
     </div>
     <div class="px-6 pb-6">
-      <button onclick="resetApp()" class="w-full bg-white/10 py-4 rounded-xl font-bold text-sm">Nouveau scan</button>
+      <button onclick="resetApp()" class="w-full bg-white/10 hover:bg-white/20 py-4 rounded-xl font-bold text-sm transition-all">Nouveau scan</button>
     </div>
   </div>
 
@@ -216,7 +226,6 @@
     let tesseractWorker = null;
     let isScanning = false;
     let selectedDocType = 'AUTO';
-    let finalFields = {};
 
     const MAX_FRAMES = 8;
     let scanFrames = [];
@@ -341,7 +350,6 @@
 
       const sortedDates = extractSortedDates(rawUpper);
 
-      // --- LOGIQUE PASSEPORT (VÉRITÉ ABSOLUE PAR LE MRZ) ---
       const noSpace = rawUpper.replace(/[\s\n]+/g, '');
       let mrzL1 = noSpace.match(/P[A-Z<]*FRA([A-Z0-9]+)<<([A-Z0-9<]+)/);
       let mrzL2 = noSpace.match(/([A-Z0-9]{9})[0-9O][A-Z<]{3}([0-9O]{6})[0-9O][MF<]([0-9O]{6})/);
@@ -356,7 +364,6 @@
           fields.nationality = 'FRA';
       } 
       else {
-          // --- LOGIQUE PERMIS DE CONDUIRE ET CNI (ANCRES EUROPÉENNES) ---
           const mrzPermis = noSpace.match(/D[1I]FRA([A-Z0-9]{9})\d([0-9A-Z]{6})([A-ZÀ-Ÿ]+)<</);
           if (mrzPermis) {
              format = 'PERMIS_FR';
@@ -511,7 +518,7 @@
           
           btnScan.classList.remove('hidden');
           warningWasm.classList.add('hidden');
-          btnImport.className = "w-full py-4 rounded-xl font-bold text-lg transition-all text-center cursor-pointer block border border-white/10 bg-white/5 hover:bg-white/10";
+          btnImport.className = "w-full py-4 rounded-xl font-bold text-lg transition-all text-center cursor-pointer flex items-center justify-center gap-2 border border-white/10 bg-white/5 hover:bg-white/10";
           
           bar.style.width = '100%';
         } else {
@@ -521,7 +528,7 @@
           
           btnScan.classList.add('hidden');
           warningWasm.classList.remove('hidden');
-          btnImport.className = "w-full py-4 rounded-xl font-bold text-lg transition-all text-center cursor-pointer block border border-blue-500 bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20 mt-2";
+          btnImport.className = "w-full py-4 rounded-xl font-bold text-lg transition-all text-center cursor-pointer flex items-center justify-center gap-2 border border-blue-500 bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20 mt-2";
           
           bar.style.width = '60%';
           tesseractWorker = await Tesseract.createWorker('eng');
@@ -553,7 +560,7 @@
     }
 
     // =====================================================================
-    // CAMERA & VIDÉO : L'ÉLECTION SUR 8 SCANS
+    // CAMERA & VIDÉO
     // =====================================================================
     async function startCamera() {
       switchView('scanning'); 
@@ -604,7 +611,6 @@
         let allResults = [];
         let megaRawText = "";
 
-        // 1. Traitement individuel
         for (let rawText of scanFrames) {
             megaRawText += rawText + "\n";
             const rawData = extractDocumentData(rawText);
@@ -612,12 +618,10 @@
             allResults.push(strictData.strictFields);
         }
 
-        // 2. Traitement du Super-Texte Fusionné
         const megaRawData = extractDocumentData(megaRawText);
         const megaStrictData = applyStrictRules(megaRawData, megaRawText);
         allResults.push(megaStrictData.strictFields);
 
-        // 3. Le Dépouillement (Consensus)
         let finalConsensus = {};
         for (const key of FIELD_ORDER) {
             let counts = {};
@@ -668,7 +672,7 @@
     }
 
     // =====================================================================
-    // AFFICHAGE
+    // AFFICHAGE ET EXPORT (CASES À COCHER)
     // =====================================================================
     function resetApp() { switchView('ready'); }
 
@@ -682,16 +686,44 @@
     }
 
     function addFieldUI(container, label, value) {
-      const row = document.createElement('div'); row.className = 'field-row';
-      const icon = getIconForLabel(label);
-      row.innerHTML = `<span class="text-lg">${icon}</span><span class="field-label">${label}</span><span class="field-value">${value}</span>`;
-      finalFields[label] = value;
-      row.addEventListener('click', () => { navigator.clipboard.writeText(value).then(() => showToast(`✅ ${label} copié !`)).catch(()=>{}); });
+      const row = document.createElement('div'); 
+      row.className = 'field-row';
+      
+      // La checkbox
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'custom-checkbox field-cb mr-2';
+      cb.checked = true;
+      cb.dataset.label = label;
+      cb.dataset.value = value;
+
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'text-lg material-symbols-outlined';
+      iconSpan.innerText = getIconForLabel(label) === '📅' ? 'calendar_today' : (getIconForLabel(label) === '👤' ? 'person' : 'info');
+
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'field-label ml-2';
+      labelSpan.innerText = label;
+
+      const valSpan = document.createElement('span');
+      valSpan.className = 'field-value';
+      valSpan.innerText = value;
+
+      row.appendChild(cb);
+      row.appendChild(iconSpan);
+      row.appendChild(labelSpan);
+      row.appendChild(valSpan);
+
+      // Clic sur la ligne entière coche/décoche
+      row.addEventListener('click', (e) => { 
+          if(e.target.tagName !== 'INPUT') cb.checked = !cb.checked; 
+      });
+
       container.appendChild(row);
     }
 
     function showResult(validatedData, rawText, isPartialFallback) {
-      switchView('result'); finalFields = {}; 
+      switchView('result');
       const badge = document.getElementById('res-valid-badge');
       if (validatedData.isOptimal) { badge.className = 'valid-badge'; badge.innerText = '✅ DONNÉES COMPLÈTES'; } 
       else if (isPartialFallback && validatedData.score > 0) { badge.className = 'partial-badge'; badge.innerText = '⚠️ DONNÉES PARTIELLES'; } 
@@ -710,13 +742,43 @@
       if (!hasDisplayedData) container.innerHTML = `<p class="text-sm text-red-400 text-center py-4 font-bold">Aucune donnée valide trouvée.</p>`;
     }
 
-    function copyAllFields() {
-      if (Object.keys(finalFields).length === 0) return;
-      const text = Object.entries(finalFields).map(([label, value]) => `${label} : ${value}`).join('\n');
-      navigator.clipboard.writeText(text).then(() => showToast('✅ Copie réussie !')).catch(() => {
+    // Récupérer le texte des lignes cochées
+    function getSelectedText() {
+        const checkboxes = document.querySelectorAll('.field-cb:checked');
+        if (checkboxes.length === 0) return null;
+        const lines = [];
+        checkboxes.forEach(cb => {
+            lines.push(`${cb.dataset.label} : ${cb.dataset.value}`);
+        });
+        return lines.join('\n');
+    }
+
+    function copySelectedFields() {
+      const text = getSelectedText();
+      if (!text) {
+          showToast('⚠️ Aucune ligne sélectionnée');
+          return;
+      }
+      navigator.clipboard.writeText(text).then(() => showToast('✅ Sélection copiée !')).catch(() => {
         const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-        showToast('✅ Copie réussie !');
+        showToast('✅ Sélection copiée !');
       });
+    }
+
+    function shareSelectedFields() {
+      const text = getSelectedText();
+      if (!text) {
+          showToast('⚠️ Aucune ligne sélectionnée');
+          return;
+      }
+      if (navigator.share) {
+          navigator.share({
+              title: 'Données extraites Borderforce',
+              text: text
+          }).catch(console.error);
+      } else {
+          showToast('⚠️ Partage non supporté sur cet appareil');
+      }
     }
 
     function showToast(msg) {

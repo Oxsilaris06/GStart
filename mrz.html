@@ -148,7 +148,6 @@
     let scanStartTime = 0;
     const MAX_SCAN_DURATION_MS = 8000;
 
-    // STRATÉGIE 5: Tampon de Consensus Multi-Frames
     let consensusBuffer = {};
 
     const FORBIDDEN_WORDS = [
@@ -156,7 +155,7 @@
       'PERMIS', 'CONDUIRE', 'DRIVING', 'LICENSE', 'REPUBLIQUE', 'FRANCAISE'
     ];
 
-    const OCR_NOISE = /\b(ULOME|SURNAME|GIVEN|NAMES|SCE|NOM|PRENOM|TYPE)\b/gi;
+    const OCR_NOISE = /\b(ULOME|SURNAME|GIVEN|NAMES|SCE|NOM|PRENOM|TYPE|DOCUMENT|ETAT|CIVIL)\b/gi;
 
     const ALLOWED_DOC_TYPES = {
       'PASSEPORT': 'Passeport',
@@ -168,7 +167,7 @@
     const FIELD_ORDER = ['Type de document', 'N° de titre', 'Nom', 'Prénom', 'Date de naissance', 'Sexe', 'Nationalité', 'Date d\'émission', 'Date de péremption'];
     
     // =====================================================================
-    // GESTION DU CONSENSUS (VOTE SUR 6 FRAMES)
+    // GESTION DU CONSENSUS (VOTE MULTI-FRAMES)
     // =====================================================================
     function resetConsensusBuffer() {
       consensusBuffer = {};
@@ -180,7 +179,7 @@
         if (!consensusBuffer[key]) consensusBuffer[key] = [];
         if (strictFields[key]) {
           consensusBuffer[key].push(strictFields[key]);
-          if (consensusBuffer[key].length > 6) consensusBuffer[key].shift(); // Garde l'historique récent
+          if (consensusBuffer[key].length > 6) consensusBuffer[key].shift();
         }
       }
     }
@@ -219,9 +218,11 @@
       if (!name) return null;
       let clean = name.toUpperCase();
       clean = clean.replace(OCR_NOISE, '');
-      clean = clean.replace(/^[0-9A-Z]+[.\-:]?\s+/g, '');
-      clean = clean.replace(/[^\w\s\-À-Ÿ,]/g, '').trim();
+      clean = clean.replace(/^[0-9]+[.\-:]?\s+/g, ''); // Enlève "1. "
+      clean = clean.replace(/[^\w\s\-À-Ÿ,]/g, ' ').trim();
       clean = clean.replace(/^,+|,+$/g, '').trim();
+      clean = clean.replace(/\s+[AB]$/, '').trim(); // Enlève cat Permis " A" isolée
+      clean = clean.replace(/\s+/g, ' ');
 
       if (clean.length < 2) return null;
       if (containsForbiddenWord(clean)) return null;
@@ -237,9 +238,8 @@
         mm = rawDate.substring(2,4);
         dd = rawDate.substring(4,6);
         yyyy = (yy > 50 ? '19' : '20') + rawDate.substring(0,2);
-      } 
-      else {
-        const match = rawDate.match(/^(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})$/);
+      } else {
+        const match = rawDate.match(/\b(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})\b/);
         if (match) { dd = match[1]; mm = match[2]; yyyy = match[3]; } 
         else return null;
       }
@@ -269,6 +269,93 @@
       return null;
     }
 
+    // =====================================================================
+    // EXTRACTION INTELLIGENTE DU TEXTE (La Magie Anti-Bruit)
+    // =====================================================================
+    function parseRawData(rawText, blocks) {
+      if (!rawText) return {};
+      let format = null, documentNumber = null, fields = {};
+      const rawUpper = rawText.toUpperCase();
+
+      // 1. STRATÉGIE VÉRITÉ ABSOLUE (MRZ)
+      const mrzLines = rawUpper.split('\n').map(l => l.replace(/[\s]+/g, '<').replace(/[^A-Z0-9<]/g, '').trim()).filter(l => l.length >= 25);
+      if (mrzLines.length >= 2) {
+        let patched = [...mrzLines];
+        if (patched[0].startsWith('IR')) patched[0] = 'ID' + patched[0].substring(2);
+        try { 
+          const mrz = mrzParse(patched); 
+          if(mrz) { format = mrz.format; documentNumber = mrz.documentNumber; fields = mrz.fields; }
+        } catch (e) {}
+      }
+
+      // Hack MRZ Permis Français (qui n'a pas les prénoms ni naissance)
+      const permisLine = mrzLines.find(l => /^[D0][1I]/.test(l));
+      if (permisLine && !format) {
+        let norm = permisLine.length > 30 ? permisLine.substring(0, 30) : permisLine + '<'.repeat(30 - permisLine.length);
+        const docNum = norm.substring(5, 14).replace(/</g, '');
+        if (docNum.length >= 5) { 
+            format = 'PERMIS_FR'; 
+            documentNumber = docNum; 
+            fields.expirationDate = norm.substring(15, 21); 
+            let lastNameMrz = norm.substring(21).split('<')[0];
+            if (lastNameMrz.length >= 2) fields.lastName = lastNameMrz;
+        }
+      }
+
+      // 2. STRATÉGIE "FORMAT EUROPÉEN" (Ancres Numérotées 1, 2, 3...)
+      // Gère même les sauts de ligne accidentels (ex: "1,\n MAHEUX")
+      
+      const m1 = rawUpper.match(/(?:^|\s|\n)1[.,]?\s*([A-ZÀ-Ÿ\-]{2,}(?:\s+[A-ZÀ-Ÿ\-]{2,})*)/);
+      if (m1 && !fields.lastName) fields.lastName = m1[1];
+
+      const m2 = rawUpper.match(/(?:^|\s|\n)2[.,]?\s*([A-ZÀ-Ÿ\-]{2,}(?:\s+[A-ZÀ-Ÿ\-]{2,})*)/);
+      if (m2 && !fields.firstName) fields.firstName = m2[1];
+
+      const m3 = rawUpper.match(/(?:^|\s|\n)3[.,\s]+(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
+      if (m3 && !fields.birthDate) fields.birthDate = m3[1];
+
+      const m4a = rawUpper.match(/(?:^|\s|\n)4[aA][.,\s]+(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
+      if (m4a && !fields.issueDate) fields.issueDate = m4a[1];
+
+      const m4b = rawUpper.match(/(?:^|\s|\n)4[bB8][.,\s]+(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
+      if (m4b && !fields.expirationDate) fields.expirationDate = m4b[1];
+
+      const m5 = rawUpper.match(/(?:^|\s|\n)5[.,\s]+([A-Z0-9]{5,15})/);
+      if (m5 && !documentNumber) documentNumber = m5[1];
+
+      // 3. STRATÉGIE GÉOMÉTRIQUE GLOBALE (Fallback pour les vieux formats)
+      if (blocks && (!fields.lastName || !fields.firstName)) {
+        const sorted = [...blocks].sort((a, b) => a.rect.y - b.rect.y);
+        const getBelow = (regex) => {
+          for (let i = 0; i < sorted.length; i++) {
+            if (regex.test(sorted[i].text.toUpperCase())) {
+              for (let j = i + 1; j < sorted.length; j++) {
+                if (sorted[j].rect.y > sorted[i].rect.y + 10 && !/(NOM|PRENOM|DATE|SEXE|NATIONALITE)/.test(sorted[j].text.toUpperCase())) {
+                  return sorted[j].text;
+                }
+              }
+            }
+          }
+          return null;
+        };
+        if (!fields.lastName) { let bL = getBelow(/(NOM|SURNAME)/); if(bL) fields.lastName = bL; }
+        if (!fields.firstName) { let bF = getBelow(/(PRENOM|GIVEN)/); if(bF) fields.firstName = bF; }
+      }
+
+      // 4. STRATÉGIE DATES UNIVERSELLES (Ramasse-miettes)
+      const dateRegex = /\b(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})\b/g;
+      let match;
+      while ((match = dateRegex.exec(rawUpper)) !== null) {
+          let dString = `${match[1]}.${match[2]}.${match[3]}`;
+          let context = rawUpper.substring(Math.max(0, match.index - 30), match.index);
+          if (context.includes('NAISSANCE') && !fields.birthDate) fields.birthDate = dString;
+          else if ((context.includes('DELIVR') || context.includes('EMISSION')) && !fields.issueDate) fields.issueDate = dString;
+          else if ((context.includes('EXPIR') || context.includes('PEREMP') || context.includes('JUSQU')) && !fields.expirationDate) fields.expirationDate = dString;
+      }
+
+      return { format, documentNumber, fields };
+    }
+
     function applyStrictRules(extractedData, rawText) {
       const strictResult = {
         'Type de document': getStrictDocType(extractedData.format, rawText),
@@ -287,11 +374,19 @@
         strictResult['N° de titre'] = docNum.toUpperCase().replace(/[^A-Z0-9]/g, '');
       }
 
-      return strictResult;
+      const isOptimal = (
+        strictResult['Type de document'] !== null &&
+        strictResult['N° de titre'] !== null &&
+        strictResult['Nom'] !== null &&
+        strictResult['Date de naissance'] !== null
+      );
+
+      let score = 0; Object.values(strictResult).forEach(val => { if (val !== null) score++; });
+      return { isOptimal, score, strictFields: strictResult };
     }
 
     // =====================================================================
-    // INITIALISATION & MOTEURS
+    // MOTEUR OCR & APP INIT
     // =====================================================================
     window.addEventListener('DOMContentLoaded', async () => {
       ['loading', 'ready', 'scanning', 'result'].forEach(n => views[n] = document.getElementById('view-' + n));
@@ -309,7 +404,6 @@
           });
         });
       });
-
       await loadEngines();
     });
 
@@ -320,24 +414,18 @@
     }
 
     async function loadEngines() {
-      const status = document.getElementById('load-status');
-      const bar = document.getElementById('load-progress');
+      const status = document.getElementById('load-status'), bar = document.getElementById('load-progress');
       try {
-        status.innerText = "Chargement des modules OCR...";
-        bar.style.width = '30%';
-        const mod = await import('https://esm.sh/mrz@5');
-        mrzParse = mod.parse;
-
+        status.innerText = "Chargement des modules..."; bar.style.width = '30%';
+        const mod = await import('https://esm.sh/mrz@5'); mrzParse = mod.parse;
         if ('TextDetector' in window) {
           ocrEngine = 'NATIVE';
           document.getElementById('engine-indicator').innerText = "⚡ Moteur Natif";
-          document.getElementById('engine-indicator').className = "engine-badge engine-native";
-          bar.style.width = '100%';
+          document.getElementById('engine-indicator').className = "engine-badge engine-native"; bar.style.width = '100%';
         } else {
           ocrEngine = 'TESSERACT';
           document.getElementById('engine-indicator').innerText = "🐢 Moteur Web";
-          document.getElementById('engine-indicator').className = "engine-badge engine-wasm";
-          bar.style.width = '60%';
+          document.getElementById('engine-indicator').className = "engine-badge engine-wasm"; bar.style.width = '60%';
           tesseractWorker = await Tesseract.createWorker('eng');
           await tesseractWorker.setParameters({ tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<', });
           bar.style.width = '100%';
@@ -346,260 +434,85 @@
       } catch (err) { status.innerText = "Erreur: " + err.message; }
     }
 
-    // =====================================================================
-    // STRATÉGIE 2 : EXTRACTION GÉOMÉTRIQUE AVANCÉE
-    // =====================================================================
-    function extractVisualGeometry(blocks) {
-      let res = { lastName: null, firstName: null, documentNumber: null };
-      if (!blocks || blocks.length === 0) return res;
-
-      // Tri physique de haut en bas
-      const sorted = [...blocks].sort((a, b) => a.rect.y - b.rect.y);
-
-      const getClosestBelow = (regexMatch, regexExclude) => {
-        for (let i = 0; i < sorted.length; i++) {
-          let block = sorted[i];
-          if (regexMatch.test(block.text.toUpperCase())) {
-            let bestCandidate = null;
-            let minDiffY = Infinity;
-            
-            for (let j = i + 1; j < sorted.length; j++) {
-              let nextB = sorted[j];
-              // Le bloc candidat DOIT être en dessous du label
-              if (nextB.rect.y > block.rect.y + (block.rect.height * 0.3)) {
-                let diffY = nextB.rect.y - block.rect.y;
-                // Ignorer les blocs trop loin
-                if (diffY > block.rect.height * 5) continue; 
-                
-                let cleanText = nextB.text.replace(OCR_NOISE, '').replace(/^[.:-]+\s*/, '').trim();
-                if (diffY < minDiffY && !regexExclude.test(cleanText.toUpperCase()) && cleanText.length >= 2) {
-                  minDiffY = diffY;
-                  bestCandidate = cleanText;
-                }
-              }
-            }
-            if (bestCandidate) return bestCandidate;
-          }
-        }
-        return null;
-      };
-
-      const labelsToExclude = /(NOM|PRENOM|DATE|SEXE|NATIONALITE|PASSEPORT|CARTE|TITRE|SURNAME|GIVEN|NAMES)/;
-      res.lastName = getClosestBelow(/(NOM|SURNAME)/, labelsToExclude);
-      res.firstName = getClosestBelow(/(PRENOM|GIVEN|PRÉNOM)/, labelsToExclude);
-      res.documentNumber = getClosestBelow(/(PASSEPORT|CARTE|TITRE|DOCUMENT)\s*N/, labelsToExclude);
-
-      return res;
-    }
-
-    // =====================================================================
-    // EXTRACTION DU TEXTE (Retourne Texte Brut + Blocs Géométriques)
-    // =====================================================================
     async function extractTextData(imageSource) {
       let srcW = imageSource === 'camera' ? video.videoWidth : imageSource.width;
       let srcH = imageSource === 'camera' ? video.videoHeight : imageSource.height;
-      
       canvas.width = srcW; canvas.height = srcH;
       if (imageSource === 'camera') ctx.drawImage(video, 0, 0, srcW, srcH);
       else ctx.drawImage(imageSource, 0, 0, srcW, srcH);
 
-      let rawText = "";
-      let blocks = [];
-
+      let rawText = "", blocks = [];
       if (ocrEngine === 'NATIVE') {
         try {
-          const detector = new TextDetector();
-          const detectedTexts = await detector.detect(canvas);
+          const detector = new TextDetector(); const detectedTexts = await detector.detect(canvas);
           rawText = detectedTexts.map(t => t.rawValue).join('\n');
-          blocks = detectedTexts.map(t => ({
-             text: t.rawValue, 
-             rect: { x: t.boundingBox.x, y: t.boundingBox.y, width: t.boundingBox.width, height: t.boundingBox.height }
-          }));
+          blocks = detectedTexts.map(t => ({ text: t.rawValue, rect: { y: t.boundingBox.y } }));
         } catch (e) { }
       } else {
-        ctx.filter = 'contrast(1.5) grayscale(1)';
-        ctx.drawImage(canvas, 0, 0);
-        ctx.filter = 'none';
-        const { data } = await tesseractWorker.recognize(canvas);
-        rawText = data.text;
-        if (data.lines) {
-           blocks = data.lines.map(l => ({
-              text: l.text, 
-              rect: { x: l.bbox.x0, y: l.bbox.y0, width: l.bbox.x1 - l.bbox.x0, height: l.bbox.y1 - l.bbox.y0 }
-           }));
-        }
+        ctx.filter = 'contrast(1.5) grayscale(1)'; ctx.drawImage(canvas, 0, 0); ctx.filter = 'none';
+        const { data } = await tesseractWorker.recognize(canvas); rawText = data.text;
+        if (data.lines) blocks = data.lines.map(l => ({ text: l.text, rect: { y: l.bbox.y0 } }));
       }
       return { rawText, blocks };
     }
 
-    function parseRawData(rawText, blocks) {
-      if (!rawText) return {};
-      let format = null, documentNumber = null, fields = {};
-
-      // STRATÉGIE 1 : LA VÉRITÉ ABSOLUE (PRIORITÉ MRZ)
-      const mrzLines = rawText.toUpperCase().split('\n').map(l => l.replace(/[\s]+/g, '<').replace(/[^A-Z0-9<]/g, '').trim()).filter(l => l.length >= 25);
-      if (mrzLines.length >= 2) {
-        let patched = [...mrzLines];
-        if (patched[0].startsWith('IR')) patched[0] = 'ID' + patched[0].substring(2);
-        try { 
-          const mrz = mrzParse(patched); 
-          if(mrz) { format = mrz.format; documentNumber = mrz.documentNumber; fields = mrz.fields; }
-        } catch (e) {}
-      }
-
-      const permisLine = mrzLines.find(l => /^[D0][1I]/.test(l));
-      if (permisLine && !format) {
-        const docNum = permisLine.substring(5, 14).replace(/</g, '');
-        if (docNum.length >= 5) { format = 'PERMIS_FR'; documentNumber = docNum; fields.expirationDate = permisLine.substring(15, 21); }
-      }
-
-      // STRATÉGIE 2 : REMPLISSAGE GÉOMÉTRIQUE (Si le MRZ a échoué)
-      if (blocks && (!fields.lastName || !fields.firstName)) {
-        const geoFields = extractVisualGeometry(blocks);
-        if (!fields.lastName && geoFields.lastName) fields.lastName = geoFields.lastName;
-        if (!fields.firstName && geoFields.firstName) fields.firstName = geoFields.firstName;
-        if (!documentNumber && geoFields.documentNumber) documentNumber = geoFields.documentNumber;
-      }
-
-      // Extraction des dates globales avec tolérance d'espaces
-      const dateRegex = /\b(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})\b/g;
-      let match;
-      while ((match = dateRegex.exec(rawText)) !== null) {
-          let dString = `${match[1]}.${match[2]}.${match[3]}`;
-          let index = match.index;
-          let context = rawText.substring(Math.max(0, index - 30), index).toUpperCase();
-
-          if (context.includes('NAISSANCE') && !fields.birthDate) fields.birthDate = dString;
-          else if ((context.includes('DELIVR') || context.includes('EMISSION')) && !fields.issueDate) fields.issueDate = dString;
-          else if ((context.includes('EXPIR') || context.includes('PEREMP') || context.includes('JUSQU')) && !fields.expirationDate) fields.expirationDate = dString;
-      }
-
-      return { format, documentNumber, fields };
-    }
-
     // =====================================================================
-    // CAMERA ET BOUCLE
+    // CAMERA & VIDÉO
     // =====================================================================
     async function startCamera() {
-      switchView('scanning');
-      isScanning = true;
-      bestScanResult = null;
-      bestScanScore = 0;
-      scanStartTime = Date.now();
+      switchView('scanning'); isScanning = true; bestScanResult = null; bestScanScore = 0; scanStartTime = Date.now();
       resetConsensusBuffer();
-      
       document.getElementById('scan-feedback').innerText = "Temps 1: Recherche d'une lecture parfaite...";
       document.getElementById('timeout-progress').style.width = '0%';
       document.getElementById('btn-force').classList.add('hidden');
-      
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
-        });
-        video.srcObject = stream;
-        await video.play();
-        scanLoop();
-      } catch (err) {
-        document.getElementById('scan-feedback').innerText = "Erreur Caméra. Veuillez autoriser l'accès.";
-      }
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+        video.srcObject = stream; await video.play(); scanLoop();
+      } catch (err) { document.getElementById('scan-feedback').innerText = "Erreur Caméra. Autorisez l'accès."; }
     }
 
-    function stopVideo() {
-      isScanning = false;
-      if (scanTimeout) clearTimeout(scanTimeout);
-      if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-    }
-
+    function stopVideo() { isScanning = false; if (scanTimeout) clearTimeout(scanTimeout); if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop()); }
     function cancelScan() { stopVideo(); switchView('ready'); }
-
-    function forceCapture() {
-      if (!isScanning) return;
-      stopVideo();
-      if (bestScanResult) showResult(bestScanResult.data, bestScanResult.raw, true);
-      else showResult({ isOptimal: false, strictFields: {} }, "Aucune donnée lisible", true);
-    }
+    function forceCapture() { if (!isScanning) return; stopVideo(); showResult(bestScanResult?.data || { isOptimal: false, strictFields: {} }, bestScanResult?.raw || "", true); }
 
     async function scanLoop() {
       if (!isScanning || !video.srcObject || video.paused) return;
-
       try {
         const { rawText, blocks } = await extractTextData('camera');
+        const strictData = applyStrictRules(parseRawData(rawText, blocks), rawText);
         
-        const rawData = parseRawData(rawText, blocks);
-        const strictData = applyStrictRules(rawData, rawText);
-
-        // STRATÉGIE 5 : Le consensus
         updateConsensus(strictData);
         const finalConsensus = getConsensusFields();
-
-        const isOptimal = (
-            finalConsensus['Type de document'] !== null &&
-            finalConsensus['N° de titre'] !== null &&
-            finalConsensus['Nom'] !== null &&
-            finalConsensus['Date de naissance'] !== null
-        );
-
-        let score = 0;
-        Object.values(finalConsensus).forEach(val => { if (val !== null) score++; });
-
+        const isOptimal = (finalConsensus['Type de document'] !== null && finalConsensus['N° de titre'] !== null && finalConsensus['Nom'] !== null && finalConsensus['Date de naissance'] !== null);
+        let score = 0; Object.values(finalConsensus).forEach(val => { if (val !== null) score++; });
         const validatedData = { isOptimal, score, strictFields: finalConsensus };
 
-        if (validatedData.score > bestScanScore) {
-          bestScanScore = validatedData.score;
-          bestScanResult = { data: validatedData, raw: rawText };
-        }
-
-        if (validatedData.isOptimal) {
-          stopVideo();
-          showResult(validatedData, rawText, false);
-          return;
-        } 
+        if (validatedData.score > bestScanScore) { bestScanScore = validatedData.score; bestScanResult = { data: validatedData, raw: rawText }; }
+        if (validatedData.isOptimal) { stopVideo(); showResult(validatedData, rawText, false); return; } 
         
         const elapsed = Date.now() - scanStartTime;
-        const progress = Math.min(100, (elapsed / MAX_SCAN_DURATION_MS) * 100);
-        document.getElementById('timeout-progress').style.width = `${progress}%`;
-
+        document.getElementById('timeout-progress').style.width = `${Math.min(100, (elapsed / MAX_SCAN_DURATION_MS) * 100)}%`;
         if (bestScanScore >= 2) document.getElementById('btn-force').classList.remove('hidden');
 
         if (elapsed > MAX_SCAN_DURATION_MS) {
-          if (bestScanResult && bestScanScore >= 1) {
-             document.getElementById('scan-feedback').innerText = "Temps 2: Récupération des données...";
-             stopVideo();
-             showResult(bestScanResult.data, bestScanResult.raw, true);
-             return;
-          } else {
-             scanStartTime = Date.now(); 
-          }
+          if (bestScanResult && bestScanScore >= 1) { document.getElementById('scan-feedback').innerText = "Temps 2: Récupération..."; stopVideo(); showResult(bestScanResult.data, bestScanResult.raw, true); return; }
+          else { scanStartTime = Date.now(); }
         }
-      } catch (e) { console.error(e); }
-
-      const delay = ocrEngine === 'NATIVE' ? 150 : 800;
-      scanTimeout = setTimeout(scanLoop, delay);
+      } catch (e) { }
+      scanTimeout = setTimeout(scanLoop, ocrEngine === 'NATIVE' ? 150 : 800);
     }
 
-    // =====================================================================
-    // IMPORTATION PHOTO
-    // =====================================================================
     function handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      switchView('loading');
-      document.getElementById('load-status').innerText = "Filtrage intelligent...";
-      resetConsensusBuffer();
-      
+      const file = event.target.files[0]; if (!file) return;
+      switchView('loading'); document.getElementById('load-status').innerText = "Filtrage européen..."; resetConsensusBuffer();
       const img = new Image();
       img.onload = async () => {
         const { rawText, blocks } = await extractTextData(img);
-        const rawData = parseRawData(rawText, blocks);
-        const strictData = applyStrictRules(rawData, rawText);
-        
-        // Simuler un consensus sur 1 seule frame
+        const strictData = applyStrictRules(parseRawData(rawText, blocks), rawText);
         updateConsensus(strictData);
         const finalConsensus = getConsensusFields();
-        
-        const isOptimal = (finalConsensus['Type de document'] !== null && finalConsensus['N° de titre'] !== null && finalConsensus['Nom'] !== null && finalConsensus['Date de naissance'] !== null);
-        let score = 0; Object.values(finalConsensus).forEach(val => { if (val !== null) score++; });
-        
+        const isOptimal = (finalConsensus['Type de document'] && finalConsensus['N° de titre'] && finalConsensus['Nom'] && finalConsensus['Date de naissance']);
+        let score = 0; Object.values(finalConsensus).forEach(v => { if (v) score++; });
         showResult({ isOptimal, score, strictFields: finalConsensus }, rawText, !isOptimal);
       };
       img.src = URL.createObjectURL(file);
@@ -611,8 +524,7 @@
     function resetApp() { switchView('ready'); }
 
     function addFieldUI(container, label, value) {
-      const row = document.createElement('div');
-      row.className = 'field-row';
+      const row = document.createElement('div'); row.className = 'field-row';
       const icon = label.includes('Date') ? '📅' : (label === 'Nom' || label === 'Prénom' ? '👤' : (label.includes('N°') ? '🆔' : '🏳️'));
       row.innerHTML = `<span class="text-lg">${icon}</span><span class="field-label">${label}</span><span class="field-value">${value}</span>`;
       finalFields[label] = value;
@@ -621,29 +533,22 @@
     }
 
     function showResult(validatedData, rawText, isPartialFallback) {
-      switchView('result');
-      finalFields = {}; 
-      
+      switchView('result'); finalFields = {}; 
       const badge = document.getElementById('res-valid-badge');
       if (validatedData.isOptimal) { badge.className = 'valid-badge'; badge.innerText = '✅ DONNÉES COMPLÈTES'; } 
       else if (isPartialFallback && validatedData.score > 0) { badge.className = 'partial-badge'; badge.innerText = '⚠️ DONNÉES PARTIELLES'; } 
       else { badge.className = 'invalid-badge'; badge.innerText = '❌ ÉCHEC'; }
 
       document.getElementById('res-raw').innerText = rawText || "Aucun texte détecté";
-      const container = document.getElementById('res-fields');
-      container.innerHTML = '';
+      const container = document.getElementById('res-fields'); container.innerHTML = '';
 
       let hasDisplayedData = false;
       if (validatedData.strictFields) {
         FIELD_ORDER.forEach(label => {
           const value = validatedData.strictFields[label];
-          if (value !== null && value !== undefined) {
-            hasDisplayedData = true;
-            addFieldUI(container, label, value);
-          }
+          if (value) { hasDisplayedData = true; addFieldUI(container, label, value); }
         });
       }
-
       if (!hasDisplayedData) container.innerHTML = `<p class="text-sm text-red-400 text-center py-4 font-bold">Aucune donnée valide trouvée.</p>`;
     }
 
@@ -651,16 +556,13 @@
       if (Object.keys(finalFields).length === 0) return;
       const text = Object.entries(finalFields).map(([label, value]) => `${label} : ${value}`).join('\n');
       navigator.clipboard.writeText(text).then(() => showToast('✅ Copie réussie !')).catch(() => {
-        const ta = document.createElement('textarea');
-        ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+        const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
         showToast('✅ Copie réussie !');
       });
     }
 
     function showToast(msg) {
-      const toast = document.getElementById('copy-toast');
-      toast.innerText = msg;
-      toast.classList.add('show');
+      const toast = document.getElementById('copy-toast'); toast.innerText = msg; toast.classList.add('show');
       setTimeout(() => toast.classList.remove('show'), 1500);
     }
   </script>

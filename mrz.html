@@ -7,6 +7,9 @@
   <title>Borderforce Scanner</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- Material Symbols Outlined -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+  
   <style>
     body { font-family: 'Inter', system-ui, sans-serif; background: #0a0a0f; color: #fff; margin: 0; min-height: 100vh; }
     .view { display: none; }
@@ -25,28 +28,39 @@
     .copy-toast.show { opacity: 1; }
     
     .doc-selector { display: flex; gap: 0.5rem; width: 100%; max-width: 24rem; margin-top: 1.5rem; overflow-x: auto; padding-bottom: 0.5rem; }
-    .doc-btn { flex: 1; min-width: 80px; padding: 0.6rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.75rem; font-size: 0.65rem; font-weight: 600; color: #94a3b8; text-align: center; transition: all 0.2s; white-space: nowrap; }
+    .doc-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; min-width: 70px; padding: 0.6rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.75rem; font-size: 0.65rem; font-weight: 600; color: #94a3b8; text-align: center; transition: all 0.2s; white-space: nowrap; }
     .doc-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; box-shadow: 0 4px 12px rgba(59, 131, 246, 0.3); }
+    .doc-btn .material-symbols-outlined { font-size: 1.25rem; }
 
-    .engine-badge { position: absolute; top: 1rem; right: 1rem; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(4px); }
+    .engine-badge { position: absolute; top: 1rem; right: 1rem; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; backdrop-filter: blur(4px); cursor: pointer; transition: background 0.2s; }
+    .engine-badge:hover { background: rgba(255,255,255,0.2); }
     .engine-native { color: #4ade80; border: 1px solid #4ade8055; }
     .engine-wasm { color: #facc15; border: 1px solid #facc1555; }
     
     .progress-bar-container { width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 8px; }
     .progress-bar { height: 100%; background: #3b82f6; width: 0%; transition: width 0.3s linear; }
+
+    /* Custom Checkbox */
+    .custom-checkbox { accent-color: #3b82f6; width: 1.1rem; height: 1.1rem; cursor: pointer; }
   </style>
 </head>
 
 <body>
   <div id="copy-toast" class="copy-toast">✅ Copié !</div>
 
-  <!-- MODAL CONSEIL -->
+  <!-- MODAL CONSEIL (Avec Checkbox Ne plus afficher) -->
   <div id="modal-advice" class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm hidden flex-col items-center justify-center px-6">
     <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-center shadow-2xl">
       <div class="text-4xl mb-4">💡</div>
-      <p class="text-slate-300 text-sm mb-6 leading-relaxed">
+      <p class="text-slate-300 text-sm mb-4 leading-relaxed">
         Si le scanner échoue, <strong class="text-white">utilisez plutôt une photo prise au préalable</strong> dans votre galerie.
       </p>
+      
+      <label class="flex items-center justify-center gap-2 mb-6 cursor-pointer text-slate-400 hover:text-slate-300 group">
+        <input type="checkbox" id="dont-show-again" class="custom-checkbox">
+        <span class="text-xs select-none">J'ai compris, ne plus afficher</span>
+      </label>
+
       <div class="flex flex-col gap-3">
         <button onclick="confirmStartCamera()" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-600/20">Continuer vers le scanner</button>
         <button onclick="closeAdviceModal()" class="w-full bg-white/10 hover:bg-white/20 py-3 rounded-xl font-bold text-sm transition-all">Annuler</button>
@@ -57,8 +71,10 @@
   <!-- MODAL ASTUCE MOTEUR NATIF -->
   <div id="modal-flags" class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm hidden flex-col items-center justify-center px-6">
     <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl max-w-sm w-full text-left shadow-2xl">
-      <h3 class="text-lg font-bold mb-2 text-emerald-400">Activer le Scanner Ultra-rapide</h3>
-      <p class="text-slate-300 text-xs mb-4 leading-relaxed">Pour des raisons de sécurité, cette option doit être activée manuellement sur Chrome Android :</p>
+      <h3 class="text-lg font-bold mb-2 text-emerald-400 flex items-center gap-2">
+        <span class="material-symbols-outlined">bolt</span> Mode Natif
+      </h3>
+      <p class="text-slate-300 text-xs mb-4 leading-relaxed">Le mode natif utilise l'accélération matérielle (NPU/GPU) pour un scan instantané. <br><br>S'il n'est pas actif sur Chrome Android, vous pouvez l'activer manuellement :</p>
       <ol class="text-slate-400 text-xs space-y-3 mb-6 list-decimal pl-4">
         <li>Copiez cette adresse : <br><code class="text-blue-300 bg-black/50 px-2 py-1 rounded select-all mt-1 block">chrome://flags/#enable-experimental-web-platform-features</code></li>
         <li>Ouvrez un nouvel onglet et collez l'adresse.</li>
@@ -81,29 +97,47 @@
 
   <!-- 2. PRÊT -->
   <div id="view-ready" class="view fixed inset-0 z-50 bg-[#0a0a0f] flex flex-col items-center justify-center px-8 relative">
-    <div id="engine-indicator" class="engine-badge engine-wasm cursor-pointer" onclick="showFlagsModal()">Moteur: Détection...</div>
-    <div class="text-center mb-8 mt-4">
+    <div id="engine-indicator" class="engine-badge engine-wasm" onclick="showFlagsModal()">Moteur: Détection...</div>
+    
+    <div class="text-center mb-6 mt-4">
       <div class="text-6xl mb-4">🛡️</div>
       <h1 class="text-2xl font-bold mb-2">Borderforce Scanner</h1>
       <p class="text-slate-400 text-sm">Extraction Chirurgicale & MRZ</p>
     </div>
 
+    <!-- Sélecteur avec Material Icons -->
     <div class="doc-selector mb-6" id="ready-selector">
-      <button class="doc-btn active" data-type="AUTO">AUTO</button>
-      <button class="doc-btn" data-type="Passeport">🛂 PASS</button>
-      <button class="doc-btn" data-type="Permis de conduire">🚗 PERMIS</button>
-      <button class="doc-btn" data-type="Titre de séjour">📜 SÉJOUR</button>
-      <button class="doc-btn" data-type="CNI">🆔 CNI</button>
+      <button class="doc-btn active" data-type="AUTO">
+        <span class="material-symbols-outlined">document_scanner</span>
+        AUTO
+      </button>
+      <button class="doc-btn" data-type="Passeport">
+        <span class="material-symbols-outlined">book</span>
+        PASS
+      </button>
+      <button class="doc-btn" data-type="Permis de conduire">
+        <span class="material-symbols-outlined">directions_car</span>
+        PERMIS
+      </button>
+      <button class="doc-btn" data-type="Titre de séjour">
+        <span class="material-symbols-outlined">assignment_ind</span>
+        SÉJOUR
+      </button>
+      <button class="doc-btn" data-type="CNI">
+        <span class="material-symbols-outlined">badge</span>
+        CNI
+      </button>
     </div>
 
     <button onclick="showAdviceModal()" class="w-full max-w-sm bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-blue-600/20">
       Scanner le document
     </button>
     <label class="w-full max-w-sm mt-4 bg-white/5 hover:bg-white/10 py-4 rounded-xl font-bold text-lg transition-all text-center cursor-pointer block border border-white/10">
-      Importer une photo de la galerie
+      Importer de la galerie
       <input type="file" id="fileUpload" accept="image/*" class="hidden" />
     </label>
 
+    <!-- Footer Discret -->
     <div class="absolute bottom-4 text-center w-full pointer-events-none opacity-40 text-[9px] text-slate-500 tracking-[0.2em] uppercase font-bold">
       G/ Maheux - Adj Rustenholtz
     </div>
@@ -114,7 +148,7 @@
     <video id="video-stream" class="w-full h-full object-cover" playsinline muted></video>
     
     <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-      <div class="w-[90%] max-w-[400px] aspect-[1.58/1] border-2 border-blue-500/50 rounded-xl relative overflow-hidden">
+      <div class="w-[90%] max-w-[400px] aspect-[1.58/1] border-2 border-blue-500/50 rounded-xl relative overflow-hidden shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]">
         <div class="absolute bottom-0 left-0 w-full h-[30%] bg-blue-500/20 border-t border-blue-500/50 flex items-center justify-center">
           <span class="text-blue-300/80 text-[10px] font-bold tracking-widest uppercase">Alignez le document</span>
         </div>
@@ -181,7 +215,7 @@
     let bestScanScore = 0;
     let scanStartTime = 0;
     const MAX_SCAN_DURATION_MS = 8000;
-    const MAX_CONSENSUS_FRAMES = 10; // Mémoire étendue à 10 frames
+    const MAX_CONSENSUS_FRAMES = 10; 
 
     let consensusBuffer = {};
 
@@ -283,7 +317,6 @@
       return null;
     }
 
-    // Extrait intelligemment TOUTES les dates et les trie chronologiquement
     function extractSortedDates(rawText) {
       const dateRegex = /(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})/g;
       let match;
@@ -322,7 +355,7 @@
     }
 
     // =====================================================================
-    // EXTRACTION CHIRURGICALE UNIFIÉE (Vidéo & Galerie)
+    // EXTRACTION CHIRURGICALE UNIFIÉE
     // =====================================================================
     function extractDocumentData(rawText) {
       if (!rawText) return {};
@@ -445,6 +478,38 @@
     }
 
     // =====================================================================
+    // GESTION DES MODALES
+    // =====================================================================
+    function showAdviceModal() {
+      if (localStorage.getItem('borderforce_hide_advice') === 'true') {
+        startCamera();
+      } else {
+        document.getElementById('modal-advice').classList.replace('hidden', 'flex');
+      }
+    }
+
+    function closeAdviceModal() {
+      document.getElementById('modal-advice').classList.replace('flex', 'hidden');
+    }
+
+    function confirmStartCamera() {
+      const dontShow = document.getElementById('dont-show-again').checked;
+      if (dontShow) {
+        localStorage.setItem('borderforce_hide_advice', 'true');
+      }
+      closeAdviceModal();
+      startCamera();
+    }
+
+    function showFlagsModal() {
+      document.getElementById('modal-flags').classList.replace('hidden', 'flex');
+    }
+
+    function closeFlagsModal() {
+      document.getElementById('modal-flags').classList.replace('flex', 'hidden');
+    }
+
+    // =====================================================================
     // MOTEUR OCR & APP INIT
     // =====================================================================
     window.addEventListener('DOMContentLoaded', async () => {
@@ -477,14 +542,18 @@
       try {
         status.innerText = "Chargement des modules..."; bar.style.width = '30%';
         const mod = await import('https://esm.sh/mrz@5'); mrzParse = mod.parse;
+        
+        // Les 2 badges ont l'info cliquable pour l'astuce native
         if ('TextDetector' in window) {
           ocrEngine = 'NATIVE';
-          document.getElementById('engine-indicator').innerText = "⚡ Moteur Natif";
-          document.getElementById('engine-indicator').className = "engine-badge engine-native"; bar.style.width = '100%';
+          document.getElementById('engine-indicator').innerHTML = "⚡ Moteur Natif <span class='text-[8px] ml-1 bg-white/20 px-1.5 py-0.5 rounded-full'>INFO</span>";
+          document.getElementById('engine-indicator').className = "engine-badge engine-native"; 
+          bar.style.width = '100%';
         } else {
           ocrEngine = 'TESSERACT';
           document.getElementById('engine-indicator').innerHTML = "🐢 Moteur Web <span class='text-[8px] ml-1 bg-white/20 px-1.5 py-0.5 rounded-full'>INFO</span>";
-          document.getElementById('engine-indicator').className = "engine-badge engine-wasm cursor-pointer hover:bg-white/10"; bar.style.width = '60%';
+          document.getElementById('engine-indicator').className = "engine-badge engine-wasm"; 
+          bar.style.width = '60%';
           tesseractWorker = await Tesseract.createWorker('eng');
           await tesseractWorker.setParameters({ tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<', });
           bar.style.width = '100%';
@@ -514,28 +583,6 @@
     }
 
     // =====================================================================
-    // GESTION DES MODALES
-    // =====================================================================
-    function showAdviceModal() {
-      document.getElementById('modal-advice').classList.replace('hidden', 'flex');
-    }
-    function closeAdviceModal() {
-      document.getElementById('modal-advice').classList.replace('flex', 'hidden');
-    }
-    function confirmStartCamera() {
-      closeAdviceModal();
-      startCamera();
-    }
-    function showFlagsModal() {
-      if (ocrEngine !== 'NATIVE') {
-        document.getElementById('modal-flags').classList.replace('hidden', 'flex');
-      }
-    }
-    function closeFlagsModal() {
-      document.getElementById('modal-flags').classList.replace('flex', 'hidden');
-    }
-
-    // =====================================================================
     // CAMERA & VIDÉO (TEMPS RÉEL OPTIMISÉ)
     // =====================================================================
     async function startCamera() {
@@ -560,16 +607,10 @@
       try {
         const rawText = await extractTextData('camera');
         
-        // 1. On extrait les données chirurgicales de la frame courante
         const strictData = applyStrictRules(extractDocumentData(rawText), rawText);
-        
-        // 2. CORRECTION DU BUG : On met à jour le buffer avec les champs stricts !
         updateConsensus(strictData.strictFields);
-        
-        // 3. On récupère la vérité absolue (fusion des 10 dernières frames)
         const finalConsensus = getConsensusFields();
         
-        // Affichage dynamique en direct de ce qui a été verrouillé
         const foundKeys = Object.keys(finalConsensus).filter(k => finalConsensus[k] !== null);
         if (foundKeys.length > 0) {
             document.getElementById('scan-debug').innerText = "Trouvé : " + foundKeys.join(', ');
@@ -678,6 +719,3 @@
   </script>
 </body>
 </html>
-
-
-

@@ -152,7 +152,7 @@
 
     const FORBIDDEN_WORDS = [
       'TITRE DE SEJOUR', 'CARTE NATIONALE', 'IDENTITE', 'PASSEPORT', 'PASSPORT',
-      'PERMIS', 'CONDUIRE', 'DRIVING', 'LICENSE', 'REPUBLIQUE', 'FRANCAISE'
+      'PERMIS', 'CONDUIRE', 'DRIVING', 'LICENSE', 'REPUBLIQUE', 'FRANCAISE', 'FRANGAISE'
     ];
 
     const OCR_NOISE = /\b(ULOME|SURNAME|GIVEN|NAMES|SCE|NOM|PRENOM|TYPE|DOCUMENT|ETAT|CIVIL)\b/gi;
@@ -188,13 +188,8 @@
       let result = {};
       for (const key in consensusBuffer) {
         let arr = consensusBuffer[key];
-        if (!arr || arr.length === 0) {
-          result[key] = null;
-          continue;
-        }
-        let counts = {};
-        let max = 0;
-        let best = null;
+        if (!arr || arr.length === 0) { result[key] = null; continue; }
+        let counts = {}; let max = 0; let best = null;
         for (let val of arr) {
           if (!val) continue;
           counts[val] = (counts[val] || 0) + 1;
@@ -206,7 +201,7 @@
     }
 
     // =====================================================================
-    // FILTRES ET NETTOYEURS
+    // FILTRES INTELLIGENTS & DATES
     // =====================================================================
     function containsForbiddenWord(text) {
       if (!text) return false;
@@ -214,41 +209,26 @@
       return FORBIDDEN_WORDS.some(word => upper.includes(word.replace(/[^A-Z]/g, '')));
     }
 
-    function cleanName(name) {
-      if (!name) return null;
-      let clean = name.toUpperCase();
-      clean = clean.replace(OCR_NOISE, '');
-      clean = clean.replace(/^[0-9]+[.\-:]?\s+/g, ''); // Enlève "1. "
-      clean = clean.replace(/[^\w\s\-À-Ÿ,]/g, ' ').trim();
-      clean = clean.replace(/^,+|,+$/g, '').trim();
-      clean = clean.replace(/\s+[AB]$/, '').trim(); // Enlève cat Permis " A" isolée
-      clean = clean.replace(/\s+/g, ' ');
-
-      if (clean.length < 2) return null;
-      if (containsForbiddenWord(clean)) return null;
-      return clean;
-    }
-
-    function strictDateFormatter(rawDate) {
-      if (!rawDate) return null;
-      let dd, mm, yyyy;
-
-      if (/^\d{6}$/.test(rawDate)) {
-        let yy = parseInt(rawDate.substring(0,2));
-        mm = rawDate.substring(2,4);
-        dd = rawDate.substring(4,6);
-        yyyy = (yy > 50 ? '19' : '20') + rawDate.substring(0,2);
-      } else {
-        const match = rawDate.match(/\b(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})\b/);
-        if (match) { dd = match[1]; mm = match[2]; yyyy = match[3]; } 
-        else return null;
+    // Extrait intelligemment TOUTES les dates et les trie chronologiquement
+    function extractSortedDates(rawText) {
+      const dateRegex = /\b(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})\b/g;
+      let match;
+      let dates = [];
+      while ((match = dateRegex.exec(rawText)) !== null) {
+          let dd = parseInt(match[1], 10), mm = parseInt(match[2], 10), yyyy = parseInt(match[3], 10);
+          if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31 && yyyy >= 1900 && yyyy <= 2100) {
+              dates.push({
+                  str: `${match[1]}.${match[2]}.${match[3]}`,
+                  val: yyyy * 10000 + mm * 100 + dd
+              });
+          }
       }
-
-      if (parseInt(mm) < 1 || parseInt(mm) > 12) return null;
-      if (parseInt(dd) < 1 || parseInt(dd) > 31) return null;
-      if (parseInt(yyyy) < 1900 || parseInt(yyyy) > 2100) return null;
-
-      return `${dd}.${mm}.${yyyy}`;
+      // Dédoublonnage
+      const unique = []; const seen = new Set();
+      for(let d of dates) { if(!seen.has(d.str)) { seen.add(d.str); unique.push(d); } }
+      // Tri du plus ancien au plus récent
+      unique.sort((a,b) => a.val - b.val);
+      return unique;
     }
 
     function getStrictDocType(format, rawText) {
@@ -270,87 +250,97 @@
     }
 
     // =====================================================================
-    // EXTRACTION INTELLIGENTE DU TEXTE (La Magie Anti-Bruit)
+    // LE CŒUR DE L'EXTRACTION (SPÉCIAL EUROPE & BRUIT)
     // =====================================================================
     function parseRawData(rawText, blocks) {
       if (!rawText) return {};
       let format = null, documentNumber = null, fields = {};
       const rawUpper = rawText.toUpperCase();
 
-      // 1. STRATÉGIE VÉRITÉ ABSOLUE (MRZ)
-      const mrzLines = rawUpper.split('\n').map(l => l.replace(/[\s]+/g, '<').replace(/[^A-Z0-9<]/g, '').trim()).filter(l => l.length >= 25);
+      // --- 1. DATES INTELLIGENTES (Tri mathématique) ---
+      const sortedDates = extractSortedDates(rawUpper);
+      if (sortedDates.length > 0) {
+          fields.birthDate = sortedDates[0].str; // La plus ancienne = Naissance
+          if (sortedDates.length > 1) fields.expirationDate = sortedDates[sortedDates.length - 1].str; // La plus récente = Expiration
+          if (sortedDates.length > 2) fields.issueDate = sortedDates[1].str; // Celle du milieu = Émission
+      }
+
+      // --- 2. VÉRITÉ ABSOLUE : MRZ DÉPOLLUÉ ---
+      // On retire TOUS les espaces pour réparer le MRZ corrompu par la caméra
+      const mrzLines = rawUpper.split('\n')
+          .map(l => l.replace(/[\s]+/g, ''))
+          .filter(l => l.length >= 25 && l.includes('<'));
+
       if (mrzLines.length >= 2) {
-        let patched = [...mrzLines];
-        if (patched[0].startsWith('IR')) patched[0] = 'ID' + patched[0].substring(2);
-        try { 
-          const mrz = mrzParse(patched); 
-          if(mrz) { format = mrz.format; documentNumber = mrz.documentNumber; fields = mrz.fields; }
-        } catch (e) {}
-      }
-
-      // Hack MRZ Permis Français (qui n'a pas les prénoms ni naissance)
-      const permisLine = mrzLines.find(l => /^[D0][1I]/.test(l));
-      if (permisLine && !format) {
-        let norm = permisLine.length > 30 ? permisLine.substring(0, 30) : permisLine + '<'.repeat(30 - permisLine.length);
-        const docNum = norm.substring(5, 14).replace(/</g, '');
-        if (docNum.length >= 5) { 
-            format = 'PERMIS_FR'; 
-            documentNumber = docNum; 
-            fields.expirationDate = norm.substring(15, 21); 
-            let lastNameMrz = norm.substring(21).split('<')[0];
-            if (lastNameMrz.length >= 2) fields.lastName = lastNameMrz;
-        }
-      }
-
-      // 2. STRATÉGIE "FORMAT EUROPÉEN" (Ancres Numérotées 1, 2, 3...)
-      // Gère même les sauts de ligne accidentels (ex: "1,\n MAHEUX")
-      
-      const m1 = rawUpper.match(/(?:^|\s|\n)1[.,]?\s*([A-ZÀ-Ÿ\-]{2,}(?:\s+[A-ZÀ-Ÿ\-]{2,})*)/);
-      if (m1 && !fields.lastName) fields.lastName = m1[1];
-
-      const m2 = rawUpper.match(/(?:^|\s|\n)2[.,]?\s*([A-ZÀ-Ÿ\-]{2,}(?:\s+[A-ZÀ-Ÿ\-]{2,})*)/);
-      if (m2 && !fields.firstName) fields.firstName = m2[1];
-
-      const m3 = rawUpper.match(/(?:^|\s|\n)3[.,\s]+(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
-      if (m3 && !fields.birthDate) fields.birthDate = m3[1];
-
-      const m4a = rawUpper.match(/(?:^|\s|\n)4[aA][.,\s]+(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
-      if (m4a && !fields.issueDate) fields.issueDate = m4a[1];
-
-      const m4b = rawUpper.match(/(?:^|\s|\n)4[bB8][.,\s]+(\d{2}[./\-\s]+\d{2}[./\-\s]+\d{4})/);
-      if (m4b && !fields.expirationDate) fields.expirationDate = m4b[1];
-
-      const m5 = rawUpper.match(/(?:^|\s|\n)5[.,\s]+([A-Z0-9]{5,15})/);
-      if (m5 && !documentNumber) documentNumber = m5[1];
-
-      // 3. STRATÉGIE GÉOMÉTRIQUE GLOBALE (Fallback pour les vieux formats)
-      if (blocks && (!fields.lastName || !fields.firstName)) {
-        const sorted = [...blocks].sort((a, b) => a.rect.y - b.rect.y);
-        const getBelow = (regex) => {
-          for (let i = 0; i < sorted.length; i++) {
-            if (regex.test(sorted[i].text.toUpperCase())) {
-              for (let j = i + 1; j < sorted.length; j++) {
-                if (sorted[j].rect.y > sorted[i].rect.y + 10 && !/(NOM|PRENOM|DATE|SEXE|NATIONALITE)/.test(sorted[j].text.toUpperCase())) {
-                  return sorted[j].text;
-                }
-              }
-            }
+          let patched = mrzLines.filter(l => l.length >= 30);
+          if (patched.length >= 2) {
+            if (patched[0].startsWith('IR')) patched[0] = 'ID' + patched[0].substring(2);
+            try { 
+              const mrz = mrzParse(patched); 
+              if(mrz) { format = mrz.format; documentNumber = mrz.documentNumber; Object.assign(fields, mrz.fields); }
+            } catch (e) {}
           }
-          return null;
-        };
-        if (!fields.lastName) { let bL = getBelow(/(NOM|SURNAME)/); if(bL) fields.lastName = bL; }
-        if (!fields.firstName) { let bF = getBelow(/(PRENOM|GIVEN)/); if(bF) fields.firstName = bF; }
       }
 
-      // 4. STRATÉGIE DATES UNIVERSELLES (Ramasse-miettes)
-      const dateRegex = /\b(\d{2})[./\-\s]+(\d{2})[./\-\s]+(\d{4})\b/g;
-      let match;
-      while ((match = dateRegex.exec(rawUpper)) !== null) {
-          let dString = `${match[1]}.${match[2]}.${match[3]}`;
-          let context = rawUpper.substring(Math.max(0, match.index - 30), match.index);
-          if (context.includes('NAISSANCE') && !fields.birthDate) fields.birthDate = dString;
-          else if ((context.includes('DELIVR') || context.includes('EMISSION')) && !fields.issueDate) fields.issueDate = dString;
-          else if ((context.includes('EXPIR') || context.includes('PEREMP') || context.includes('JUSQU')) && !fields.expirationDate) fields.expirationDate = dString;
+      // Scanner MRZ Permis Français
+      const permisMrz = mrzLines.find(l => /^D[1I]FRA/.test(l));
+      if (permisMrz && !format) {
+          format = 'PERMIS_FR';
+          const numMatch = permisMrz.match(/^D[1I]FRA([A-Z0-9]{9})/);
+          if (numMatch) documentNumber = numMatch[1].replace(/O/g, '0');
+          
+          const nameMatch = permisMrz.match(/\d{6,}([A-ZÀ-Ÿ]+)<</);
+          if (nameMatch) fields.lastName = nameMatch[1];
+      }
+
+      // --- 3. ANCRES EUROPÉENNES (1. Nom, 2. Prénom) ---
+      // Utile si le MRZ n'a pas tout donné
+      const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+      
+      let foundFirstNameIndex = -1;
+      for (let i = 0; i < lines.length; i++) {
+          let lUp = lines[i].toUpperCase();
+
+          // Reconnaissance du prénom ancré
+          if (/^2[.,\s]+[A-Z]/.test(lUp) && !fields.firstName) {
+              // On supprime l'ancre ET les lettres minuscules parasites ("GUYn" -> "GUY")
+              fields.firstName = lines[i].replace(/^2[.,\s]+/, '').replace(/[a-z]/g, '').replace(/\s+[A-Z]$/, '').trim();
+              foundFirstNameIndex = i;
+              
+              // Déduction maligne du Nom : c'est presque toujours la ligne valide juste au-dessus !
+              if (!fields.lastName && i > 0) {
+                  for(let j = i - 1; j >= 0; j--) {
+                      let prev = lines[j].toUpperCase().replace(/^[1.,\s]+/, '').replace(/[a-z]/g, '').trim();
+                      if (prev.length > 2 && !containsForbiddenWord(prev)) {
+                          fields.lastName = prev;
+                          break;
+                      }
+                  }
+              }
+          }
+
+          // Si jamais la ligne "1." est isolée et trouvée
+          if (/^1[.,\s]+[A-Z]/.test(lUp) && !fields.lastName) {
+              let possibleName = lines[i].replace(/^1[.,\s]+/, '').replace(/[a-z]/g, '').trim();
+              if (possibleName.length > 2 && !containsForbiddenWord(possibleName)) fields.lastName = possibleName;
+          }
+
+          // Numéro de document ancré
+          if (/(?:^|\s)5[.,\s]+([A-Z0-9]{9})/i.test(lines[i]) && !documentNumber) {
+              documentNumber = lines[i].match(/(?:^|\s)5[.,\s]+([A-Z0-9]{9})/i)[1].toUpperCase().replace(/O/g, '0');
+          }
+      }
+
+      // --- 4. FALLBACK FINAL NUMÉRO DOCUMENT ---
+      if (!documentNumber) {
+          const words = rawUpper.split(/[\s\n]+/);
+          for (let w of words) {
+              // Si 9 caractères, mix de lettres et chiffres
+              if (w.length === 9 && /[A-Z]{2,}/.test(w) && /[0-9]{2,}/.test(w)) {
+                  documentNumber = w.replace(/O/g, '0');
+                  break;
+              }
+          }
       }
 
       return { format, documentNumber, fields };
@@ -360,20 +350,22 @@
       const strictResult = {
         'Type de document': getStrictDocType(extractedData.format, rawText),
         'N° de titre': null,
-        'Nom': cleanName(extractedData.fields?.lastName),
-        'Prénom': cleanName(extractedData.fields?.firstName),
-        'Date de naissance': strictDateFormatter(extractedData.fields?.birthDate),
-        'Date d\'émission': strictDateFormatter(extractedData.fields?.issueDate),
-        'Date de péremption': strictDateFormatter(extractedData.fields?.expirationDate),
+        'Nom': extractedData.fields?.lastName,
+        'Prénom': extractedData.fields?.firstName,
+        'Date de naissance': extractedData.fields?.birthDate,
+        'Date d\'émission': extractedData.fields?.issueDate,
+        'Date de péremption': extractedData.fields?.expirationDate,
         'Sexe': extractedData.fields?.sex,
         'Nationalité': extractedData.fields?.nationality
       };
 
+      // Validation finale du Numéro
       const docNum = extractedData.documentNumber;
       if (docNum && docNum.length >= 5 && !containsForbiddenWord(docNum)) {
         strictResult['N° de titre'] = docNum.toUpperCase().replace(/[^A-Z0-9]/g, '');
       }
 
+      // Condition 1er temps (Optimal)
       const isOptimal = (
         strictResult['Type de document'] !== null &&
         strictResult['N° de titre'] !== null &&

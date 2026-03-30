@@ -1011,7 +1011,7 @@ dialog::backdrop {
 
 
 /* ==========================================================================
-   PRESENTATION MODAL (Aperçu) - OPTIMISÉ POUR LECTURE
+   PRESENTATION MODAL (Aperçu) - OPTIMISÉ POUR LECTURE (Mobile First)
    ========================================================================== */
 #presentationModal { 
     width: 100vw; 
@@ -1036,7 +1036,6 @@ dialog::backdrop {
     padding: clamp(20px, 5vw, 40px);
     background: var(--bg-container); 
     width: 100%;
-    /* Max-width ideal pour le confort de lecture d'un résumé sur desktop */
     max-width: 900px;
     margin: 0 auto;
 }
@@ -1045,7 +1044,7 @@ dialog::backdrop {
 .modal-actions-pdf {
     flex-shrink: 0;
     display: flex; 
-    flex-direction: column; /* Empilé sur mobile */
+    flex-direction: column; /* Toujours empilé sur mobile */
     gap: 12px; 
     padding: 16px;
     background: var(--bg-interactive); 
@@ -1179,6 +1178,41 @@ dialog::backdrop {
     #quickEditPanel .member-info-header { padding-block-end: 20px; }
     .wizard-nav { flex-wrap: nowrap; }
     .wizard-nav-btn { width: auto; }
+    
+    /* App Native en Plein Écran (Desktop uniquement) */
+    html:fullscreen body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 !important;
+        overflow: hidden;
+    }
+    html:fullscreen .container {
+        width: 90vw;
+        max-width: 1400px;
+        height: 90vh;
+        margin: 0;
+        overflow-y: auto;
+        border-radius: var(--radius-lg);
+        padding-bottom: 120px; /* Espace pour le dock */
+    }
+    
+    html:-webkit-full-screen body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 !important;
+        overflow: hidden;
+    }
+    html:-webkit-full-screen .container {
+        width: 90vw;
+        max-width: 1400px;
+        height: 90vh;
+        margin: 0;
+        overflow-y: auto;
+        border-radius: var(--radius-lg);
+        padding-bottom: 120px;
+    }
 }
 
 @media (max-width: 600px) {

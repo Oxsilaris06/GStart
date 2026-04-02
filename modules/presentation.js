@@ -628,23 +628,156 @@ async function buildPdf() {
                 drawTitle("6. ARTICULATION");
                 drawWrappedText(`Place du Chef (Générale): ${getVal('place_chef')}`, { size: 14, x: context.margin });
 
-                // Ordre de la rame VL
-                if (formData.rame_vl_order && formData.rame_vl_order.length > 0) {
-                    drawSubTitle("Ordre de la rame VL");
-                    drawWrappedText(formData.rame_vl_order.map((v, i) => `${i + 1}. ${v}`).join('\n'));
+                // ── PAGE DÉDIÉE : Ordres (Rame VL / Colonne / Pénétration) ──────────────────
+                const hasRame = formData.rame_vl_order && formData.rame_vl_order.length > 0;
+                const hasColonne = formData.colonne_progression_order && formData.colonne_progression_order.length > 0;
+                const hasPenetration = formData.ordre_penetration_order && formData.ordre_penetration_order.length > 0;
+
+                if (hasRame || hasColonne || hasPenetration) {
+                    addNewPage();
+
+                    // ── Titre de page ────────────────────────────────────────────────────────
+                    drawTitle("ORDRES — Rame VL / Colonne de Progression / Pénétration");
+
+                    // Paramètres généraux de la page
+                    const pageW = context.pageWidth;
+                    const pageH = context.pageHeight;
+                    const margin = context.margin;
+
+                    // Colonnes actives
+                    const diagrams = [];
+                    if (hasRame) diagrams.push({ label: "RAME VL", items: formData.rame_vl_order, color: context.colors.accent });
+                    if (hasColonne) diagrams.push({ label: "COLONNE PROGRESSION", items: formData.colonne_progression_order, color: context.colors.accent });
+                    if (hasPenetration) diagrams.push({ label: "PÉNÉTRATION", items: formData.ordre_penetration_order, color: context.colors.danger });
+
+                    const nCols = diagrams.length;
+                    const colGap = 20;
+
+                    // Zone desenable (sous le titre, marge basse)
+                    const drawZoneTop = context.y;           // y courant après le titre
+                    const drawZoneBottom = margin + 10;
+                    const drawZoneHeight = drawZoneTop - drawZoneBottom;
+
+                    // Largeur de chaque colonne de diagramme
+                    const totalColW = (pageW - 2 * margin - colGap * (nCols - 1)) / nCols;
+
+                    // Style des boîtes
+                    const boxH = 26;
+                    const boxRadius = 4;
+                    const arrowH = 14;
+                    const labelFontSize = 11;
+                    const itemFontSize = 10;
+                    const posNumW = 20; // largeur du numéro de position
+
+                    diagrams.forEach((diag, colIdx) => {
+                        const nItems = diag.items.length;
+
+                        // Calcul de l'espace disponible par item (boite + flèche), sauf dernière flèche
+                        // totalHeight = nItems * boxH + (nItems-1) * arrowH
+                        // On scale si ça dépasse
+                        const naturalTotalH = nItems * boxH + Math.max(0, nItems - 1) * arrowH;
+                        const scale = naturalTotalH > drawZoneHeight ? drawZoneHeight / naturalTotalH : 1;
+                        const scaledBoxH = boxH * scale;
+                        const scaledArrowH = arrowH * scale;
+                        const scaledLabelFont = Math.floor(labelFontSize * scale);
+                        const scaledItemFont = Math.floor(itemFontSize * scale);
+
+                        // Calcul de la colonne X
+                        const colX = margin + colIdx * (totalColW + colGap);
+
+                        // En-tête de colonne (nom du diagramme)
+                        const headerY = drawZoneTop;
+                        const headerFontSz = 11;
+                        const headerText = diag.label;
+                        const headerW = helveticaBoldFont.widthOfTextAtSize(headerText, headerFontSz);
+                        const headerX = colX + (totalColW - headerW) / 2;
+                        context.currentPage.drawText(headerText, {
+                            x: headerX, y: headerY - 14,
+                            font: helveticaBoldFont, size: headerFontSz,
+                            color: diag.color
+                        });
+
+                        // Trait sous l'en-tête
+                        context.currentPage.drawLine({
+                            start: { x: colX, y: headerY - 18 },
+                            end: { x: colX + totalColW, y: headerY - 18 },
+                            color: diag.color, thickness: 1
+                        });
+
+                        // Début des boîtes (sous l'en-tête)
+                        let curY = headerY - 28;
+
+                        diag.items.forEach((item, itemIdx) => {
+                            const isLast = itemIdx === nItems - 1;
+
+                            // Boite
+                            const boxY = curY - scaledBoxH;
+                            context.currentPage.drawRectangle({
+                                x: colX, y: boxY,
+                                width: totalColW, height: scaledBoxH,
+                                color: context.colors.background,
+                                borderColor: diag.color, borderWidth: 1
+                            });
+
+                            // Numéro de position (cercle à gauche)
+                            const posNumFontSz = Math.max(6, scaledItemFont - 1);
+                            const circleR = Math.min(8, scaledBoxH / 3);
+                            const circleX = colX + circleR + 4;
+                            const circleY = boxY + scaledBoxH / 2;
+                            context.currentPage.drawCircle({
+                                x: circleX, y: circleY, size: circleR,
+                                color: diag.color
+                            });
+                            // Numéro dans le cercle
+                            const posLabel = String(itemIdx + 1);
+                            const posLW = helveticaBoldFont.widthOfTextAtSize(posLabel, posNumFontSz);
+                            context.currentPage.drawText(posLabel, {
+                                x: circleX - posLW / 2, y: circleY - posNumFontSz / 3,
+                                font: helveticaBoldFont, size: posNumFontSz,
+                                color: context.colors.background
+                            });
+
+                            // Texte du membre / VL (après le cercle)
+                            const textX = colX + circleR * 2 + 8;
+                            const maxTextW = totalColW - (circleR * 2 + 12);
+                            const displayedItem = scaledItemFont >= 7
+                                ? item
+                                : item.length > 12 ? item.substring(0, 12) + '…' : item;
+                            const itemW = helveticaBoldFont.widthOfTextAtSize(displayedItem, scaledItemFont);
+                            context.currentPage.drawText(displayedItem, {
+                                x: textX, y: boxY + (scaledBoxH - scaledItemFont) / 2,
+                                font: helveticaBoldFont,
+                                size: Math.max(6, scaledItemFont),
+                                color: context.colors.text
+                            });
+
+                            curY = boxY; // descend sous la boîte
+
+                            // Flèche vers la boîte suivante
+                            if (!isLast) {
+                                const arrowMidX = colX + totalColW / 2;
+                                const arrowTopY = curY;
+                                const arrowBotY = curY - scaledArrowH;
+
+                                context.currentPage.drawLine({
+                                    start: { x: arrowMidX, y: arrowTopY },
+                                    end: { x: arrowMidX, y: arrowBotY + 4 },
+                                    color: diag.color, thickness: 1.5
+                                });
+                                // Tête de flèche (triangle)
+                                const aw = 5 * scale;
+                                context.currentPage.drawLine({ start: { x: arrowMidX - aw, y: arrowBotY + 5 }, end: { x: arrowMidX, y: arrowBotY }, color: diag.color, thickness: 1.5 });
+                                context.currentPage.drawLine({ start: { x: arrowMidX + aw, y: arrowBotY + 5 }, end: { x: arrowMidX, y: arrowBotY }, color: diag.color, thickness: 1.5 });
+
+                                curY = arrowBotY;
+                            }
+                        });
+                    });
+
+                    // Le contexte y n'est plus utilisé sur cette page — laisser en bas
+                    context.y = drawZoneBottom;
                 }
 
-                // Ordre colonne de progression
-                if (formData.colonne_progression_order && formData.colonne_progression_order.length > 0) {
-                    drawSubTitle("Ordre de la colonne de progression");
-                    drawWrappedText(formData.colonne_progression_order.map((t, i) => `${i + 1}. ${t}`).join('\n'));
-                }
-
-                // Ordre de pénétration
-                if (formData.ordre_penetration_order && formData.ordre_penetration_order.length > 0) {
-                    drawSubTitle("Ordre de pénétration");
-                    drawWrappedText(formData.ordre_penetration_order.map((t, i) => `${i + 1}. ${t}`).join('\n'));
-                }
 
                 // Blocs MOICP dynamiques (page dédiée par bloc)
                 const moicpBlocks = formData.moicp_blocks || [];

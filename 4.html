@@ -1422,11 +1422,46 @@ dialog::backdrop {
     .photo-display-area { padding: 12px; }
 }
 
+#beta-button {
+    position: absolute;
+    top: 25px;
+    right: 25px;
+    background: #000000;
+    color: var(--success-green);
+    padding: 10px 18px;
+    font-family: 'Saira Stencil One', sans-serif;
+    text-decoration: none;
+    border: 2px solid var(--success-green);
+    border-radius: var(--radius-sm);
+    font-size: 1.1em;
+    letter-spacing: 2px;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+    transition: all var(--transition-fast);
+    z-index: 100;
+}
+
 #beta-button:hover {
     transform: scale(1.05);
     box-shadow: 0 0 20px rgba(46, 204, 113, 0.5);
     color: #34d399; /* Emerald 400 - success-hover */
     border-color: #34d399;
+}
+
+@media (max-width: 600px) {
+    h1 {
+        font-size: clamp(1.4rem, 8vw, 1.8rem);
+        padding-top: 15px; /* Crée de l'espace pour le bouton BETA au-dessus */
+        margin-block-end: 20px;
+    }
+    
+    #beta-button {
+        top: 8px;
+        right: 8px;
+        padding: 4px 8px;
+        font-size: 0.7em;
+        border-width: 1px;
+        letter-spacing: 1px;
+    }
 }
 
 /* ==========================================================================
@@ -1576,7 +1611,7 @@ dialog::backdrop {
     </dialog>
 
     <div class="container">
-        <a href="4.html" id="beta-button" style="position: absolute; top: 25px; right: 25px; background: #000000; color: var(--success-green); padding: 10px 18px; font-family: 'Saira Stencil One', sans-serif; text-decoration: none; border: 2px solid var(--success-green); border-radius: var(--radius-sm); font-size: 1.1em; letter-spacing: 2px; box-shadow: 0 0 15px rgba(16, 185, 129, 0.3); transition: all var(--transition-fast); z-index: 100;">BETA</a>
+        <a href="4.html" id="beta-button">BETA</a>
         <h1>Générateur d'OI</h1>
 
         <ul class="wizard-progress">

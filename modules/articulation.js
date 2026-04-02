@@ -682,7 +682,7 @@ function openEffractionToolsModal(imgId) {
     const otherToolsInput = document.getElementById('effrac_other_tools');
     if (otherToolsInput) otherToolsInput.value = otherTools;
 
-    modal.style.display = 'block';
+    modal.style.display = 'flex';
 }
 
 function saveEffractionTools() {

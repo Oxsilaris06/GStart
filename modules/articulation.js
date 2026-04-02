@@ -15,7 +15,7 @@ function addMoicp(data) {
     const blockIndex = container.querySelectorAll('.moicp-block').length + 1;
 
     const div = document.createElement('div');
-    div.className = 'articulation-block moicp-block collapsible-container open';
+    div.className = 'articulation-block moicp-block collapsible-container'; // Retiré 'open' par défaut
     div.dataset.blockId = blockId;
 
     const defaultCat = data?.cat || `- Si décelé, dynamiser jusqu'au domicile.\n- Si présence tierce personne lors de la progression, contrôler.\n- Si fuite, CR direction fuite + interpellation.\n- Si rébellion, usage du strict niveau de force nécessaire.\n- Si retranchement, CR + réarticulation pour fixer l'adversaire.`;
@@ -61,6 +61,20 @@ function addMoicp(data) {
             <div class="articulation-members-zone moicp-members" 
                 style="min-height: 50px; border: 2px dashed var(--border-color); border-radius: var(--radius-md); padding: 10px; display: flex; flex-wrap: wrap; gap: 8px;">
             </div>
+
+            <!-- Photos Itinéraire -->
+            <h4 style="margin-top: 15px; color: var(--accent-blue);">
+                <span class="material-symbols-outlined" style="vertical-align: middle;">route</span> Photos Itinéraire
+            </h4>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                <button type="button" class="add-btn" style="flex:1; justify-content: center;" onclick="document.getElementById('input_itin_ext_${blockId}').click()">📷 Extérieur</button>
+                <input type="file" id="input_itin_ext_${blockId}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_itin_ext_${blockId}', false)">
+                
+                <button type="button" class="add-btn" style="flex:1; justify-content: center;" onclick="document.getElementById('input_itin_int_${blockId}').click()">📷 Intérieur</button>
+                <input type="file" id="input_itin_int_${blockId}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_itin_int_${blockId}', false)">
+            </div>
+            <div id="photo_itin_ext_${blockId}" class="image-preview-container photo-display-area" style="margin-bottom:10px;"></div>
+            <div id="photo_itin_int_${blockId}" class="image-preview-container photo-display-area"></div>
         </div>
     `;
 
@@ -94,7 +108,7 @@ function addZmspcp(data) {
     const blockIndex = container.querySelectorAll('.zmspcp-block').length + 1;
 
     const div = document.createElement('div');
-    div.className = 'articulation-block zmspcp-block collapsible-container open';
+    div.className = 'articulation-block zmspcp-block collapsible-container'; // Retiré 'open' par défaut
     div.dataset.blockId = blockId;
 
     const defaultCat = data?.cat || `- Compte rendu de mise en place.\n- Renseigner régulièrement.\n- Si décelé, CR.\n- Si fuite, CR direction fuite + interpellation si rapport de force favorable.\n- Si rébellion, usage du strict minimum de force nécessaire.\n- Si retranchement, CR + réarticulation pour fixer l'adversaire.`;
@@ -143,6 +157,20 @@ function addZmspcp(data) {
             <div class="articulation-members-zone zmspcp-members" 
                 style="min-height: 50px; border: 2px dashed var(--border-color); border-radius: var(--radius-md); padding: 10px; display: flex; flex-wrap: wrap; gap: 8px;">
             </div>
+
+            <!-- Photos Terrain -->
+            <h4 style="margin-top: 15px; color: var(--moicp-zmspcp-purple, #8e44ad);">
+                <span class="material-symbols-outlined" style="vertical-align: middle;">terrain</span> Photos Terrain / AO
+            </h4>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                <button type="button" class="add-btn" style="flex:1; justify-content: center;" onclick="document.getElementById('input_bapteme_${blockId}').click()">📷 Baptême Terrain</button>
+                <input type="file" id="input_bapteme_${blockId}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_bapteme_${blockId}', false)">
+                
+                <button type="button" class="add-btn" style="flex:1; justify-content: center;" onclick="document.getElementById('input_empl_ao_${blockId}').click()">📷 Emplacement AO</button>
+                <input type="file" id="input_empl_ao_${blockId}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_empl_ao_${blockId}', false)">
+            </div>
+            <div id="photo_bapteme_${blockId}" class="image-preview-container photo-display-area" style="margin-bottom:10px;"></div>
+            <div id="photo_empl_ao_${blockId}" class="image-preview-container photo-display-area"></div>
         </div>
     `;
 
@@ -561,4 +589,114 @@ function refreshArticulationFromPatracdvr() {
     // Rafraîchir ordre de pénétration
     const currentPenetration = Array.from(document.querySelectorAll('#ordre_penetration_container .order-chip')).map(c => c.dataset.trigramme);
     refreshOrdrePenetration(currentPenetration.length > 0 ? currentPenetration : null);
+}
+
+// ============================================================
+// CELLULE EFFRACTION
+// ============================================================
+
+/**
+ * Crée un bloc Cellule Effraction dynamique.
+ */
+function addEffraction(data) {
+    const container = document.getElementById('effraction_container');
+    const blockId = data?.id || `effrac_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const blockIndex = container.querySelectorAll('.effraction-block').length + 1;
+
+    const div = document.createElement('div');
+    div.className = 'articulation-block effraction-block collapsible-container'; // Retiré 'open' par défaut
+    div.id = blockId;
+    div.dataset.blockId = blockId;
+
+    div.innerHTML = `
+        <div class="collapsible-header" style="background: var(--effraction-gold); color: white; border-radius: var(--radius-md) var(--radius-md) 0 0;">
+            <h3 class="block-title" style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                <span class="material-symbols-outlined">hardware</span>
+                <input type="text" class="block-title-input" value="${data?.title || 'Effraction ' + blockIndex}" 
+                    style="background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.4); color: white; font-size: 1.1em; font-weight: bold; padding: 2px 5px; width: 200px;" 
+                    onclick="event.stopPropagation()" oninput="saveFormData()">
+            </h3>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="remove-btn" onclick="event.stopPropagation(); this.closest('.effraction-block').remove(); saveFormData();" 
+                    style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 30px; height: 30px; cursor: pointer;" title="Supprimer">❌</button>
+                <span class="material-symbols-outlined">expand_more</span>
+            </div>
+        </div>
+        <div class="collapsible-content">
+            <label>Type de porte :</label>
+            <textarea class="effrac-porte" rows="2" style="width:100%" oninput="saveFormData()" placeholder="Description libre...">${data?.porte || ''}</textarea>
+            
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <div style="flex:1">
+                    <label style="font-size: 0.8em;">Long. (cm)</label>
+                    <input type="text" class="effrac-l" value="${data?.l || ''}" oninput="saveFormData()" placeholder="0">
+                </div>
+                <div style="flex:1">
+                    <label style="font-size: 0.8em;">Larg. (cm)</label>
+                    <input type="text" class="effrac-w" value="${data?.w || ''}" oninput="saveFormData()" placeholder="0">
+                </div>
+                <div style="flex:1">
+                    <label style="font-size: 0.8em;">Haut. (cm)</label>
+                    <input type="text" class="effrac-h" value="${data?.h || ''}" oninput="saveFormData()" placeholder="0">
+                </div>
+            </div>
+
+            <h4 style="margin-top: 15px; color: var(--effraction-gold);">
+                <span class="material-symbols-outlined" style="vertical-align: middle;">add_a_photo</span> Photos Effraction
+            </h4>
+            <div style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 8px;">
+                <span class="material-symbols-outlined" style="font-size: 1em; vertical-align: middle;">info</span> 
+                Ajoutez des photos et précisez les outils pour chacune.
+            </div>
+            <button type="button" class="add-btn" style="width:100%; justify-content: center;" onclick="document.getElementById('input_effrac_${blockId}').click()">➕ Ajouter Photo(s)</button>
+            <input type="file" id="input_effrac_${blockId}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_effrac_${blockId}', false)">
+            <div id="photo_effrac_${blockId}" class="image-preview-container photo-display-area" style="margin-top:10px;"></div>
+        </div>
+    `;
+
+    container.appendChild(div);
+    if (!data) saveFormData();
+}
+
+/**
+ * Logique pour le modal des outils d'effraction
+ */
+let currentEffractionImgId = null;
+
+function openEffractionToolsModal(imgId) {
+    currentEffractionImgId = imgId;
+    const img = document.getElementById(imgId);
+    if (!img) return;
+
+    const modal = document.getElementById('effractionToolsModal');
+    const tools = JSON.parse(img.dataset.tools || '[]');
+    const otherTools = img.dataset.otherTools || '';
+
+    // Reset buttons
+    modal.querySelectorAll('.effrac-tool-btn').forEach(btn => {
+        btn.classList.toggle('active', tools.includes(btn.dataset.tool));
+        btn.onclick = () => btn.classList.toggle('active');
+    });
+
+    // Reset other tools input
+    const otherToolsInput = document.getElementById('effrac_other_tools');
+    if (otherToolsInput) otherToolsInput.value = otherTools;
+
+    modal.style.display = 'block';
+}
+
+function saveEffractionTools() {
+    if (!currentEffractionImgId) return;
+    const img = document.getElementById(currentEffractionImgId);
+    if (!img) return;
+
+    const modal = document.getElementById('effractionToolsModal');
+    const selectedTools = Array.from(modal.querySelectorAll('.effrac-tool-btn.active')).map(btn => btn.dataset.tool);
+    const otherToolsInput = document.getElementById('effrac_other_tools');
+    
+    img.dataset.tools = JSON.stringify(selectedTools);
+    img.dataset.otherTools = otherToolsInput ? otherToolsInput.value : '';
+
+    modal.style.display = 'none';
+    saveFormData();
 }

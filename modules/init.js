@@ -559,9 +559,10 @@
             document.getElementById('addManualVehicleBtn').addEventListener('click', addManualVehicle);
             document.getElementById('addManualMemberBtn').addEventListener('click', addManualMember);
 
-            // Écouteurs pour les boutons d'articulation MOICP / ZMSPCP
+            // Écouteurs pour les boutons d'articulation MOICP / ZMSPCP / EFFRACTION
             document.getElementById('addMoicpBtn').addEventListener('click', () => addMoicp());
             document.getElementById('addZmspcpBtn').addEventListener('click', () => addZmspcp());
+            document.getElementById('addEffractionBtn').addEventListener('click', () => addEffraction());
 
             // NOUVEAU: Écouteur délégué pour le panneau Quick Edit avec MULTI-SELECT
             document.getElementById('quickEditPanel').addEventListener('click', (event) => {

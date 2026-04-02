@@ -365,41 +365,119 @@ async function buildPdf() {
                 context.y = currentY - 15;
             };
 
-            const drawImagesFromCategory = async (previewContainerId, title) => {
-                const imagesData = (formData.dynamic_photos || {})[previewContainerId] || [];
-                for (let i = 0; i < imagesData.length; i++) {
-                    const imgData = imagesData[i];
+            /**
+             * Dessine des images groupées (2 par page)
+             */
+            const drawGroupedImages = async (containerId, categoryTitle) => {
+                const imagesData = (formData.dynamic_photos || {})[containerId] || [];
+                if (imagesData.length === 0) return;
+
+                for (let i = 0; i < imagesData.length; i += 2) {
                     addNewPage();
-                    try {
-                        const imageBytes = compressedImages[imgData.id];
-                        if (!imageBytes) throw new Error("Données d'image compressées non trouvées.");
+                    const photosOnThisPage = imagesData.slice(i, i + 2);
 
-                        let image;
+                    for (let j = 0; j < photosOnThisPage.length; j++) {
+                        const imgData = photosOnThisPage[j];
                         try {
-                            // Tente d'intégrer en PNG car toutes les images annotées sont PNG
-                            if (JSON.parse(imgData.annotations || '[]').length > 0) {
-                                image = await pdfDoc.embedPng(imageBytes);
-                            } else { // Sinon tente JPG
-                                image = await pdfDoc.embedJpg(imageBytes);
-                            }
-                        } catch (e) {
-                            // Fallback si l'extension n'est pas fiable
-                            try { image = await pdfDoc.embedPng(imageBytes); } catch (e2) { image = await pdfDoc.embedJpg(imageBytes); }
-                        }
+                            const imageBytes = compressedImages[imgData.id];
+                            if (!imageBytes) continue;
 
-                        const { width, height } = context.currentPage.getSize();
-                        const paddedW = width - context.margin * 2; const paddedH = height - context.margin * 2 - 30;
-                        const scaled = image.scaleToFit(paddedW, paddedH);
-                        const x = (width - scaled.width) / 2; const y = (height - scaled.height) / 2 + 15;
-                        context.currentPage.drawImage(image, { x, y, width: scaled.width, height: scaled.height });
-                        const finalTitle = imagesData.length > 1 ? `${title} (${i + 1})` : title;
-                        const textWidth = helveticaBoldFont.widthOfTextAtSize(finalTitle, 14);
-                        context.currentPage.drawText(finalTitle, { x: width / 2 - textWidth / 2, y: y - 20, font: helveticaBoldFont, size: 14, color: context.colors.text });
-                    } catch (e) {
-                        console.error(`Erreur d'intégration de l'image pour: ${title}`, e);
-                        drawTitle("Erreur d'image"); drawWrappedText(`Impossible de charger une image.\n\nErreur: ${e.message}`);
+                            let image;
+                            try {
+                                image = JSON.parse(imgData.annotations || '[]').length > 0
+                                    ? await pdfDoc.embedPng(imageBytes)
+                                    : await pdfDoc.embedJpg(imageBytes);
+                            } catch (e) {
+                                try { image = await pdfDoc.embedPng(imageBytes); } catch (e2) { image = await pdfDoc.embedJpg(imageBytes); }
+                            }
+
+                            const { width, height } = context.currentPage.getSize();
+                            const availableW = (width - context.margin * 3) / 2; // Deux colonnes
+                            const availableH = height - context.margin * 2 - 40;
+
+                            const scaled = image.scaleToFit(availableW, availableH);
+                            const x = context.margin + j * (availableW + context.margin) + (availableW - scaled.width) / 2;
+                            const y = context.margin + (availableH - scaled.height) / 2 + 30;
+
+                            context.currentPage.drawImage(image, { x, y, width: scaled.width, height: scaled.height });
+
+                            // Titre sous la photo
+                            const photoIndex = i + j + 1;
+                            const titleText = `${categoryTitle} (${photoIndex}/${imagesData.length})`;
+                            const titleSize = 10;
+                            const titleW = helveticaBoldFont.widthOfTextAtSize(titleText, titleSize);
+                            context.currentPage.drawText(titleText, {
+                                x: context.margin + j * (availableW + context.margin) + (availableW - titleW) / 2,
+                                y: y - 15,
+                                font: helveticaBoldFont,
+                                size: titleSize,
+                                color: context.colors.text
+                            });
+
+                            // --- Dessin des outils pour l'effraction ---
+                            if (containerId.startsWith('photo_effrac_')) {
+                                const tools = JSON.parse(imgData.tools || '[]');
+                                const other = imgData.other_tools || '';
+                                if (tools.length > 0 || other) {
+                                    await drawToolChips(tools, other, 
+                                        context.margin + j * (availableW + context.margin), 
+                                        y - 35, 
+                                        availableW);
+                                }
+                            }
+
+                        } catch (e) {
+                            console.error(`Erreur d'intégration image: ${categoryTitle}`, e);
+                        }
                     }
                 }
+            };
+
+            const drawToolChips = async (tools, other, startX, startY, maxWidth) => {
+                const chipH = 16;
+                const chipPadding = 6;
+                const fontSize = 8;
+                let curX = startX;
+                let curY = startY;
+
+                const drawChip = (text, bgColor) => {
+                    const textW = helveticaBoldFont.widthOfTextAtSize(text, fontSize);
+                    const chipW = textW + chipPadding * 2;
+
+                    if (curX + chipW > startX + maxWidth) {
+                        curX = startX;
+                        curY -= (chipH + 4);
+                    }
+
+                    context.currentPage.drawRectangle({
+                        x: curX, y: curY - chipH,
+                        width: chipW, height: chipH,
+                        color: bgColor,
+                        borderRadius: 3
+                    });
+
+                    context.currentPage.drawText(text, {
+                        x: curX + chipPadding,
+                        y: curY - chipH + (chipH - fontSize) / 2 + 1,
+                        font: helveticaBoldFont,
+                        size: fontSize,
+                        color: rgb(1, 1, 1)
+                    });
+
+                    curX += (chipW + 5);
+                };
+
+                const goldColor = rgb(212/255, 175/255, 55/255); // var(--effraction-gold)
+
+                tools.forEach(t => drawChip(t, goldColor));
+                if (other) {
+                    const otherParts = other.split(',').map(s => s.trim());
+                    otherParts.forEach(p => drawChip(p, rgb(0.3, 0.3, 0.3)));
+                }
+            };
+
+            const drawImagesFromCategory = async (previewContainerId, title) => {
+                await drawGroupedImages(previewContainerId, title);
             };
 
             const getCompositionData = (teamPrefix) => {
@@ -560,10 +638,12 @@ async function buildPdf() {
 
                 const extraPhotoContainerId = `photo_extra_${adv.id}`;
                 if (formData.dynamic_photos && formData.dynamic_photos[extraPhotoContainerId]) {
-                    await drawImagesFromCategory(extraPhotoContainerId, `Photo Supplémentaire - Adversaire ${index + 1}`);
+                    await drawGroupedImages(extraPhotoContainerId, `Photo Supplémentaire - ${advName}`);
                 }
-                if (index === 0) {
-                    await drawImagesFromCategory('renforts_photo_preview_container', 'Photo - Renforts Potentiels');
+                
+                const renfortsContainerId = `photo_renforts_${adv.id}`;
+                if (formData.dynamic_photos && formData.dynamic_photos[renfortsContainerId]) {
+                    await drawGroupedImages(renfortsContainerId, `Photo Renforts - ${advName}`);
                 }
                 checkY(50);
             };
@@ -614,15 +694,20 @@ async function buildPdf() {
 
 
                 addNewPage();
+                const envTitleY = context.y;
                 drawTitle("3. ENVIRONNEMENT");
                 drawSubTitle("Ami(e)s (soutien)"); drawWrappedText(getVal('amies'), { size: 14 });
                 drawSubTitle("Terrain / Météo"); drawWrappedText(getVal('terrain_info'), { size: 14 });
                 drawSubTitle("Population"); drawWrappedText(getVal('population'), { size: 14 });
                 drawSubTitle("Cadre juridique"); drawWrappedText(getVal('cadre_juridique'), { size: 14 });
 
-                await drawImagesFromCategory('photo_container_transport_pr_preview_container', 'Transport PSIG vers PR');
-                await drawImagesFromCategory('photo_container_transport_domicile_preview_container', 'Transport PR vers Domicile/LE');
-                await drawImagesFromCategory('photo_container_bapteme_terrain_preview_container', 'Baptême terrain');
+                // Photos Transport (Globales)
+                await drawGroupedImages('photo_container_transport_pr_preview_container', 'Transport PSIG vers PR');
+                await drawGroupedImages('photo_container_transport_domicile_preview_container', 'Transport PR vers Domicile/LE');
+                
+                // Note: Le Baptême terrain global est maintenu si utilisé, 
+                // mais les ZMSPCP ont maintenant leurs propres photos de terrain.
+                await drawGroupedImages('photo_container_bapteme_terrain_preview_container', 'Baptême terrain (Général)');
 
                 addNewPage();
                 drawTitle("4. MISSION");
@@ -651,6 +736,82 @@ async function buildPdf() {
                 addNewPage();
                 drawTitle("6. ARTICULATION");
                 drawWrappedText(`Place du Chef (Générale): ${getVal('place_chef')}`, { size: 14, x: context.margin });
+                
+                // --- MOICP Blocs ---
+                if (formData.moicp_blocks && formData.moicp_blocks.length > 0) {
+                    for (let i = 0; i < formData.moicp_blocks.length; i++) {
+                        const block = formData.moicp_blocks[i];
+                        const title = block.title || `MOICP ${i + 1}`;
+                        if (checkY(100)) { drawSubTitle(`${title} (Suite)`); }
+                        else { drawSubTitle(`${title}`); }
+                        
+                        const moicpRows = [
+                            ['Mission (M)', block.mission],
+                            ['Objectif (O)', block.objectif],
+                            ['Itinéraire (I)', block.itineraire],
+                            ['Points Part.', block.points_particuliers],
+                            ['Conduite Tenir', block.cat]
+                        ].filter(r => r[1]);
+                        
+                        drawTable(['Champ', 'Détail'], moicpRows, [1, 3], context.margin);
+                        
+                        // Composition du bloc (si présente)
+                        if (block.members && block.members.length > 0) {
+                            drawWrappedText(`Composition: ${block.members.join(' - ')}`, { size: 10, font: helveticaBoldFont });
+                        }
+                        
+                        // Photos Itinéraire (Intercalées)
+                        await drawGroupedImages(`photo_itin_ext_${block.id}`, `${title} - Itinéraire Extérieur`);
+                        await drawGroupedImages(`photo_itin_int_${block.id}`, `${title} - Itinéraire Intérieur`);
+                    }
+                }
+
+                // --- ZMSPCP Blocs ---
+                if (formData.zmspcp_blocks && formData.zmspcp_blocks.length > 0) {
+                    for (let i = 0; i < formData.zmspcp_blocks.length; i++) {
+                        const block = formData.zmspcp_blocks[i];
+                        const title = block.title || `ZMSPCP ${i + 1}`;
+                        if (checkY(100)) { drawSubTitle(`${title} (Suite)`); }
+                        else { drawSubTitle(`${title}`); }
+                        
+                        const zmspcpRows = [
+                            ['Zone (Z)', block.zone],
+                            ['Mission (M)', block.mission],
+                            ['Secteur (S)', block.secteur],
+                            ['Points Part.', block.points_particuliers],
+                            ['Conduite Tenir', block.cat],
+                            ['Chef (Place)', block.place_chef]
+                        ].filter(r => r[1]);
+                        
+                        drawTable(['Champ', 'Détail'], zmspcpRows, [1, 3], context.margin);
+                        
+                        if (block.members && block.members.length > 0) {
+                            drawWrappedText(`Composition: ${block.members.join(' - ')}`, { size: 10, font: helveticaBoldFont });
+                        }
+
+                        await drawGroupedImages(`photo_bapteme_${block.id}`, `${title} - Baptême Terrain`);
+                        await drawGroupedImages(`photo_empl_ao_${block.id}`, `${title} - Emplacement AO`);
+                    }
+                }
+
+                // --- CELLULE EFFRACTION ---
+                if (formData.effraction_blocks && formData.effraction_blocks.length > 0) {
+                    addNewPage();
+                    drawTitle("7. CELLULE EFFRACTION");
+                    for (let i = 0; i < formData.effraction_blocks.length; i++) {
+                        const block = formData.effraction_blocks[i];
+                        const title = block.title || `Effraction ${i + 1}`;
+                        drawSubTitle(`${title}`);
+                        
+                        const effracRows = [
+                            ['Type porte', block.porte],
+                            ['Dimensions', `L: ${block.l || 0}cm | l: ${block.w || 0}cm | H: ${block.h || 0}cm`]
+                        ];
+                        drawTable(['Champ', 'Détail'], effracRows, [1, 3], context.margin);
+                        
+                        await drawGroupedImages(`photo_effrac_${block.id}`, `${title} - Photo Effraction`);
+                    }
+                }
 
                 // ── PAGE DÉDIÉE : Ordres (Rame VL / Colonne / Pénétration) ──────────────────
                 const hasRame = formData.rame_vl_order && formData.rame_vl_order.length > 0;

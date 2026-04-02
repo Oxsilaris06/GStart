@@ -25,10 +25,13 @@ async function handleFileChange(input, previewContainerId, isSingle) {
                         interactiveItem.draggable = true;
                         interactiveItem.id = previewImgId + "_item"; // Unique ID for drag item
 
+                        const isEffrac = previewContainerId.includes('effrac'); // Plus robuste pour mobile
+
                         interactiveItem.innerHTML = `
-                            <img id="${previewImgId}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations="[]">
+                            <img id="${previewImgId}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations="[]" data-tools="[]" data-other-tools="">
                             <div style="display: flex; gap: 5px; margin-top: 5px;">
                                 <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="openAnnotationModal('${previewImgId}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
+                                ${isEffrac ? `<button type="button" class="add-btn" style="background-color: var(--effraction-gold); padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="openEffractionToolsModal('${previewImgId}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">hardware</span></button>` : ''}
                                 <button type="button" class="remove-btn" style="padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="removeImage('${previewImgId}', this.closest('.image-preview-item'))">&times;</button>
                             </div>`;
                         previewContainer.appendChild(interactiveItem);

@@ -233,6 +233,11 @@ function addAdversary(data = null) {
             <button type="button" class="add-btn" onclick="document.getElementById('input_extra_${id}').click()">📷 Photos Supplémentaires</button>
             <input type="file" id="input_extra_${id}" name="input_extra_${id}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_extra_${id}', false)">
             
+            <h3 style="margin-top: 20px; color: var(--danger-red);">📷 Renforts Potentiels</h3>
+            <button type="button" class="add-btn" style="width:100%; justify-content: center;" onclick="document.getElementById('input_renforts_${id}').click()">➕ Ajouter Photo(s) Renforts</button>
+            <input type="file" id="input_renforts_${id}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_renforts_${id}', false)">
+            <div id="photo_renforts_${id}" class="image-preview-container photo-display-area" style="margin-top:10px;"></div>
+
             <label for="substances_adv_${id}">Substances:</label>
             <input type="text" id="substances_adv_${id}" name="substances_adv_${id}" class="adv-field" data-field="substances_adversaire" value="${data?.substances_adversaire || ''}" oninput="saveFormData()">
             
@@ -291,7 +296,9 @@ function saveFormData() {
                     if (container.id) {
                         const imagesMetadata = Array.from(container.querySelectorAll('.image-preview')).map(img => ({
                             id: img.id,
-                            annotations: img.dataset.annotations || '[]'
+                            annotations: img.dataset.annotations || '[]',
+                            tools: img.dataset.tools || '[]', // Outils pour effraction
+                            other_tools: img.dataset.otherTools || ''
                         }));
                         if (imagesMetadata.length > 0) {
                             data.dynamic_photos[container.id] = imagesMetadata;
@@ -367,6 +374,16 @@ function saveFormData() {
                     cat: block.querySelector('.zmspcp-cat')?.value || '',
                     place_chef: block.querySelector('.zmspcp-place-chef')?.value || '',
                     members: Array.from(block.querySelectorAll('.articulation-member')).map(m => m.dataset.trigramme)
+                }));
+
+                // Sauvegarde des blocs Cellule Effraction
+                data.effraction_blocks = Array.from(document.querySelectorAll('.effraction-block')).map(block => ({
+                    id: block.dataset.blockId,
+                    title: block.querySelector('.block-title-input')?.value || '',
+                    porte: block.querySelector('.effrac-porte')?.value || '',
+                    l: block.querySelector('.effrac-l')?.value || '',
+                    w: block.querySelector('.effrac-w')?.value || '',
+                    h: block.querySelector('.effrac-h')?.value || ''
                 }));
 
                 // Sauvegarde des ordres
@@ -479,6 +496,9 @@ async function loadFormData() {
                 if (data.zmspcp_blocks && data.zmspcp_blocks.length > 0) {
                     data.zmspcp_blocks.forEach(blockData => addZmspcp(blockData));
                 }
+                if (data.effraction_blocks && data.effraction_blocks.length > 0) {
+                    data.effraction_blocks.forEach(blockData => addEffraction(blockData));
+                }
 
                 // Rafraîchir les ordres (Rame VL, Colonne, Pénétration)
                 refreshRameVL(data.rame_vl_order || null);
@@ -516,10 +536,17 @@ async function loadFormData() {
                                     interactiveItem.draggable = true;
                                     interactiveItem.id = imgData.id + "_item";
 
+                                    const isEffrac = previewId.includes('effrac');
+
                                     interactiveItem.innerHTML = `
-                                        <img id="${imgData.id}" class="image-preview" src="${previewUrl}" style="display:block;" data-annotations='${(imgData.annotations || '[]').replace(/'/g, "&apos;")}'>
+                                        <img id="${imgData.id}" class="image-preview" src="${previewUrl}" style="display:block;" 
+                                            data-annotations='${(imgData.annotations || "[]").replace(/'/g, "&apos;")}' 
+                                            data-tools='${(imgData.tools || "[]").replace(/'/g, "&apos;")}' 
+                                            data-other-tools='${(imgData.other_tools || "").replace(/'/g, "&apos;")}'
+                                        >
                                         <div style="display: flex; gap: 5px; margin-top: 5px;">
                                             <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="openAnnotationModal('${imgData.id}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
+                                            ${isEffrac ? `<button type="button" class="add-btn" style="background-color: var(--effraction-gold); padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="openEffractionToolsModal('${imgData.id}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">hardware</span></button>` : ''}
                                             <button type="button" class="remove-btn" style="padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="removeImage('${imgData.id}', this.closest('.image-preview-item'))">&times;</button>
                                         </div>`;
                                     previewContainer.appendChild(interactiveItem);

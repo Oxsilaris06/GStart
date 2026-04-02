@@ -322,23 +322,47 @@ async function buildPdf() {
                 lines.forEach((line, index) => { context.currentPage.drawText(line, { x, y: context.y - (index * (size + 4)), font, size, color }); });
                 context.y -= (totalHeight + 10);
             };
-            const drawTable = (headers, rows, columnWidths, startX) => {
-                let currentY = context.y; const rowPadding = 5; const headerFontSize = 10; const contentFontSize = 10;
+            // drawTable — auto-scaling : colProportions = tableau de poids relatifs
+            // maxWidth (opt.) : largeur disponible en pts ; défaut = page - 2*margin depuis startX
+            const drawTable = (headers, rows, colProportions, startX, maxWidth) => {
+                const availW = maxWidth !== undefined ? maxWidth : (context.pageWidth - startX - context.margin);
+                const sum = colProportions.reduce((a, b) => a + b, 0);
+                const columnWidths = colProportions.map(p => (p / sum) * availW);
+
+                let currentY = context.y;
+                const rowPadding = 4;
+                const headerFontSize = 9;
+                const contentFontSize = 9;
+
                 const drawRow = (rowData, isHeader) => {
-                    const font = isHeader ? helveticaBoldFont : helveticaFont; const size = isHeader ? headerFontSize : contentFontSize;
-                    const cellContents = rowData.map((text, i) => wrapText(text, font, size, columnWidths[i] - 2 * rowPadding));
-                    const maxLines = Math.max(...cellContents.map(lines => lines.length));
+                    const font = isHeader ? helveticaBoldFont : helveticaFont;
+                    const size = isHeader ? headerFontSize : contentFontSize;
+                    const cellContents = rowData.map((text, i) =>
+                        wrapText(String(text ?? ''), font, size, columnWidths[i] - 2 * rowPadding));
+                    const maxLines = Math.max(...cellContents.map(l => l.length));
                     const rowHeight = maxLines * (size + 2) + 2 * rowPadding;
                     if (currentY - rowHeight < context.margin) { addNewPage(); currentY = context.y; drawRow(headers, true); }
-                    currentY -= rowHeight; let currentX = startX;
+                    currentY -= rowHeight;
+                    let currentX = startX;
                     rowData.forEach((_, i) => {
-                        context.currentPage.drawRectangle({ x: currentX, y: currentY, width: columnWidths[i], height: rowHeight, borderColor: context.colors.accent, borderWidth: 0.5 });
-                        const lines = cellContents[i];
-                        lines.forEach((line, lineIndex) => { context.currentPage.drawText(line, { x: currentX + rowPadding, y: currentY + rowHeight - rowPadding - (lineIndex + 1) * (size + 4) + 2, font, size, color: context.colors.text }); });
+                        context.currentPage.drawRectangle({
+                            x: currentX, y: currentY,
+                            width: columnWidths[i], height: rowHeight,
+                            borderColor: context.colors.accent, borderWidth: 0.5
+                        });
+                        cellContents[i].forEach((line, li) => {
+                            context.currentPage.drawText(line, {
+                                x: currentX + rowPadding,
+                                y: currentY + rowHeight - rowPadding - (li + 1) * (size + 4) + 2,
+                                font, size, color: context.colors.text
+                            });
+                        });
                         currentX += columnWidths[i];
                     });
                 };
-                drawRow(headers, true); rows.forEach(row => drawRow(row, false)); context.y = currentY - 20;
+                drawRow(headers, true);
+                rows.forEach(row => drawRow(row, false));
+                context.y = currentY - 15;
             };
 
             const drawImagesFromCategory = async (previewContainerId, title) => {
@@ -436,114 +460,114 @@ async function buildPdf() {
 
             const drawAdversaryBlock = async (adv, index) => {
                 const advName = adv.nom_adversaire || `Adversaire ${index + 1}`;
-                
-                // Nouvelle page pour chaque adversaire (selon feedback utilisateur)
+
                 addNewPage();
                 drawSubTitle(`ADVERSAIRE (OBJECTIF ${index + 1}): ${advName}`);
 
-                // Recherche de la photo principale dans dynamic_photos via l'ID de conteneur photo_main_${adv.id}
+                // Zone utile sous le sous-titre
+                const pageW  = context.pageWidth;
+                const margin = context.margin;
+                const gutter = 12;
+                const topY   = context.y;
+                const availH = topY - (margin + 10);
+
+                // Chargement photo principale
                 const mainPhotoContainerId = `photo_main_${adv.id}`;
                 let mainImageMeta = null;
                 if (formData.dynamic_photos && formData.dynamic_photos[mainPhotoContainerId]) {
                     mainImageMeta = formData.dynamic_photos[mainPhotoContainerId][0];
                 }
 
-                let isImagePresent = mainImageMeta !== null;
-                const photoBoxWidth = 200;
-                const photoBoxHeight = 220;
-                const photoBoxX = context.pageWidth - context.margin - photoBoxWidth;
-                const photoBoxMargin = 10;
-                let topY = context.y;
+                const photoMaxW = Math.floor((pageW - margin * 2) * 0.35);
+                const photoMaxH = Math.min(availH, Math.floor(availH * 0.90));
+                let embeddedPhoto = null;
 
-                let tableStartX = context.margin;
-                let tableMaxWidth = context.pageWidth - context.margin * 2;
-
-                if (isImagePresent) {
-                    tableMaxWidth = photoBoxX - tableStartX - photoBoxMargin;
+                if (mainImageMeta) {
+                    try {
+                        const imageBytes = compressedImages[mainImageMeta.id];
+                        if (!imageBytes) throw new Error('Données image manquantes');
+                        let img;
+                        try {
+                            img = JSON.parse(mainImageMeta.annotations || '[]').length > 0
+                                ? await pdfDoc.embedPng(imageBytes)
+                                : await pdfDoc.embedJpg(imageBytes);
+                        } catch (e) {
+                            try { img = await pdfDoc.embedPng(imageBytes); } catch (e2) { img = await pdfDoc.embedJpg(imageBytes); }
+                        }
+                        embeddedPhoto = img;
+                    } catch (e) { console.error(`Photo adversaire ${index + 1}:`, e); }
                 }
 
+                const isImagePresent = embeddedPhoto !== null;
+                const photoBoxW   = isImagePresent ? photoMaxW : 0;
+                const photoBoxX   = pageW - margin - photoBoxW;
+                const tableAvailW = isImagePresent ? (photoBoxX - margin - gutter) : (pageW - margin * 2);
+
+                // Données tableau adversaire
                 const meText = (adv.me_list || []).map((me, i) => `ME${i + 1}: ${me}`).join(' | ');
-
-                const adversaireHeaders = ["Information", "Détail"];
-
                 const adversaireRows = [
-                    ['Nom/Prénom', advName],
-                    ['Domicile', adv.domicile_adversaire],
-                    ['Naissance', `${adv.date_naissance || ''} à ${adv.lieu_naissance || ''}`],
-                    ['Description', `${adv.stature_adversaire || ''} / ${adv.ethnie_adversaire || ''}`],
-                    ['Signes particuliers', adv.signes_particuliers],
-                    ['Profession', adv.profession_adversaire],
-                    ['Antécédents', adv.antecedents_adversaire],
-                    ['État d\'esprit', (adv.etat_esprit_list || []).join(', ')],
-                    ['Attitude', adv.attitude_adversaire],
-                    ['Volume (renfort)', (adv.volume_list || []).join(', ')],
-                    ['Substances', adv.substances_adversaire],
-                    ['Véhicules', (adv.vehicules_list || []).join(', ')],
-                    ['Armes', adv.armes_connues],
-                    ['Moyens Employés', meText],
+                    ['Nom/Prénom',     advName],
+                    ['Domicile',       adv.domicile_adversaire],
+                    ['Naissance',      `${adv.date_naissance || ''} à ${adv.lieu_naissance || ''}`],
+                    ['Description',    `${adv.stature_adversaire || ''} / ${adv.ethnie_adversaire || ''}`],
+                    ['Signes',         adv.signes_particuliers],
+                    ['Profession',     adv.profession_adversaire],
+                    ['Antécédents',    adv.antecedents_adversaire],
+                    ["État d'esprit",  (adv.etat_esprit_list || []).join(', ')],
+                    ['Attitude',       adv.attitude_adversaire],
+                    ['Volume',         (adv.volume_list || []).join(', ')],
+                    ['Substances',     adv.substances_adversaire],
+                    ['Véhicules',      (adv.vehicules_list || []).join(', ')],
+                    ['Armes',          adv.armes_connues],
+                    ['Moyens Employés',meText],
                 ].filter(row => row[1] && String(row[1]).trim() !== 'à' && String(row[1]).trim() !== 'N/A' && String(row[1]).trim() !== '');
 
-                let photoBottomY = topY;
+                // Dessin tableau (prop. 1/3 label, 2/3 valeur, auto-scaled)
                 let tableBottomY = topY;
+                if (adversaireRows.length > 0) {
+                    context.y = topY;
+                    drawTable(['Information', 'Détail'], adversaireRows, [1, 2], margin, tableAvailW);
+                    tableBottomY = context.y;
+                }
 
+                // Dessin photo — calée sur la hauteur réelle du tableau
                 if (isImagePresent) {
-                    const { id } = mainImageMeta;
-                    const frameY = topY - photoBoxHeight;
+                    const tableUsedH = topY - tableBottomY;
+                    const frameH = Math.max(tableUsedH, 60);
+                    const frameY = topY - frameH;
+                    const finalPhoto = embeddedPhoto.scaleToFit(photoBoxW - 6, frameH - 22);
 
-                    try {
-                        const imageBytes = compressedImages[id];
-                        if (!imageBytes) throw new Error("Données d'image compressées pour l'adversaire non trouvées.");
-
-                        let image;
-                        try {
-                            if (JSON.parse(mainImageMeta.annotations || '[]').length > 0) {
-                                image = await pdfDoc.embedPng(imageBytes);
-                            } else {
-                                image = await pdfDoc.embedJpg(imageBytes);
-                            }
-                        } catch (e) {
-                            try { image = await pdfDoc.embedPng(imageBytes); } catch (e2) { image = await pdfDoc.embedJpg(imageBytes); }
-                        }
-
-                        const scaled = image.scaleToFit(photoBoxWidth - 10, photoBoxHeight - 30);
-                        const imageY = frameY + (photoBoxHeight - scaled.height) / 2;
-
-                        if (frameY >= context.margin) {
-                            context.currentPage.drawRectangle({ x: photoBoxX, y: frameY, width: photoBoxWidth, height: photoBoxHeight, borderColor: context.colors.accent, borderWidth: 1 });
-                            context.currentPage.drawImage(image, { x: photoBoxX + (photoBoxWidth - scaled.width) / 2, y: imageY, width: scaled.width, height: scaled.height });
-                            const photoTitle = `Photo de l'objectif ${index + 1}`;
-                            const titleWidth = helveticaFont.widthOfTextAtSize(photoTitle, 10);
-                            context.currentPage.drawText(photoTitle, { x: photoBoxX + (photoBoxWidth - titleWidth) / 2, y: frameY + 5, font: helveticaFont, size: 10, color: context.colors.text });
-                            photoBottomY = frameY;
-                        } else { isImagePresent = false; }
-                    } catch (e) {
-                        console.error(`Échec du traitement de la photo de l'adversaire ${index + 1}:`, e);
-                        isImagePresent = false;
+                    if (frameY >= margin) {
+                        context.currentPage.drawRectangle({
+                            x: photoBoxX, y: frameY, width: photoBoxW, height: frameH,
+                            borderColor: context.colors.accent, borderWidth: 1.5
+                        });
+                        context.currentPage.drawImage(embeddedPhoto, {
+                            x: photoBoxX + (photoBoxW - finalPhoto.width) / 2,
+                            y: frameY + (frameH - finalPhoto.height) / 2 + 10,
+                            width: finalPhoto.width, height: finalPhoto.height
+                        });
+                        const lbl = `Photo objectif ${index + 1}`;
+                        const lblW = helveticaFont.widthOfTextAtSize(lbl, 9);
+                        context.currentPage.drawText(lbl, {
+                            x: photoBoxX + (photoBoxW - lblW) / 2, y: frameY + 4,
+                            font: helveticaFont, size: 9, color: context.colors.text
+                        });
                     }
                 }
 
-                if (adversaireRows.length > 0) {
-                    context.y = topY;
-                    drawTable(adversaireHeaders, adversaireRows, [150, tableMaxWidth - 150], tableStartX);
-                    tableBottomY = context.y;
-                } else {
-                    tableBottomY = topY;
-                }
+                context.y = tableBottomY - 10;
 
-                context.y = Math.min(tableBottomY, photoBottomY) - 20;
-
-                // Photos supplémentaires sur une nouvelle page (selon feedback utilisateur)
                 const extraPhotoContainerId = `photo_extra_${adv.id}`;
                 if (formData.dynamic_photos && formData.dynamic_photos[extraPhotoContainerId]) {
                     await drawImagesFromCategory(extraPhotoContainerId, `Photo Supplémentaire - Adversaire ${index + 1}`);
                 }
-
                 if (index === 0) {
                     await drawImagesFromCategory('renforts_photo_preview_container', 'Photo - Renforts Potentiels');
                 }
-
                 checkY(50);
-            }
+            };
+
 
             const pdfCreationLogic = async () => {
                 // Initialisation de la première page (qui doit avoir le fond)
@@ -611,7 +635,7 @@ async function buildPdf() {
                 drawSubTitle("Chronologie des temps");
                 const chronoHeaders = ["Type", "Heure", "Description"];
                 const chronoRows = (formData.time_events || []).map(e => [e.type || 'N/A', e.hour || 'N/A', e.description || 'N/A']);
-                drawTable(chronoHeaders, chronoRows, [80, 120, 550], context.margin);
+                drawTable(chronoHeaders, chronoRows, [1, 1.5, 7], context.margin);
                 drawSubTitle("Hypothèses");
                 if (formData.hypotheses && formData.hypotheses.length > 0) {
                     const hypothesesList = formData.hypotheses.filter(h => h.trim() !== '').map(h => `- ${h}`).join('\n');
@@ -760,14 +784,22 @@ async function buildPdf() {
                                 const arrowBotY = curY - scaledArrowH;
 
                                 context.currentPage.drawLine({
-                                    start: { x: arrowMidX, y: arrowTopY },
-                                    end: { x: arrowMidX, y: arrowBotY + 4 },
+                                    start: { x: arrowMidX, y: arrowTopY - 4 },
+                                    end: { x: arrowMidX, y: arrowBotY },
                                     color: diag.color, thickness: 1.5
                                 });
-                                // Tête de flèche (triangle)
+                                // Tête de flèche (triangle) pointant vers le haut
                                 const aw = 5 * scale;
-                                context.currentPage.drawLine({ start: { x: arrowMidX - aw, y: arrowBotY + 5 }, end: { x: arrowMidX, y: arrowBotY }, color: diag.color, thickness: 1.5 });
-                                context.currentPage.drawLine({ start: { x: arrowMidX + aw, y: arrowBotY + 5 }, end: { x: arrowMidX, y: arrowBotY }, color: diag.color, thickness: 1.5 });
+                                context.currentPage.drawLine({ 
+                                    start: { x: arrowMidX - aw, y: arrowTopY - 5 }, 
+                                    end: { x: arrowMidX, y: arrowTopY }, 
+                                    color: diag.color, thickness: 1.5 
+                                });
+                                context.currentPage.drawLine({ 
+                                    start: { x: arrowMidX + aw, y: arrowTopY - 5 }, 
+                                    end: { x: arrowMidX, y: arrowTopY }, 
+                                    color: diag.color, thickness: 1.5 
+                                });
 
                                 curY = arrowBotY;
                             }
@@ -844,7 +876,7 @@ async function buildPdf() {
                             m.gpb
                         ]);
                         if (patracRows.length > 0) {
-                            drawTable(patracHeaders, patracRows, [50, 60, 50, 40, 60, 50, 50, 50, 70, 50, 50], context.margin);
+                            drawTable(patracHeaders, patracRows, [1.5, 2, 1.5, 1.2, 1.8, 1.5, 1.5, 1.5, 2, 1.5, 1.5], context.margin);
                         }
                     }
                 }

@@ -697,10 +697,14 @@ button.add-pax-btn:hover {
 
 .image-preview-item .remove-btn, .image-preview-item .add-btn {
     padding: 6px;
-    min-height: 32px;
+    min-height: 40px;
+    min-width: 40px; /* Zone de clic généreuse pour mobile */
     border-radius: var(--radius-sm);
     flex: 1;
     border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .image-preview-item .add-btn { background: var(--bg-interactive); color: var(--text-primary); }
 .image-preview-item .add-btn:hover { background: var(--accent-blue); color: white; }

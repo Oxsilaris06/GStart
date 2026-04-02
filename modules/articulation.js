@@ -23,16 +23,16 @@ function addMoicp(data) {
     const defaultMission = data?.mission || 'RECONNAÎTRE LE DOMICILE EN VUE D\'APPRÉHENDER L\'OBJECTIF';
 
     div.innerHTML = `
-        <div class="collapsible-header" style="background: var(--accent-blue); color: white; border-radius: var(--radius-md) var(--radius-md) 0 0;">
+        <div class="collapsible-header" style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); border-left: 4px solid var(--accent-blue); border-radius: var(--radius-md) var(--radius-md) 0 0;">
             <h3 class="block-title" style="margin: 0; display: flex; align-items: center; gap: 10px;">
                 <span class="material-symbols-outlined">shield</span>
-                <input type="text" class="block-title-input" value="${data?.title || 'MOICP ' + blockIndex}" 
-                    style="background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.4); color: white; font-size: 1.1em; font-weight: bold; padding: 2px 5px; width: 200px;" 
+                <input type="text" class="block-title-input" value="${data?.title || 'Inter ' + blockIndex}" 
+                    style="background: transparent; border: none; border-bottom: 1px solid rgba(59, 130, 246, 0.3); color: var(--accent-blue); font-size: 1.1em; font-weight: bold; padding: 2px 5px; width: 220px;" 
                     onclick="event.stopPropagation()" oninput="saveFormData()">
             </h3>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button type="button" class="remove-btn" onclick="event.stopPropagation(); this.closest('.moicp-block').remove(); saveFormData();" 
-                    style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 30px; height: 30px; cursor: pointer;" title="Supprimer ce MOICP">❌</button>
+                    style="background: rgba(59, 130, 246, 0.15); border: none; color: var(--accent-blue); border-radius: 50%; width: 30px; height: 30px; cursor: pointer;" title="Supprimer ce MOICP">❌</button>
                 <span class="material-symbols-outlined">expand_more</span>
             </div>
         </div>
@@ -117,16 +117,16 @@ function addZmspcp(data) {
     const defaultMission = data?.mission || 'BOUCLER - SURVEILLER - INTERDIRE TOUTE FUITE';
 
     div.innerHTML = `
-        <div class="collapsible-header" style="background: var(--moicp-zmspcp-purple, #8e44ad); color: white; border-radius: var(--radius-md) var(--radius-md) 0 0;">
+        <div class="collapsible-header" style="background: rgba(142, 68, 173, 0.1); color: var(--moicp-zmspcp-purple, #8e44ad); border-left: 4px solid var(--moicp-zmspcp-purple, #8e44ad); border-radius: var(--radius-md) var(--radius-md) 0 0;">
             <h3 class="block-title" style="margin: 0; display: flex; align-items: center; gap: 10px;">
                 <span class="material-symbols-outlined">visibility</span>
-                <input type="text" class="block-title-input" value="${data?.title || 'ZMSPCP ' + blockIndex}" 
-                    style="background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.4); color: white; font-size: 1.1em; font-weight: bold; padding: 2px 5px; width: 200px;" 
+                <input type="text" class="block-title-input" value="${data?.title || 'Appui Observation ' + blockIndex}" 
+                    style="background: transparent; border: none; border-bottom: 1px solid rgba(142, 68, 173, 0.3); color: var(--moicp-zmspcp-purple, #8e44ad); font-size: 1.1em; font-weight: bold; padding: 2px 5px; width: 220px;" 
                     onclick="event.stopPropagation()" oninput="saveFormData()">
             </h3>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button type="button" class="remove-btn" onclick="event.stopPropagation(); this.closest('.zmspcp-block').remove(); saveFormData();" 
-                    style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 30px; height: 30px; cursor: pointer;" title="Supprimer ce ZMSPCP">❌</button>
+                    style="background: rgba(142, 68, 173, 0.15); border: none; color: var(--moicp-zmspcp-purple, #8e44ad); border-radius: 50%; width: 30px; height: 30px; cursor: pointer;" title="Supprimer ce ZMSPCP">❌</button>
                 <span class="material-symbols-outlined">expand_more</span>
             </div>
         </div>
@@ -612,16 +612,16 @@ function addEffraction(data) {
     div.dataset.blockId = blockId;
 
     div.innerHTML = `
-        <div class="collapsible-header" style="background: var(--effraction-gold); color: white; border-radius: var(--radius-md) var(--radius-md) 0 0;">
+        <div class="collapsible-header" style="background: rgba(212, 175, 55, 0.1); color: var(--effraction-gold); border-left: 4px solid var(--effraction-gold); border-radius: var(--radius-md) var(--radius-md) 0 0;">
             <h3 class="block-title" style="margin: 0; display: flex; align-items: center; gap: 10px;">
                 <span class="material-symbols-outlined">hardware</span>
                 <input type="text" class="block-title-input" value="${data?.title || 'Effraction ' + blockIndex}" 
-                    style="background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.4); color: white; font-size: 1.1em; font-weight: bold; padding: 2px 5px; width: 200px;" 
+                    style="background: transparent; border: none; border-bottom: 1px solid rgba(212, 175, 55, 0.3); color: var(--effraction-gold); font-size: 1.1em; font-weight: bold; padding: 2px 5px; width: 220px;" 
                     onclick="event.stopPropagation()" oninput="saveFormData()">
             </h3>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button type="button" class="remove-btn" onclick="event.stopPropagation(); this.closest('.effraction-block').remove(); saveFormData();" 
-                    style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 30px; height: 30px; cursor: pointer;" title="Supprimer">❌</button>
+                    style="background: rgba(212, 175, 55, 0.15); border: none; color: var(--effraction-gold); border-radius: 50%; width: 30px; height: 30px; cursor: pointer;" title="Supprimer">❌</button>
                 <span class="material-symbols-outlined">expand_more</span>
             </div>
         </div>

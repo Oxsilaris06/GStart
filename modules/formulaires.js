@@ -135,7 +135,7 @@ function updateAdvTitle(id, val) {
     if (!entry) return;
     const title = entry.querySelector('.adv-title');
     if (title) {
-        title.textContent = val ? `Adversaire: ${val}` : "Nouvel Adversaire";
+        title.textContent = val ? `Adversaire: ${val}` : "Adversaire";
     }
 }
 
@@ -164,10 +164,10 @@ function addAdversary(data = null) {
 
     const advIndex = container.children.length + 1;
     const nameVal = data?.nom_adversaire || '';
-    const title = nameVal ? `Adversaire: ${nameVal}` : `Nouvel Adversaire (${advIndex})`;
+    const title = nameVal ? `Adversaire: ${nameVal}` : `Adversaire`;
 
     div.innerHTML = `
-        <div class="collapsible-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="collapsible-header">
             <h3 class="adv-title">${title}</h3>
             <div style="display: flex; gap: 10px; align-items: center;" onclick="event.stopPropagation()">
                 <button type="button" class="remove-btn" onclick="removeAdversary('${id}')" title="Supprimer cet adversaire">❌</button>
@@ -175,13 +175,27 @@ function addAdversary(data = null) {
             </div>
         </div>
         <div class="collapsible-content">
+            <h3 style="margin: 0 0 10px 0; color: var(--accent-blue); font-size: 1.1em;">📷 Gestion Photos</h3>
+            
             <label for="input_main_${id}">Photo principale (Aperçu):</label>
-            <div id="photo_main_${id}" class="image-preview-container single-photo photo-display-area" data-is-single="true"></div>
-            <button type="button" class="add-btn" onclick="document.getElementById('input_main_${id}').click()">📷 Photo Principale</button>
+            <div id="photo_main_${id}" class="image-preview-container single-photo photo-display-area" data-is-single="true" style="margin-bottom: 5px;"></div>
+            <button type="button" class="add-btn" style="width:100%; margin-bottom: 15px;" onclick="document.getElementById('input_main_${id}').click()">📷 Ajouter Photo Principale</button>
             <input type="file" id="input_main_${id}" name="input_main_${id}" hidden accept="image/*" onchange="handleFileChange(this, 'photo_main_${id}', true)">
             
+            <label for="input_extra_${id}">Photos supplémentaires (Aperçu):</label>
+            <div id="photo_extra_${id}" class="image-preview-container extra-photos photo-display-area" style="margin-bottom: 5px;"></div>
+            <button type="button" class="add-btn" style="width:100%; margin-bottom: 15px;" onclick="document.getElementById('input_extra_${id}').click()">📷 Ajouter Photos Supplémentaires</button>
+            <input type="file" id="input_extra_${id}" name="input_extra_${id}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_extra_${id}', false)">
+            
+            <h3 style="margin-top: 10px; color: var(--danger-red); font-size: 1.1em;">📷 Renforts Potentiels</h3>
+            <div id="photo_renforts_${id}" class="image-preview-container photo-display-area" style="margin-bottom: 5px;"></div>
+            <button type="button" class="add-btn" style="width:100%; justify-content: center; margin-bottom: 20px;" onclick="document.getElementById('input_renforts_${id}').click()">➕ Ajouter Photo(s) Renforts</button>
+            <input type="file" id="input_renforts_${id}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_renforts_${id}', false)">
+
+            <hr style="border: 0; border-top: 1px solid var(--border-light); margin: 15px 0;">
+
             <label for="nom_adv_${id}">Nom/Prénom:</label>
-            <input type="text" id="nom_adv_${id}" name="nom_adv_${id}" class="adv-field" data-field="nom_adversaire" value="${nameVal}" oninput="updateAdvTitle('${id}', this.value); saveFormData()">
+            <input type="text" id="nom_adv_${id}" name="nom_adv_${id}" class="adv-field" data-field="nom_adversaire" placeholder="Nom et Prénom..." value="${nameVal}" oninput="updateAdvTitle('${id}', this.value); saveFormData()">
             
             <label for="domicile_adv_${id}">Domicile:</label>
             <textarea id="domicile_adv_${id}" name="domicile_adv_${id}" class="adv-field" data-field="domicile_adversaire" rows="2" oninput="saveFormData()">${data?.domicile_adversaire || ''}</textarea>
@@ -226,17 +240,6 @@ function addAdversary(data = null) {
             
             <label>Volume (renfort potentiel):</label>
             <div id="volume_${id}" class="chip-container" data-options='["Seul", "Famille", "BO", "Conjointe", "2-3", "4+"]'></div>
-            
-            <h3 style="margin-top: 20px;">Photos supplémentaires (Aperçu)</h3>
-            <div id="photo_extra_${id}" class="image-preview-container extra-photos photo-display-area"></div>
-            <label for="input_extra_${id}" class="sr-only">Ajouter des photos supplémentaires</label>
-            <button type="button" class="add-btn" onclick="document.getElementById('input_extra_${id}').click()">📷 Photos Supplémentaires</button>
-            <input type="file" id="input_extra_${id}" name="input_extra_${id}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_extra_${id}', false)">
-            
-            <h3 style="margin-top: 20px; color: var(--danger-red);">📷 Renforts Potentiels</h3>
-            <button type="button" class="add-btn" style="width:100%; justify-content: center;" onclick="document.getElementById('input_renforts_${id}').click()">➕ Ajouter Photo(s) Renforts</button>
-            <input type="file" id="input_renforts_${id}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_renforts_${id}', false)">
-            <div id="photo_renforts_${id}" class="image-preview-container photo-display-area" style="margin-top:10px;"></div>
 
             <label for="substances_adv_${id}">Substances:</label>
             <input type="text" id="substances_adv_${id}" name="substances_adv_${id}" class="adv-field" data-field="substances_adversaire" value="${data?.substances_adversaire || ''}" oninput="saveFormData()">
@@ -294,12 +297,17 @@ function saveFormData() {
                 data.dynamic_photos = {};
                 document.querySelectorAll('.image-preview-container').forEach(container => {
                     if (container.id) {
-                        const imagesMetadata = Array.from(container.querySelectorAll('.image-preview')).map(img => ({
-                            id: img.id,
-                            annotations: img.dataset.annotations || '[]',
-                            tools: img.dataset.tools || '[]', // Outils pour effraction
-                            other_tools: img.dataset.otherTools || ''
-                        }));
+                        const imagesMetadata = Array.from(container.querySelectorAll('.image-preview-item')).map(item => {
+                            const img = item.querySelector('.image-preview');
+                            const titleInput = item.querySelector('.photo-title-input');
+                            return {
+                                id: img.id,
+                                annotations: img.dataset.annotations || '[]',
+                                tools: img.dataset.tools || '[]',
+                                other_tools: img.dataset.otherTools || '',
+                                customTitle: titleInput ? titleInput.value : ''
+                            };
+                        });
                         if (imagesMetadata.length > 0) {
                             data.dynamic_photos[container.id] = imagesMetadata;
                         }
@@ -544,6 +552,10 @@ async function loadFormData() {
                                             data-tools='${(imgData.tools || "[]").replace(/'/g, "&apos;")}' 
                                             data-other-tools='${(imgData.other_tools || "").replace(/'/g, "&apos;")}'
                                         >
+                                        <input type="text" class="photo-title-input" placeholder="Légende de la photo..." 
+                                            value="${(imgData.customTitle || "").replace(/"/g, "&quot;")}"
+                                            style="width: 100%; margin-top: 5px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 2px 5px; font-size: 0.8em;" 
+                                            oninput="saveFormData()">
                                         <div style="display: flex; gap: 5px; margin-top: 5px;">
                                             <button type="button" class="add-btn" style="background-color: var(--accent-blue); padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="openAnnotationModal('${imgData.id}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">edit</span></button>
                                             ${isEffrac ? `<button type="button" class="add-btn" style="background-color: var(--effraction-gold); padding: 4px 8px;" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="openEffractionToolsModal('${imgData.id}')"><span class="material-symbols-outlined" style="font-size: 1.2em;">hardware</span></button>` : ''}

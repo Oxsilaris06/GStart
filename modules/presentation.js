@@ -337,11 +337,19 @@ async function buildPdf() {
                 const drawRow = (rowData, isHeader) => {
                     const font = isHeader ? helveticaBoldFont : helveticaFont;
                     const size = isHeader ? headerFontSize : contentFontSize;
+                    const lineHeight = size + 2; // Synchronisé pour éviter les dépassements
                     const cellContents = rowData.map((text, i) =>
                         wrapText(String(text ?? ''), font, size, columnWidths[i] - 2 * rowPadding));
                     const maxLines = Math.max(...cellContents.map(l => l.length));
-                    const rowHeight = maxLines * (size + 2) + 2 * rowPadding;
-                    if (currentY - rowHeight < context.margin) { addNewPage(); currentY = context.y; drawRow(headers, true); }
+                    const rowHeight = maxLines * lineHeight + 2 * rowPadding;
+                    
+                    if (currentY - rowHeight < context.margin) { 
+                        addNewPage(); 
+                        currentY = context.y; 
+                        // Ne pas appeler drawRow(headers, true) récursivement s'il l'on dessine déjà un en-tête !
+                        if (!isHeader) drawRow(headers, true); 
+                    }
+                    
                     currentY -= rowHeight;
                     let currentX = startX;
                     rowData.forEach((_, i) => {
@@ -353,7 +361,8 @@ async function buildPdf() {
                         cellContents[i].forEach((line, li) => {
                             context.currentPage.drawText(line, {
                                 x: currentX + rowPadding,
-                                y: currentY + rowHeight - rowPadding - (li + 1) * (size + 4) + 2,
+                                // Positionnement vertical précis pour éviter le chevauchement
+                                y: currentY + rowHeight - rowPadding - (li + 1) * lineHeight + 2,
                                 font, size, color: context.colors.text
                             });
                         });
@@ -368,13 +377,37 @@ async function buildPdf() {
             /**
              * Dessine des images groupées (2 par page)
              */
-            const drawGroupedImages = async (containerId, categoryTitle) => {
-                const imagesData = (formData.dynamic_photos || {})[containerId] || [];
-                if (imagesData.length === 0) return;
+            const drawGroupedImages = async (photosOrId, categoryTitle, options = {}) => {
+                const photos = Array.isArray(photosOrId) ? photosOrId : (formData.dynamic_photos || {})[photosOrId];
+                if (!photos || photos.length === 0) return;
+                
+                // On boucle pour traiter les photos (maximum 2 par page)
+                for (let i = 0; i < photos.length; ) {
+                    let photosOnThisPage;
+                    let isSingleLayout = false;
+                    const forceSingle = options.forceSingle || false;
+                    const startOnCurrentPage = options.startOnCurrentPage || false;
 
-                for (let i = 0; i < imagesData.length; i += 2) {
-                    addNewPage();
-                    const photosOnThisPage = imagesData.slice(i, i + 2);
+                    // Si forceSingle est vrai, on ne prend qu'une photo
+                    // Sinon, si c'est la dernière photo ET qu'elle est seule sur sa ligne/page
+                    if (forceSingle || i === photos.length - 1) {
+                        photosOnThisPage = [photos[i]];
+                        isSingleLayout = true;
+                        i += 1;
+                    } else {
+                        photosOnThisPage = photos.slice(i, i + 2);
+                        isSingleLayout = false;
+                        i += 2;
+                    }
+
+                    // On vérifie qu'au moins une photo de ce groupe possède des données
+                    const hasData = photosOnThisPage.some(p => compressedImages[p.id]);
+                    if (!hasData) continue;
+
+                    // On n'ajoute pas de nouvelle page si l'on souhaite commencer sur la page actuelle (pour la première itération)
+                    if (i > (forceSingle ? 1 : 2) || !startOnCurrentPage) {
+                        addNewPage();
+                    }
 
                     for (let j = 0; j < photosOnThisPage.length; j++) {
                         const imgData = photosOnThisPage[j];
@@ -392,22 +425,29 @@ async function buildPdf() {
                             }
 
                             const { width, height } = context.currentPage.getSize();
-                            const availableW = (width - context.margin * 3) / 2; // Deux colonnes
-                            const availableH = height - context.margin * 2 - 40;
+                            const availableW = isSingleLayout ? (width - context.margin * 2) : (width - context.margin * 3) / 2;
+                            const availableH = height - context.margin * 2 - 60;
 
                             const scaled = image.scaleToFit(availableW, availableH);
-                            const x = context.margin + j * (availableW + context.margin) + (availableW - scaled.width) / 2;
+                            const x = isSingleLayout 
+                                ? context.margin + (availableW - scaled.width) / 2
+                                : context.margin + j * (availableW + context.margin) + (availableW - scaled.width) / 2;
                             const y = context.margin + (availableH - scaled.height) / 2 + 30;
 
                             context.currentPage.drawImage(image, { x, y, width: scaled.width, height: scaled.height });
 
                             // Titre sous la photo
+                            const currentTitle = imgData.customTitle || categoryTitle;
                             const photoIndex = i + j + 1;
-                            const titleText = `${categoryTitle} (${photoIndex}/${imagesData.length})`;
+                            const titleText = photos.length > 1 ? `${currentTitle} (${photoIndex}/${photos.length})` : currentTitle;
                             const titleSize = 10;
                             const titleW = helveticaBoldFont.widthOfTextAtSize(titleText, titleSize);
+                            const textX = forceSingle
+                                ? context.margin + (availableW - titleW) / 2
+                                : context.margin + j * (availableW + context.margin) + (availableW - titleW) / 2;
+                            
                             context.currentPage.drawText(titleText, {
-                                x: context.margin + j * (availableW + context.margin) + (availableW - titleW) / 2,
+                                x: textX,
                                 y: y - 15,
                                 font: helveticaBoldFont,
                                 size: titleSize,
@@ -415,12 +455,12 @@ async function buildPdf() {
                             });
 
                             // --- Dessin des outils pour l'effraction ---
-                            if (containerId.startsWith('photo_effrac_')) {
+                            if (imgData.isEffrac) {
                                 const tools = JSON.parse(imgData.tools || '[]');
                                 const other = imgData.other_tools || '';
                                 if (tools.length > 0 || other) {
                                     await drawToolChips(tools, other, 
-                                        context.margin + j * (availableW + context.margin), 
+                                        forceSingle ? context.margin : context.margin + j * (availableW + context.margin), 
                                         y - 35, 
                                         availableW);
                                 }
@@ -636,14 +676,17 @@ async function buildPdf() {
 
                 context.y = tableBottomY - 10;
 
-                const extraPhotoContainerId = `photo_extra_${adv.id}`;
-                if (formData.dynamic_photos && formData.dynamic_photos[extraPhotoContainerId]) {
-                    await drawGroupedImages(extraPhotoContainerId, `Photo Supplémentaire - ${advName}`);
-                }
+                // Consolider les photos supplémentaires et les photos renforts
+                const extraPhotos = (formData.dynamic_photos || {})[`photo_extra_${adv.id}`] || [];
+                const renfortPhotos = (formData.dynamic_photos || {})[`photo_renforts_${adv.id}`] || [];
                 
-                const renfortsContainerId = `photo_renforts_${adv.id}`;
-                if (formData.dynamic_photos && formData.dynamic_photos[renfortsContainerId]) {
-                    await drawGroupedImages(renfortsContainerId, `Photo Renforts - ${advName}`);
+                const mergedAdvPhotos = [
+                    ...extraPhotos.map(p => ({...p, customTitle: `Photo Supplémentaire - ${advName}`})),
+                    ...renfortPhotos.map(p => ({...p, customTitle: `Photo Renforts - ${advName}`}))
+                ];
+
+                if (mergedAdvPhotos.length > 0) {
+                    await drawGroupedImages(mergedAdvPhotos, 'Photos Adversaire');
                 }
                 checkY(50);
             };
@@ -681,9 +724,7 @@ async function buildPdf() {
                 drawSubTitle("1.1 Situation Générale"); drawWrappedText(getVal('situation_generale'), { size: 14 });
                 drawSubTitle("1.2 Situation Particulière"); drawWrappedText(getVal('situation_particuliere'), { size: 14 });
 
-                addNewPage(); // Page 3
-                drawTitle("2. ADVERSAIRE(S)");
-
+                // Section 2. Adversaires (Le titre a été supprimé précédemment, on retire maintenant le saut de page)
                 if (formData.adversaries && formData.adversaries.length > 0) {
                     for (let i = 0; i < formData.adversaries.length; i++) {
                         await drawAdversaryBlock(formData.adversaries[i], i);
@@ -702,12 +743,14 @@ async function buildPdf() {
                 drawSubTitle("Cadre juridique"); drawWrappedText(getVal('cadre_juridique'), { size: 14 });
 
                 // Photos Transport (Globales)
-                await drawGroupedImages('photo_container_transport_pr_preview_container', 'Transport PSIG vers PR');
-                await drawGroupedImages('photo_container_transport_domicile_preview_container', 'Transport PR vers Domicile/LE');
+                const transportPhotos = [
+                    ...((formData.dynamic_photos || {})['photo_container_transport_pr_preview_container'] || []).map(p => ({...p, customTitle: 'Transport PSIG vers PR'})),
+                    ...((formData.dynamic_photos || {})['photo_container_transport_domicile_preview_container'] || []).map(p => ({...p, customTitle: 'Transport PR vers Domicile/LE'}))
+                ];
+                if (transportPhotos.length > 0) {
+                    await drawGroupedImages(transportPhotos, 'Transport');
+                }
                 
-                // Note: Le Baptême terrain global est maintenu si utilisé, 
-                // mais les ZMSPCP ont maintenant leurs propres photos de terrain.
-                await drawGroupedImages('photo_container_bapteme_terrain_preview_container', 'Baptême terrain (Général)');
 
                 addNewPage();
                 drawTitle("4. MISSION");
@@ -725,12 +768,34 @@ async function buildPdf() {
                 if (formData.hypotheses && formData.hypotheses.length > 0) {
                     const hypothesesList = formData.hypotheses.filter(h => h.trim() !== '').map(h => `- ${h}`).join('\n');
                     if (hypothesesList) {
-                        drawWrappedText(hypothesesList, { size: 14, font: helveticaBoldFont, color: context.colors.danger });
+                        drawWrappedText(hypothesesList, { size: 14, font: helveticaBoldFont, color: context.colors.text });
                     } else {
                         drawWrappedText("Aucune hypothèse.", { size: 14, color: context.colors.text });
                     }
-                } else {
-                    drawWrappedText("Aucune hypothèse.", { size: 14, color: context.colors.text });
+                }
+
+                // --- NOUVEAU: Baptême Terrain (Tous) - Entre Section 5 et 6 ---
+                const baptemePhotosGroup = [];
+                // 1. Ajouter la photo globale
+                const globalB = (formData.dynamic_photos || {})['photo_container_bapteme_terrain_preview_container'] || [];
+                globalB.forEach(p => baptemePhotosGroup.push({...p, customTitle: 'Baptême terrain (Général)'}));
+                
+                // 2. Ajouter les photos des blocs ZMSPCP
+                if (formData.zmspcp_blocks) {
+                    formData.zmspcp_blocks.forEach((block, idx) => {
+                        const title = block.title || `ZMSPCP ${idx + 1}`;
+                        const blockB = (formData.dynamic_photos || {})[`photo_bapteme_${block.id}`] || [];
+                        blockB.forEach(p => baptemePhotosGroup.push({...p, customTitle: `${title} - Baptême Terrain`}));
+                    });
+                }
+
+                if (baptemePhotosGroup.length > 0) {
+                    addNewPage();
+                    drawTitle("BAPTÊME TERRAIN");
+                    await drawGroupedImages(baptemePhotosGroup, 'Baptême Terrain', { 
+                        forceSingle: true,
+                        startOnCurrentPage: true 
+                    });
                 }
 
                 addNewPage();
@@ -739,6 +804,7 @@ async function buildPdf() {
                 
                 // --- MOICP Blocs ---
                 if (formData.moicp_blocks && formData.moicp_blocks.length > 0) {
+                    // Étape 1 : Tous les tableaux MOICP
                     for (let i = 0; i < formData.moicp_blocks.length; i++) {
                         const block = formData.moicp_blocks[i];
                         const title = block.title || `MOICP ${i + 1}`;
@@ -755,19 +821,32 @@ async function buildPdf() {
                         
                         drawTable(['Champ', 'Détail'], moicpRows, [1, 3], context.margin);
                         
-                        // Composition du bloc (si présente)
                         if (block.members && block.members.length > 0) {
                             drawWrappedText(`Composition: ${block.members.join(' - ')}`, { size: 10, font: helveticaBoldFont });
                         }
-                        
-                        // Photos Itinéraire (Intercalées)
-                        await drawGroupedImages(`photo_itin_ext_${block.id}`, `${title} - Itinéraire Extérieur`);
-                        await drawGroupedImages(`photo_itin_int_${block.id}`, `${title} - Itinéraire Intérieur`);
                     }
+
+                    // Étape 2 : Toutes les photos Itinéraire (Exter/Inter)
+                    let moicpPhotosDrawn = false;
+                    for (let i = 0; i < formData.moicp_blocks.length; i++) {
+                        const block = formData.moicp_blocks[i];
+                        const title = block.title || `MOICP ${i + 1}`;
+                        const itinExtPhotos = ((formData.dynamic_photos || {})[`photo_itin_ext_${block.id}`] || []).map(p => ({...p, customTitle: `${title} - Itinéraire Extérieur`}));
+                        const itinIntPhotos = ((formData.dynamic_photos || {})[`photo_itin_int_${block.id}`] || []).map(p => ({...p, customTitle: `${title} - Itinéraire Intérieur`}));
+                        const combinedItinPhotos = [...itinExtPhotos, ...itinIntPhotos];
+
+                        if (combinedItinPhotos.length > 0) {
+                             await drawGroupedImages(combinedItinPhotos, 'Photos Itinéraire');
+                             moicpPhotosDrawn = true;
+                        }
+                    }
+                    // Forcer un saut de page après les photos MOICP s'il y en a eu, pour que ZMSPCP commence à neuf
+                    if (moicpPhotosDrawn) addNewPage();
                 }
 
                 // --- ZMSPCP Blocs ---
                 if (formData.zmspcp_blocks && formData.zmspcp_blocks.length > 0) {
+                    // Étape 1 : Tous les tableaux ZMSPCP
                     for (let i = 0; i < formData.zmspcp_blocks.length; i++) {
                         const block = formData.zmspcp_blocks[i];
                         const title = block.title || `ZMSPCP ${i + 1}`;
@@ -788,9 +867,15 @@ async function buildPdf() {
                         if (block.members && block.members.length > 0) {
                             drawWrappedText(`Composition: ${block.members.join(' - ')}`, { size: 10, font: helveticaBoldFont });
                         }
+                    }
 
-                        await drawGroupedImages(`photo_bapteme_${block.id}`, `${title} - Baptême Terrain`);
-                        await drawGroupedImages(`photo_empl_ao_${block.id}`, `${title} - Emplacement AO`);
+                    // Étape 2 : Toutes les photos AO
+                    for (let i = 0; i < formData.zmspcp_blocks.length; i++) {
+                        const block = formData.zmspcp_blocks[i];
+                        const title = block.title || `ZMSPCP ${i + 1}`;
+                        const emplaOPhotos = ((formData.dynamic_photos || {})[`photo_empl_ao_${block.id}`] || []).map(p => ({...p, customTitle: `${title} - Emplacement AO`}));
+                        
+                        if (emplaOPhotos.length > 0) await drawGroupedImages(emplaOPhotos, 'Emplacement AO');
                     }
                 }
 
@@ -809,7 +894,10 @@ async function buildPdf() {
                         ];
                         drawTable(['Champ', 'Détail'], effracRows, [1, 3], context.margin);
                         
-                        await drawGroupedImages(`photo_effrac_${block.id}`, `${title} - Photo Effraction`);
+                        const effracPhotos = ((formData.dynamic_photos || {})[`photo_effrac_${block.id}`] || []).map(p => ({...p, isEffrac: true, customTitle: `${title} - Photo Effraction`}));
+                        if (effracPhotos.length > 0) {
+                            await drawGroupedImages(effracPhotos, 'Photos Effraction');
+                        }
                     }
                 }
 
@@ -972,49 +1060,6 @@ async function buildPdf() {
                 }
 
 
-                // Blocs MOICP dynamiques (page dédiée par bloc)
-                const moicpBlocks = formData.moicp_blocks || [];
-                for (let mi = 0; mi < moicpBlocks.length; mi++) {
-                    const block = moicpBlocks[mi];
-                    addNewPage();
-                    drawTitle(`MOICP : ${block.title || 'MOICP ' + (mi + 1)}`);
-                    
-                    if (block.members && block.members.length > 0) {
-                        drawSubTitle("Composition (ordre d'engagement):");
-                        drawWrappedText(block.members.map((t, i) => `${i + 1}. ${t}`).join('\n'));
-                    }
-
-                    drawSubTitle("Mission (M):"); drawWrappedText(block.mission || '');
-                    drawSubTitle("Objectif (O):"); drawWrappedText(block.objectif || '');
-                    drawSubTitle("Itinéraire (I):"); drawWrappedText(block.itineraire || '');
-                    drawSubTitle("Points Particuliers (P):"); drawWrappedText(block.points_particuliers || '');
-                    drawSubTitle("Conduite à Tenir (C):"); drawWrappedText(block.cat || '');
-                }
-
-                // Blocs ZMSPCP dynamiques (page dédiée par bloc)
-                const zmspcpBlocks = formData.zmspcp_blocks || [];
-                for (let zi = 0; zi < zmspcpBlocks.length; zi++) {
-                    const block = zmspcpBlocks[zi];
-                    addNewPage();
-                    drawTitle(`ZMSPCP : ${block.title || 'ZMSPCP ' + (zi + 1)}`);
-                    
-                    if (block.members && block.members.length > 0) {
-                        drawSubTitle("Composition (ordre d'engagement):");
-                        drawWrappedText(block.members.map((t, i) => `${i + 1}. ${t}`).join('\n'));
-                    }
-
-                    drawSubTitle("Zone d'installation (Z):"); drawWrappedText(block.zone || '');
-                    drawSubTitle("Mission (M):"); drawWrappedText(block.mission || '');
-                    drawSubTitle("Secteur de surveillance (S):"); drawWrappedText(block.secteur || '');
-                    drawSubTitle("Points Particuliers (P):"); drawWrappedText(block.points_particuliers || '');
-                    drawSubTitle("Conduite à Tenir (C):"); drawWrappedText(block.cat || '');
-                    drawSubTitle("Place du Chef (P):"); drawWrappedText(block.place_chef || '');
-                }
-
-                await drawImagesFromCategory('photo_container_itineraire_exterieur_preview_container', 'Itinéraire Extérieur');
-                await drawImagesFromCategory('photo_container_itineraire_interieur_preview_container', 'Itinéraire Intérieur');
-                await drawImagesFromCategory('photo_container_cellule_effraction_preview_container', 'Cellule Effraction');
-                await drawImagesFromCategory('photo_container_emplacement_ao_preview_container', 'Emplacement AO');
 
                 addNewPage();
                 drawTitle("7. PATRACDVR");

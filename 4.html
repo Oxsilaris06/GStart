@@ -36,6 +36,9 @@
     --accent-hover: #60a5fa;        /* Blue 400 */
     --accent-glow: rgba(59, 130, 246, 0.25);
     
+    --moicp-zmspcp-purple: #8e44ad;
+    --effraction-gold: #d4af37;
+
     --danger-red: #ef4444;          /* Red 500 */
     --danger-hover: #f87171;        /* Red 400 */
     --danger-bg: rgba(239, 68, 68, 0.1);
@@ -1476,8 +1479,59 @@ dialog::backdrop {
         scroll-behavior: auto !important;
     }
 }
-    </style>
-</head>
+
+/* Styles pour les outils d'effraction */
+.effrac-tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+.effrac-tool-btn {
+    background: var(--bg-interactive);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-content: center;
+}
+.effrac-tool-btn.active {
+    background: var(--effraction-gold);
+    border-color: var(--effraction-gold);
+    color: white;
+}
+.effrac-tool-btn:hover {
+    background: var(--bg-interactive-hover);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+}
+.modal-content {
+    background-color: var(--bg-container);
+    margin: 5% auto;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    width: 90%;
+    max-width: 600px;
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+}
+</style>
 </head>
 
 <body class="dark-mode">
@@ -1630,9 +1684,7 @@ dialog::backdrop {
             <li class="wizard-progress-step" onclick="goToStep(6)"><span class="material-symbols-outlined"
                     style="font-size: 1.2em; margin-right: 5px;">directions_car</span>7. PATRACDVR</li>
             <li class="wizard-progress-step" onclick="goToStep(7)"><span class="material-symbols-outlined"
-                    style="font-size: 1.2em; margin-right: 5px;">add_a_photo</span>8. Photos</li>
-            <li class="wizard-progress-step" onclick="goToStep(8)"><span class="material-symbols-outlined"
-                    style="font-size: 1.2em; margin-right: 5px;">check_circle</span>9. Finalisation</li>
+                    style="font-size: 1.2em; margin-right: 5px;">check_circle</span>8. Finalisation</li>
         </ul>
 
         <form id="oi-form">
@@ -1692,6 +1744,23 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                     <button type="button" class="add-btn" onclick="addHypothesis()" style="margin-top: 10px; width: 100%; justify-content: center; font-weight: bold; background-color: var(--bg-interactive);">
                         <span class="material-symbols-outlined">add_box</span> Créer Hypothèse
                     </button>
+
+                    <h3 style="margin-top: 20px;">📷 Cheminement</h3>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button type="button" class="add-btn" style="flex: 1; justify-content: center;" onclick="document.getElementById('photo_container_transport_pr_input').click()">
+                            📷 Transport PSIG → PR
+                        </button>
+                        <input type="file" id="photo_container_transport_pr_input" class="photo-input" style="display:none" accept="image/*" multiple 
+                            onchange="handleFileChange(this, 'photo_container_transport_pr_preview_container', false)">
+                        
+                        <button type="button" class="add-btn" style="flex: 1; justify-content: center;" onclick="document.getElementById('photo_container_transport_domicile_input').click()">
+                            📷 Transport PR → Domicile/LE
+                        </button>
+                        <input type="file" id="photo_container_transport_domicile_input" class="photo-input" style="display:none" accept="image/*" multiple 
+                            onchange="handleFileChange(this, 'photo_container_transport_domicile_preview_container', false)">
+                    </div>
+                    <div id="photo_container_transport_pr_preview_container" class="image-preview-container"></div>
+                    <div id="photo_container_transport_domicile_preview_container" class="image-preview-container"></div>
                 </div>
 
                 <div class="wizard-step">
@@ -1699,7 +1768,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                     <label for="place_chef">Place du Chef (Générale):</label><input type="text" id="place_chef">
 
                     <!-- Ordre de la rame VL -->
-                    <div class="collapsible-container open">
+                    <div class="collapsible-container">
                         <div class="collapsible-header">
                             <h3><span class="material-symbols-outlined" style="vertical-align: middle;">directions_car</span> Ordre de la rame VL</h3>
                             <span class="material-symbols-outlined">expand_more</span>
@@ -1715,7 +1784,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                     </div>
 
                     <!-- Ordre colonne de progression -->
-                    <div class="collapsible-container open">
+                    <div class="collapsible-container">
                         <div class="collapsible-header">
                             <h3><span class="material-symbols-outlined" style="vertical-align: middle;">trending_flat</span> Ordre de la colonne de progression</h3>
                             <span class="material-symbols-outlined">expand_more</span>
@@ -1762,6 +1831,16 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                     <div id="zmspcp_container"></div>
                     <button type="button" class="add-btn" id="addZmspcpBtn" style="margin-top: 10px; background: var(--moicp-zmspcp-purple, #8e44ad); color: white; display: flex; align-items: center; gap: 8px;">
                         <span class="material-symbols-outlined">add_box</span> Créer ZMSPCP
+                    </button>
+
+                    <!-- Cellule Effraction dynamiques -->
+                    <h3 style="margin-top: 25px; color: var(--effraction-gold); border-bottom: 2px solid var(--effraction-gold); padding-bottom: 8px;">
+                        <span class="material-symbols-outlined" style="vertical-align: middle;">hardware</span> 
+                        Cellule Effraction
+                    </h3>
+                    <div id="effraction_container"></div>
+                    <button type="button" class="add-btn" id="addEffractionBtn" style="margin-top: 10px; background: var(--effraction-gold); color: white; display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-outlined">add_box</span> Ajouter Cellule Effraction
                     </button>
                 </div>
 
@@ -1834,155 +1913,24 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                 </div>
 
                 <div class="wizard-step">
-                    <h2>8. Gestion des Photos</h2>
-                    <p>Utilisez cette section pour ajouter et annoter toutes les photos. Glissez-déposez les photos pour
-                        les réorganiser.</p>
+                    <h2>8. Finalisation & Conduites à tenir</h2>
 
-                    <!-- Les photos des adversaires sont maintenant gérées directement dans leurs fiches (onglet 2. Adversaires). -->
-                    
-                    <!-- RENFORTS POTENTIELS (Toujours global) -->
-                    <div class="collapsible-container">
-                        <div class="collapsible-header">
-                            <h3>Renforts Potentiels</h3>
-                            <span class="material-symbols-outlined">expand_more</span>
-                        </div>
-                        <div class="collapsible-content" style="display: flex; flex-direction: column; gap: 15px;">
-                            <div class="photo-upload-section">
-                                <h4>Photos Renforts Potentiels</h4>
-                                <button type="button" class="add-btn" style="width:100%; justify-content: center;"
-                                    onclick="document.getElementById('renforts_photo_input').click()">➕ Ajouter
-                                    Photo(s)</button>
-                                <input type="file" id="renforts_photo_input" class="photo-input"
-                                    accept="image/jpeg, image/png" multiple
-                                    onchange="handleFileChange(this, 'renforts_photo_preview_container', false)">
-                                <div id="renforts_photo_preview_container" class="image-preview-container"></div>
-                            </div>
-                        </div>
-                    </div>
-
-
-
-                    <div class="collapsible-container">
-                        <div class="collapsible-header">
-                            <h3>Articulation</h3>
-                            <span class="material-symbols-outlined">expand_more</span>
-                        </div>
-                        <div class="collapsible-content" style="display: flex; flex-direction: column; gap: 15px;">
-                            <div class="photo-upload-section">
-                                <h4>Itinéraire Extérieur (INDIA)</h4>
-                                <button type="button" class="add-btn" style="width:100%; justify-content: center;"
-                                    onclick="document.getElementById('photo_container_itineraire_exterieur_input').click()">➕
-                                    Ajouter Photo(s)</button>
-                                <input type="file" id="photo_container_itineraire_exterieur_input" class="photo-input"
-                                    accept="image/jpeg, image/png" multiple
-                                    onchange="handleFileChange(this, 'photo_container_itineraire_exterieur_preview_container', false)">
-                                <div id="photo_container_itineraire_exterieur_preview_container"
-                                    class="image-preview-container"></div>
-                            </div>
-                            <div class="photo-upload-section">
-                                <h4>Itinéraire Intérieur (INDIA)</h4>
-                                <button type="button" class="add-btn" style="width:100%; justify-content: center;"
-                                    onclick="document.getElementById('photo_container_itineraire_interieur_input').click()">➕
-                                    Ajouter Photo(s)</button>
-                                <input type="file" id="photo_container_itineraire_interieur_input" class="photo-input"
-                                    accept="image/jpeg, image/png" multiple
-                                    onchange="handleFileChange(this, 'photo_container_itineraire_interieur_preview_container', false)">
-                                <div id="photo_container_itineraire_interieur_preview_container"
-                                    class="image-preview-container"></div>
-                            </div>
-                            <div class="photo-upload-section">
-                                <h4>Baptême Terrain (AO)</h4>
-                                <button type="button" class="add-btn" style="width:100%; justify-content: center;"
-                                    onclick="document.getElementById('photo_container_bapteme_terrain_input').click()">➕
-                                    Ajouter Photo(s)</button>
-                                <input type="file" id="photo_container_bapteme_terrain_input" class="photo-input"
-                                    accept="image/jpeg, image/png" multiple
-                                    onchange="handleFileChange(this, 'photo_container_bapteme_terrain_preview_container', false)">
-                                <div id="photo_container_bapteme_terrain_preview_container"
-                                    class="image-preview-container"></div>
-                            </div>
-                            <div class="photo-upload-section">
-                                <h4>Emplacement (AO)</h4>
-                                <button type="button" class="add-btn" style="width:100%; justify-content: center;"
-                                    onclick="document.getElementById('photo_container_emplacement_ao_input').click()">➕
-                                    Ajouter Photo(s)</button>
-                                <input type="file" id="photo_container_emplacement_ao_input" class="photo-input"
-                                    accept="image/jpeg, image/png" multiple
-                                    onchange="handleFileChange(this, 'photo_container_emplacement_ao_preview_container', false)">
-                                <div id="photo_container_emplacement_ao_preview_container"
-                                    class="image-preview-container"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="collapsible-container">
-                        <div class="collapsible-header">
-                            <h3>Logistique & Divers</h3>
-                            <span class="material-symbols-outlined">expand_more</span>
-                        </div>
-                        <div class="collapsible-content" style="display: flex; flex-direction: column; gap: 15px;">
-                            <div class="photo-upload-section">
-                                <h4>Transport PSIG vers PR</h4>
-                                <button type="button" class="add-btn" style="width:100%; justify-content: center;"
-                                    onclick="document.getElementById('photo_container_transport_pr_input').click()">➕
-                                    Ajouter Photo(s)</button>
-                                <input type="file" id="photo_container_transport_pr_input" class="photo-input"
-                                    accept="image/jpeg, image/png" multiple
-                                    onchange="handleFileChange(this, 'photo_container_transport_pr_preview_container', false)">
-                                <div id="photo_container_transport_pr_preview_container"
-                                    class="image-preview-container"></div>
-                            </div>
-                            <div class="photo-upload-section">
-                                <h4>Transport PR vers Domicile/LE</h4>
-                                <button type="button" class="add-btn" style="width:100%; justify-content: center;"
-                                    onclick="document.getElementById('photo_container_transport_domicile_input').click()">➕
-                                    Ajouter Photo(s)</button>
-                                <input type="file" id="photo_container_transport_domicile_input" class="photo-input"
-                                    accept="image/jpeg, image/png" multiple
-                                    onchange="handleFileChange(this, 'photo_container_transport_domicile_preview_container', false)">
-                                <div id="photo_container_transport_domicile_preview_container"
-                                    class="image-preview-container"></div>
-                            </div>
-                            <div class="photo-upload-section">
-                                <h4>Cellule Effraction</h4>
-                                <button type="button" class="add-btn" style="width:100%; justify-content: center;"
-                                    onclick="document.getElementById('photo_container_cellule_effraction_input').click()">➕
-                                    Ajouter Photo(s)</button>
-                                <input type="file" id="photo_container_cellule_effraction_input" class="photo-input"
-                                    accept="image/jpeg, image/png" multiple
-                                    onchange="handleFileChange(this, 'photo_container_cellule_effraction_preview_container', false)">
-                                <div id="photo_container_cellule_effraction_preview_container"
-                                    class="image-preview-container"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- FOND PDF PERSONNALISÉ -->
+                    <!-- FOND PDF PERSONNALISÉ (Déplacé ici) -->
                     <div class="collapsible-container">
                         <div class="collapsible-header">
                             <h3>Fond PDF Personnalisé</h3>
                             <span class="material-symbols-outlined">expand_more</span>
                         </div>
                         <div class="collapsible-content" style="display: flex; flex-direction: column; gap: 15px;">
-                            <p>Vous pouvez remplacer le fond par défaut (Grille Tactique) par une image de votre choix.
-                            </p>
+                            <p>Vous pouvez remplacer le fond par défaut (Grille Tactique) par une image de votre choix.</p>
                             <div style="display: flex; gap: 10px;">
-                                <button type="button" class="add-btn"
-                                    onclick="document.getElementById('custom_bg_input').click()">📂 Choisir
-                                    Image</button>
-                                <button type="button" class="remove-btn" onclick="removeCustomBackground()">🗑️ Rétablir
-                                    Défaut</button>
+                                <button type="button" class="add-btn" onclick="document.getElementById('custom_bg_input').click()">📂 Choisir Image</button>
+                                <button type="button" class="remove-btn" onclick="removeCustomBackground()">🗑️ Rétablir Défaut</button>
                             </div>
-                            <input type="file" id="custom_bg_input" class="photo-input"
-                                accept="image/jpeg, image/png, image/jpg" onchange="handleCustomBackgroundChange(this)">
-                            <div id="custom_bg_preview_container" class="image-preview-container"
-                                style="margin-top: 10px;"></div>
+                            <input type="file" id="custom_bg_input" class="photo-input" style="display:none" accept="image/jpeg, image/png, image/jpg" onchange="handleCustomBackgroundChange(this)">
+                            <div id="custom_bg_preview_container" class="image-preview-container" style="margin-top: 10px;"></div>
                         </div>
                     </div>
-                </div>
-
-                <div class="wizard-step">
-                    <h2>9. Finalisation & Conduites à tenir</h2>
 
                     <h3>Conduites à tenir (CAT) Générales</h3>
                     <textarea id="cat_generales" rows="6">- Si rébellion, user du strict niveau de force nécessaire
@@ -2075,6 +2023,49 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
     <script src="modules/drag.js"></script>
     <script src="modules/dessin.js"></script>
     <script src="modules/presentation.js"></script>
+    <!-- MODAL OUTILS EFFRACTION -->
+    <div id="effractionToolsModal" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--effraction-gold); display: flex; align-items: center; gap: 10px;">
+                <span class="material-symbols-outlined">hardware</span> Configuration des Outils
+            </h2>
+            <p style="font-size: 0.9em; color: var(--text-secondary);">Sélectionnez les outils préconisés pour cette photo.</p>
+            
+            <div id="tools_sections_container">
+                <h4 style="margin-top: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Hydraulique</h4>
+                <div class="effrac-tool-grid" data-category="hydraulique">
+                    <button type="button" class="effrac-tool-btn" data-tool="HDR50">HDR50</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="DOOR">DOOR</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="OP71">OP71</button>
+                </div>
+
+                <h4 style="margin-top: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Mécanique</h4>
+                <div class="effrac-tool-grid" data-category="mecanique">
+                    <button type="button" class="effrac-tool-btn" data-tool="Multy Pry">Multy Pry</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="Multi Sledge">Multi Sledge</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="Mini Ram">Mini Ram</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="Bélier lourd">Bélier lourd</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="Pied de biche">Pied de biche</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="Pince Monseigneur">Pince Monseigneur</button>
+                </div>
+
+                <h4 style="margin-top: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Autres</h4>
+                <div class="effrac-tool-grid" data-category="autres">
+                    <button type="button" class="effrac-tool-btn" data-tool="Pass PTT">Pass PTT</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="VIGIK">VIGIK</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="Double clé">Double clé</button>
+                </div>
+
+                <h4 style="margin-top: 20px;">Outil Nouveau / Autre :</h4>
+                <input type="text" id="effrac_other_tools" placeholder="Saisir d'autres outils..." style="width:100%">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" class="remove-btn" onclick="document.getElementById('effractionToolsModal').style.display='none'">Annuler</button>
+                <button type="button" class="add-btn" style="background: var(--effraction-gold);" onclick="saveEffractionTools()">Valider</button>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

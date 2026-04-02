@@ -15,7 +15,8 @@ function addMoicp(data) {
     const blockIndex = container.querySelectorAll('.moicp-block').length + 1;
 
     const div = document.createElement('div');
-    div.className = 'articulation-block moicp-block collapsible-container'; // Retiré 'open' par défaut
+    const stateClass = data ? '' : 'open'; // S'ouvre si ajouté manuellement
+    div.className = `articulation-block moicp-block collapsible-container ${stateClass}`;
     div.dataset.blockId = blockId;
 
     const defaultCat = data?.cat || `- Si décelé, dynamiser jusqu'au domicile.\n- Si présence tierce personne lors de la progression, contrôler.\n- Si fuite, CR direction fuite + interpellation.\n- Si rébellion, usage du strict niveau de force nécessaire.\n- Si retranchement, CR + réarticulation pour fixer l'adversaire.`;
@@ -108,7 +109,8 @@ function addZmspcp(data) {
     const blockIndex = container.querySelectorAll('.zmspcp-block').length + 1;
 
     const div = document.createElement('div');
-    div.className = 'articulation-block zmspcp-block collapsible-container'; // Retiré 'open' par défaut
+    const stateClass = data ? '' : 'open'; // S'ouvre si ajouté manuellement
+    div.className = `articulation-block zmspcp-block collapsible-container ${stateClass}`;
     div.dataset.blockId = blockId;
 
     const defaultCat = data?.cat || `- Compte rendu de mise en place.\n- Renseigner régulièrement.\n- Si décelé, CR.\n- Si fuite, CR direction fuite + interpellation si rapport de force favorable.\n- Si rébellion, usage du strict minimum de force nécessaire.\n- Si retranchement, CR + réarticulation pour fixer l'adversaire.`;
@@ -604,7 +606,8 @@ function addEffraction(data) {
     const blockIndex = container.querySelectorAll('.effraction-block').length + 1;
 
     const div = document.createElement('div');
-    div.className = 'articulation-block effraction-block collapsible-container'; // Retiré 'open' par défaut
+    const stateClass = data ? '' : 'open'; // S'ouvre si ajouté manuellement
+    div.className = `articulation-block effraction-block collapsible-container ${stateClass}`;
     div.id = blockId;
     div.dataset.blockId = blockId;
 

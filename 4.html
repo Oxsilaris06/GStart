@@ -1713,10 +1713,6 @@ dialog::backdrop {
                     <div id="adversaries_container"></div>
                     <button type="button" class="add-btn" onclick="addAdversary()" style="margin-top: 10px; width: 100%; justify-content: center; font-weight: bold; background-color: var(--accent-blue);">
                         <span class="material-symbols-outlined">person_add</span> Créer Adversaire
-                    </button>
-
-                    <h3>Photos des renforts potentiels (Aperçu)</h3>
-                    <div id="renforts_photo_display" class="photo-display-area"></div>
                 </div>
 
                 <div class="wizard-step">
@@ -1811,7 +1807,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                     </div>
 
                     <!-- Ordre de pénétration -->
-                    <div class="collapsible-container open">
+                    <div class="collapsible-container">
                         <div class="collapsible-header">
                             <h3><span class="material-symbols-outlined" style="vertical-align: middle;">login</span> Ordre de pénétration</h3>
                             <span class="material-symbols-outlined">expand_more</span>
@@ -1850,7 +1846,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                         Cellule Effraction
                     </h3>
                     <div id="effraction_container"></div>
-                    <button type="button" class="add-btn" id="addEffractionBtn" onclick="addEffraction()" style="margin-top: 10px; background: var(--effraction-gold); color: white; display: flex; align-items: center; gap: 8px;">
+                    <button type="button" class="add-btn" id="addEffractionBtn" style="margin-top: 10px; background: var(--effraction-gold); color: white; display: flex; align-items: center; gap: 8px;">
                         <span class="material-symbols-outlined">add_box</span> Ajouter Cellule Effraction
                     </button>
                 </div>

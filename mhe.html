@@ -4,31 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fiche de Reconnaissance - Générateur PDF</title>
-    <!-- Tailwind CSS pour le style (CDN) -->
+    <!-- Tailwind CSS (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Librairie html2pdf.js pour la génération de PDF (CDN) -->
+    <!-- html2pdf.js (CDN) : Version stable pour la génération PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
-        /* Styles spécifiques pour l'impression et l'aperçu PDF */
         body { background-color: #f3f4f6; font-family: 'Inter', sans-serif; }
         
-        /* Conteneur A4 pour la prévisualisation */
-        .a4-preview {
-            background: white;
-            width: 210mm; /* Largeur fixe A4 */
-            min-height: 297mm; /* Hauteur min A4 */
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        /* Conteneur global du PDF - strictement dimensionné pour éviter les bugs html2pdf */
+        .pdf-export-container {
+            width: 210mm;
             margin: 0 auto;
-            padding: 20mm;
-            position: relative;
+            background: white;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
 
-        /* Wrapper pour permettre le scroll sur mobile de l'A4 sans le déformer */
+        /* Définition stricte d'une page A4 */
+        .pdf-page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            position: relative;
+            background: white;
+            box-sizing: border-box;
+        }
+
+        /* Classe cruciale pour forcer le saut de page dans le PDF */
+        .page-break {
+            page-break-before: always;
+        }
+
         .preview-wrapper {
             width: 100%;
             overflow-x: auto;
-            padding: 1rem;
+            padding: 2rem 1rem;
         }
 
         /* Personnalisation des inputs */
@@ -40,7 +50,7 @@
             font-size: 0.875rem;
             line-height: 1.25rem;
             box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+            transition: all 0.15s ease-in-out;
         }
         .form-input:focus {
             outline: none;
@@ -55,74 +65,56 @@
             margin-bottom: 0.25rem;
         }
 
-        /* Éviter que les images soient coupées au milieu lors du saut de page PDF */
-        .avoid-page-break {
-            page-break-inside: avoid;
-            break-inside: avoid;
-        }
-
-        /* Cacher la scrollbar sur le body mais permettre le scroll */
+        /* Scrollbars */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        /* Utilitaires pour les onglets */
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .tab-btn.active { 
-            border-bottom-width: 2px; 
-            border-color: #3b82f6; 
-            color: #2563eb; 
-            background-color: #f8fafc;
-        }
+        .hidden-step { display: none !important; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
 
-    <!-- Header / Navbar -->
+    <!-- Header / Navbar / Wizard Controls -->
     <header class="bg-slate-900 text-white shadow-md z-20 py-3 px-4 md:px-6 flex flex-wrap justify-between items-center shrink-0 gap-3">
         <div class="flex items-center gap-3">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
-            <h1 class="text-lg md:text-xl font-bold tracking-wide truncate">Interface Opérationnelle</h1>
+            <h1 id="headerTitle" class="text-lg md:text-xl font-bold tracking-wide truncate">Étape 1 : Saisie</h1>
         </div>
-        <button id="downloadPdfBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded-md shadow flex items-center gap-2 transition-colors text-sm md:text-base ml-auto w-full md:w-auto justify-center md:justify-start">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-            <span id="btnText">Générer PDF</span>
-        </button>
+        
+        <!-- Boutons de navigation Wizard -->
+        <div class="flex gap-2 w-full md:w-auto">
+            <button id="btnWizardPrev" class="hidden-step bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-md transition-colors flex-1 md:flex-none flex justify-center items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Retour : Saisie
+            </button>
+            <button id="btnWizardNext" class="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded-md shadow transition-colors flex-1 md:flex-none flex justify-center items-center gap-2">
+                Suivant : Aperçu
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+            <button id="btnWizardGenerate" class="hidden-step bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-4 rounded-md shadow transition-colors flex-1 md:flex-none flex justify-center items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                <span id="btnText">Générer PDF</span>
+            </button>
+        </div>
     </header>
 
-    <!-- Navigation des Onglets -->
-    <nav class="bg-white border-b border-gray-200 shrink-0 z-10 shadow-sm flex overflow-x-auto">
-        <button class="tab-btn active flex-1 py-3 px-4 text-center font-bold text-gray-500 hover:text-blue-500 transition-colors whitespace-nowrap" data-target="tab-form">
-            <div class="flex items-center justify-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                1. Saisie du Formulaire
-            </div>
-        </button>
-        <button class="tab-btn flex-1 py-3 px-4 text-center font-bold text-gray-500 hover:text-blue-500 transition-colors whitespace-nowrap" data-target="tab-preview">
-            <div class="flex items-center justify-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                2. Aperçu du Document
-            </div>
-        </button>
-    </nav>
-
     <!-- Main Content Area -->
-    <main class="flex-1 overflow-hidden relative bg-gray-50">
+    <main class="flex-1 overflow-hidden relative bg-gray-50 flex flex-col">
         
-        <!-- ONGLET 1 : Formulaire de saisie -->
-        <div id="tab-form" class="tab-content active w-full h-full overflow-y-auto p-4 md:p-6">
+        <!-- ========================================== -->
+        <!-- ÉTAPE 1 : FORMULAIRE DE SAISIE             -->
+        <!-- ========================================== -->
+        <div id="step-form" class="w-full h-full overflow-y-auto p-4 md:p-6">
             <div class="max-w-3xl mx-auto pb-10">
-                <h2 class="text-2xl font-bold text-gray-800 mb-6">Nouvelle Reconnaissance</h2>
-                
                 <form id="reconForm" class="space-y-6">
                     
-                    <!-- Section: Identification -->
+                    <!-- Section Globale : Identification -->
                     <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
                         <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
                             <span class="bg-blue-100 text-blue-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21a8 8 0 0 1 13.292-6"/></svg></span>
-                            Identification
+                            Identification Générale
                         </h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="md:col-span-2">
@@ -140,133 +132,122 @@
                         </div>
                     </div>
 
-                    <!-- Section: Mesures -->
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                        <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                            <span class="bg-emerald-100 text-emerald-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></span>
-                            Relevé des mesures (en mm)
-                        </h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label class="form-label" for="h_totale">Hauteur totale (sol à linteau)</label>
-                                <div class="relative">
-                                    <input type="number" id="h_totale" name="h_totale" class="form-input pr-10" placeholder="2300">
-                                    <span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span>
+                    <!-- TOGGLE H1 / H2 -->
+                    <div class="flex gap-2 mt-8 mb-4">
+                        <button type="button" id="toggleH1" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded shadow-md transition-colors border border-blue-700">Ouvrant H1 (Principal)</button>
+                        <button type="button" id="toggleH2" class="flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded shadow-sm transition-colors border border-gray-300 hover:bg-gray-300">Ouvrant H2 (Secondaire)</button>
+                    </div>
+
+                    <!-- ================= CONTAINER H1 ================= -->
+                    <div id="section-h1" class="space-y-6">
+                        <div class="bg-slate-800 text-white p-3 rounded text-center font-bold tracking-widest uppercase">Formulaire H1</div>
+                        
+                        <!-- Mesures H1 -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                                <span class="bg-emerald-100 text-emerald-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></span>
+                                Relevé des mesures H1 (mm)
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div><label class="form-label">Hauteur totale</label><div class="relative"><input type="number" id="h1_h_totale" class="form-input pr-10" placeholder="2300"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Hauteur ouvrant</label><div class="relative"><input type="number" id="h1_h_ouvrant" class="form-input pr-10" placeholder="2000"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Largeur ouvrant</label><div class="relative"><input type="number" id="h1_l_ouvrant" class="form-input pr-10" placeholder="840"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Largeur latérale</label><div class="relative"><input type="number" id="h1_l_lat" class="form-input pr-10" placeholder="350"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Espace supérieur</label><div class="relative"><input type="number" id="h1_espace_sup" class="form-input pr-10" placeholder="120"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Hauteur obstacle</label><div class="relative"><input type="number" id="h1_h_obstacle" class="form-input pr-10" placeholder="90"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                            </div>
+                        </div>
+
+                        <!-- Tech H1 -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                                <span class="bg-amber-100 text-amber-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
+                                Caractéristiques Techniques H1
+                            </h3>
+                            <div class="space-y-4">
+                                <div><label class="form-label">Structure du Bâtiment</label><input type="text" id="h1_structure" class="form-input"></div>
+                                <div><label class="form-label">Dormant / Bâti</label><input type="text" id="h1_dormant" class="form-input"></div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div><label class="form-label">Porte / Ouvrant</label><input type="text" id="h1_porte_type" class="form-input"></div>
+                                    <div><label class="form-label">Sens d'ouverture</label><select id="h1_ouverture" class="form-input bg-white"><option value="">Sélectionner...</option><option value="Favorable">Favorable (Poussant)</option><option value="Défavorable">Défavorable (Tirant)</option></select></div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="md:col-span-2"><label class="form-label">Description Poignée / Serrure</label><input type="text" id="h1_serrure_desc" class="form-input"></div>
+                                    <div><label class="form-label">Côté Serrure</label><select id="h1_cote_serrure" class="form-input bg-white"><option value="">Sélectionner...</option><option value="Positif">Positif</option><option value="Négatif">Négatif</option></select></div>
                                 </div>
                             </div>
-                            <div>
-                                <label class="form-label" for="h_ouvrant">Hauteur ouvrant (porte seule)</label>
-                                <div class="relative">
-                                    <input type="number" id="h_ouvrant" name="h_ouvrant" class="form-input pr-10" placeholder="2000">
-                                    <span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="form-label" for="l_ouvrant">Largeur ouvrant (porte seule)</label>
-                                <div class="relative">
-                                    <input type="number" id="l_ouvrant" name="l_ouvrant" class="form-input pr-10" placeholder="840">
-                                    <span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="form-label" for="l_lat">Largeur partie latérale</label>
-                                <div class="relative">
-                                    <input type="number" id="l_lat" name="l_lat" class="form-input pr-10" placeholder="350">
-                                    <span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="form-label" for="espace_sup">Espace supérieur (sous linteau)</label>
-                                <div class="relative">
-                                    <input type="number" id="espace_sup" name="espace_sup" class="form-input pr-10" placeholder="120">
-                                    <span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="form-label" for="h_obstacle">Hauteur obstacle (rambarde/marche)</label>
-                                <div class="relative">
-                                    <input type="number" id="h_obstacle" name="h_obstacle" class="form-input pr-10" placeholder="90">
-                                    <span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span>
+                        </div>
+
+                        <!-- Obs & Photos H1 -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                                <span class="bg-red-100 text-red-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+                                Observations & Photos H1
+                            </h3>
+                            <div class="space-y-4">
+                                <div><label class="form-label">Autres (Points de vigilance...)</label><textarea id="h1_observations" rows="3" class="form-input resize-y"></textarea></div>
+                                <div>
+                                    <label class="form-label">Photos H1</label>
+                                    <input type="file" id="h1_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border p-1 rounded">
+                                    <div id="h1_formPhotosPreview" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Section: Caractéristiques Techniques -->
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                        <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                            <span class="bg-amber-100 text-amber-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
-                            Caractéristiques Techniques
-                        </h3>
-                        <div class="space-y-4">
-                            <div>
-                                <label class="form-label" for="structure">Structure du Bâtiment</label>
-                                <input type="text" id="structure" name="structure" class="form-input" placeholder="ex: Parpaing ou briques creuses">
+                    <!-- ================= CONTAINER H2 ================= -->
+                    <div id="section-h2" class="space-y-6 hidden-step">
+                        <div class="bg-slate-600 text-white p-3 rounded text-center font-bold tracking-widest uppercase">Formulaire H2</div>
+                        
+                        <!-- Mesures H2 -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                                <span class="bg-emerald-100 text-emerald-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></span>
+                                Relevé des mesures H2 (mm)
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div><label class="form-label">Hauteur totale</label><div class="relative"><input type="number" id="h2_h_totale" class="form-input pr-10"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Hauteur ouvrant</label><div class="relative"><input type="number" id="h2_h_ouvrant" class="form-input pr-10"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Largeur ouvrant</label><div class="relative"><input type="number" id="h2_l_ouvrant" class="form-input pr-10"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Largeur latérale</label><div class="relative"><input type="number" id="h2_l_lat" class="form-input pr-10"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Espace supérieur</label><div class="relative"><input type="number" id="h2_espace_sup" class="form-input pr-10"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Hauteur obstacle</label><div class="relative"><input type="number" id="h2_h_obstacle" class="form-input pr-10"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
                             </div>
-                            
-                            <div>
-                                <label class="form-label" for="dormant">Dormant / Bâti</label>
-                                <input type="text" id="dormant" name="dormant" class="form-input" placeholder="ex: Acier avec vitre intégrée sous le linteau, pose en applique">
-                            </div>
+                        </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="form-label" for="porte_type">Porte / Ouvrant (Matériau)</label>
-                                    <input type="text" id="porte_type" name="porte_type" class="form-input" placeholder="ex: Acier imitation PVC">
+                        <!-- Tech H2 -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                                <span class="bg-amber-100 text-amber-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
+                                Caractéristiques Techniques H2
+                            </h3>
+                            <div class="space-y-4">
+                                <div><label class="form-label">Structure du Bâtiment</label><input type="text" id="h2_structure" class="form-input"></div>
+                                <div><label class="form-label">Dormant / Bâti</label><input type="text" id="h2_dormant" class="form-input"></div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div><label class="form-label">Porte / Ouvrant</label><input type="text" id="h2_porte_type" class="form-input"></div>
+                                    <div><label class="form-label">Sens d'ouverture</label><select id="h2_ouverture" class="form-input bg-white"><option value="">Sélectionner...</option><option value="Favorable">Favorable (Poussant)</option><option value="Défavorable">Défavorable (Tirant)</option></select></div>
                                 </div>
-                                <div>
-                                    <label class="form-label" for="ouverture">Sens d'ouverture</label>
-                                    <select id="ouverture" name="ouverture" class="form-input bg-white">
-                                        <option value="">Sélectionner...</option>
-                                        <option value="Favorable">Favorable (Poussant)</option>
-                                        <option value="Défavorable">Défavorable (Tirant)</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="md:col-span-2">
-                                    <label class="form-label" for="serrure_desc">Description Poignée / Serrure</label>
-                                    <input type="text" id="serrure_desc" name="serrure_desc" class="form-input" placeholder="ex: Cylindre sécurisé, points inconnus">
-                                </div>
-                                <div>
-                                    <label class="form-label" for="cote_serrure">Côté Serrure (Menace)</label>
-                                    <select id="cote_serrure" name="cote_serrure" class="form-input bg-white">
-                                        <option value="">Sélectionner...</option>
-                                        <option value="Positif">Positif</option>
-                                        <option value="Négatif">Négatif</option>
-                                    </select>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="md:col-span-2"><label class="form-label">Description Poignée / Serrure</label><input type="text" id="h2_serrure_desc" class="form-input"></div>
+                                    <div><label class="form-label">Côté Serrure</label><select id="h2_cote_serrure" class="form-input bg-white"><option value="">Sélectionner...</option><option value="Positif">Positif</option><option value="Négatif">Négatif</option></select></div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Section: Observations -->
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                        <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                            <span class="bg-red-100 text-red-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
-                            Environnement & Observations
-                        </h3>
-                        <div>
-                            <label class="form-label" for="observations">Autres (Points de vigilance, obstacles...)</label>
-                            <textarea id="observations" name="observations" rows="3" class="form-input resize-y" placeholder="ex: Attention marche de 10 cm et ouverture sur le côté gauche (A102)."></textarea>
-                        </div>
-                    </div>
-
-                    <!-- Section: Photos -->
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                        <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                            <span class="bg-purple-100 text-purple-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></span>
-                            Annexes Photographiques
-                        </h3>
-                        <div>
-                            <label class="form-label" for="photosInput">Ajouter des photos (sélection multiple possible)</label>
-                            <input type="file" id="photosInput" name="photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors border border-gray-200 rounded-md p-1">
-                            <p class="text-xs text-gray-400 mt-2">Les images seront automatiquement ajoutées à la fin du document PDF.</p>
-                            
-                            <!-- Preview des images dans le formulaire -->
-                            <div id="formPhotosPreview" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
-                                <!-- Les miniatures s'afficheront ici via JS -->
+                        <!-- Obs & Photos H2 -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                            <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
+                                <span class="bg-red-100 text-red-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+                                Observations & Photos H2
+                            </h3>
+                            <div class="space-y-4">
+                                <div><label class="form-label">Autres (Points de vigilance...)</label><textarea id="h2_observations" rows="3" class="form-input resize-y"></textarea></div>
+                                <div>
+                                    <label class="form-label">Photos H2</label>
+                                    <input type="file" id="h2_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border p-1 rounded">
+                                    <div id="h2_formPhotosPreview" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -275,143 +256,152 @@
             </div>
         </div>
 
-        <!-- ONGLET 2 : Rendu PDF en temps réel -->
-        <div id="tab-preview" class="tab-content w-full h-full overflow-y-auto bg-gray-200">
-            <div class="preview-wrapper pb-10">
-                <!-- CONTENEUR DU PDF (C'est ce bloc qui sera exporté) -->
-                <div id="pdfContainer" class="a4-preview text-slate-900 bg-white">
+        <!-- ========================================== -->
+        <!-- ÉTAPE 2 : APERÇU & EXPORT PDF              -->
+        <!-- ========================================== -->
+        <div id="step-preview" class="w-full h-full overflow-y-auto bg-gray-300 hidden-step flex flex-col items-center">
+            <div class="w-full text-center py-3 bg-gray-200 border-b border-gray-400 text-sm font-medium text-gray-600 shadow-inner">
+                Vue finale du document (Dimensions A4 réelles)
+            </div>
+            
+            <div class="preview-wrapper flex flex-col items-center gap-8">
+                
+                <!-- CONTENEUR DU PDF (Tout ce qui est dedans sera exporté) -->
+                <!-- Note: Pas de contraintes d'overflow ici pour garantir que html2pdf lise tout -->
+                <div id="pdfContainer" class="pdf-export-container">
                     
-                    <!-- Page 1 du document -->
-                    <div class="pdf-page relative min-h-[250mm]">
-                        <!-- En-tête du document -->
-                        <div class="border-b-2 border-slate-800 pb-4 mb-6 flex justify-between items-end">
+                    <!-- ================= PAGE 1 : DONNÉES H1 ================= -->
+                    <div id="pdf-page-h1" class="pdf-page">
+                        <div class="border-b-2 border-slate-800 pb-2 mb-4 flex justify-between items-end">
                             <div>
                                 <h1 class="text-2xl font-black uppercase tracking-tight text-slate-900">Fiche de Reconnaissance</h1>
-                                <p class="text-sm font-semibold text-slate-600 mt-1">ÉVALUATION D'ACCÈS BÂTIMENT</p>
+                                <p class="text-sm font-semibold text-slate-600 mt-1">ÉVALUATION D'ACCÈS BÂTIMENT - <span class="text-blue-600">OUVRANT H1</span></p>
                             </div>
                             <div class="text-right">
-                                <div class="text-3xl font-black text-red-600 font-mono tracking-tighter" id="out_reference">N/A</div>
+                                <div class="text-3xl font-black text-red-600 font-mono tracking-tighter out_reference">N/A</div>
                             </div>
                         </div>
 
-                        <!-- Informations générales -->
-                        <div class="flex justify-between items-center bg-slate-100 p-3 rounded mb-6 text-sm">
-                            <div>
-                                <span class="font-bold text-slate-500 uppercase text-xs block">Date & Heure</span>
-                                <span class="font-semibold" id="out_date">Non défini</span>
-                            </div>
-                            <div class="text-right">
-                                <span class="font-bold text-slate-500 uppercase text-xs block">Opérateur / Équipe</span>
-                                <span class="font-semibold" id="out_operator">Non défini</span>
-                            </div>
+                        <div class="flex justify-between items-center bg-slate-100 p-2 rounded mb-6 text-sm">
+                            <div><span class="font-bold text-slate-500 uppercase text-xs block">Date & Heure</span><span class="font-semibold out_date">-</span></div>
+                            <div class="text-right"><span class="font-bold text-slate-500 uppercase text-xs block">Opérateur / Équipe</span><span class="font-semibold out_operator">-</span></div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-8">
-                            <!-- Colonne 1 : Technique -->
-                            <div class="col-span-1 space-y-6">
-                                
-                                <!-- Structure & Bâti -->
+                            <!-- Technique -->
+                            <div class="col-span-1 space-y-5">
                                 <section>
-                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-3 rounded-sm inline-block">1. Maçonnerie & Bâti</h2>
-                                    <div class="mb-3">
-                                        <span class="block text-xs font-bold text-slate-500 uppercase">Structure du Bâtiment</span>
-                                        <p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_structure">-</p>
-                                    </div>
-                                    <div>
-                                        <span class="block text-xs font-bold text-slate-500 uppercase">Dormant / Bâti</span>
-                                        <p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_dormant">-</p>
-                                    </div>
+                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">1. Maçonnerie & Bâti</h2>
+                                    <div class="mb-2"><span class="block text-xs font-bold text-slate-500 uppercase">Structure du Bâtiment</span><p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_h1_structure">-</p></div>
+                                    <div><span class="block text-xs font-bold text-slate-500 uppercase">Dormant / Bâti</span><p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_h1_dormant">-</p></div>
                                 </section>
-
-                                <!-- Porte & Serrurerie -->
                                 <section>
-                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-3 rounded-sm inline-block">2. Ouvrant & Serrurerie</h2>
-                                    <div class="mb-3">
-                                        <span class="block text-xs font-bold text-slate-500 uppercase">Nature de la porte</span>
-                                        <p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_porte">-</p>
-                                    </div>
-                                    <div class="mb-3">
-                                        <span class="block text-xs font-bold text-slate-500 uppercase">Sens d'ouverture</span>
-                                        <p class="font-bold text-sm" id="out_ouverture">-</p>
-                                    </div>
-                                    <div class="mb-3 bg-slate-50 p-2 border border-slate-200 rounded">
+                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">2. Ouvrant & Serrurerie</h2>
+                                    <div class="mb-2"><span class="block text-xs font-bold text-slate-500 uppercase">Nature de la porte</span><p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_h1_porte">-</p></div>
+                                    <div class="mb-2"><span class="block text-xs font-bold text-slate-500 uppercase">Sens d'ouverture</span><p class="font-bold text-sm" id="out_h1_ouverture">-</p></div>
+                                    <div class="mb-2 bg-slate-50 p-2 border border-slate-200 rounded">
                                         <span class="block text-xs font-bold text-slate-500 uppercase">Système de fermeture</span>
-                                        <p class="font-medium text-sm mt-1" id="out_serrure">-</p>
-                                        <div class="mt-2 pt-2 border-t border-slate-200 flex justify-between">
-                                            <span class="text-xs font-bold text-slate-500">Côté :</span>
-                                            <span class="text-xs font-bold" id="out_cote_serrure">-</span>
-                                        </div>
+                                        <p class="font-medium text-sm mt-1" id="out_h1_serrure">-</p>
+                                        <div class="mt-2 pt-2 border-t border-slate-200 flex justify-between"><span class="text-xs font-bold text-slate-500">Côté :</span><span class="text-xs font-bold" id="out_h1_cote_serrure">-</span></div>
                                     </div>
                                 </section>
-
                             </div>
-
-                            <!-- Colonne 2 : Mesures & Obs -->
-                            <div class="col-span-1 space-y-6">
-                                
-                                <!-- Tableau des mesures -->
+                            <!-- Mesures -->
+                            <div class="col-span-1 space-y-5">
                                 <section>
-                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-3 rounded-sm inline-block">3. Relevés dimensionnels</h2>
+                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">3. Relevés dimensionnels</h2>
                                     <table class="w-full text-sm border-collapse">
                                         <tbody>
-                                            <tr class="border-b border-gray-200">
-                                                <td class="py-2 text-slate-600 font-medium">Hauteur totale</td>
-                                                <td class="py-2 text-right font-mono font-bold" id="out_h_totale">-</td>
-                                                <td class="py-2 pl-1 text-xs text-gray-400">mm</td>
-                                            </tr>
-                                            <tr class="border-b border-gray-200">
-                                                <td class="py-2 text-slate-600 font-medium">Hauteur ouvrant</td>
-                                                <td class="py-2 text-right font-mono font-bold" id="out_h_ouvrant">-</td>
-                                                <td class="py-2 pl-1 text-xs text-gray-400">mm</td>
-                                            </tr>
-                                            <tr class="border-b border-gray-200">
-                                                <td class="py-2 text-slate-600 font-medium">Largeur ouvrant</td>
-                                                <td class="py-2 text-right font-mono font-bold" id="out_l_ouvrant">-</td>
-                                                <td class="py-2 pl-1 text-xs text-gray-400">mm</td>
-                                            </tr>
-                                            <tr class="border-b border-gray-200">
-                                                <td class="py-2 text-slate-600 font-medium">Largeur latérale</td>
-                                                <td class="py-2 text-right font-mono font-bold" id="out_l_lat">-</td>
-                                                <td class="py-2 pl-1 text-xs text-gray-400">mm</td>
-                                            </tr>
-                                            <tr class="border-b border-gray-200">
-                                                <td class="py-2 text-slate-600 font-medium">Espace supérieur</td>
-                                                <td class="py-2 text-right font-mono font-bold text-red-600" id="out_espace_sup">-</td>
-                                                <td class="py-2 pl-1 text-xs text-gray-400">mm</td>
-                                            </tr>
-                                            <tr class="border-b border-gray-200 bg-gray-50">
-                                                <td class="py-2 px-1 text-slate-600 font-medium">Obstacle direct</td>
-                                                <td class="py-2 text-right font-mono font-bold" id="out_h_obstacle">-</td>
-                                                <td class="py-2 pl-1 text-xs text-gray-400">mm</td>
-                                            </tr>
+                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Hauteur totale</td><td class="py-2 text-right font-mono font-bold" id="out_h1_h_totale">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
+                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Hauteur ouvrant</td><td class="py-2 text-right font-mono font-bold" id="out_h1_h_ouvrant">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
+                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Largeur ouvrant</td><td class="py-2 text-right font-mono font-bold" id="out_h1_l_ouvrant">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
+                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Largeur latérale</td><td class="py-2 text-right font-mono font-bold" id="out_h1_l_lat">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
+                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Espace supérieur</td><td class="py-2 text-right font-mono font-bold text-red-600" id="out_h1_espace_sup">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
+                                            <tr class="border-b border-gray-200 bg-gray-50"><td class="py-2 px-1 text-slate-600 font-medium">Obstacle direct</td><td class="py-2 text-right font-mono font-bold" id="out_h1_h_obstacle">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
                                         </tbody>
                                     </table>
                                 </section>
-
                             </div>
                         </div>
 
-                        <!-- Observations -->
-                        <section class="mt-8">
-                            <h2 class="text-sm font-bold uppercase text-white bg-red-700 px-2 py-1 mb-3 rounded-sm inline-block">4. Points de vigilance & Environnement</h2>
-                            <div class="border-2 border-red-200 bg-red-50 p-4 rounded-md min-h-[80px]">
-                                <p class="text-sm text-slate-800 whitespace-pre-wrap font-medium" id="out_observations">Aucune observation saisie.</p>
-                            </div>
+                        <section class="mt-6">
+                            <h2 class="text-sm font-bold uppercase text-white bg-red-700 px-2 py-1 mb-2 rounded-sm inline-block">4. Points de vigilance & Environnement (H1)</h2>
+                            <div class="border-2 border-red-200 bg-red-50 p-3 rounded-md min-h-[60px]"><p class="text-sm text-slate-800 whitespace-pre-wrap font-medium" id="out_h1_observations">Aucune observation.</p></div>
                         </section>
-
-                        <!-- Footer du PDF 1 -->
-                        <div class="absolute bottom-0 left-0 right-0 border-t border-gray-300 pt-2 text-xs text-center text-gray-400 flex justify-between">
-                            <span>Document généré automatiquement via interface sécurisée.</span>
-                            <span>CONFIDENTIEL</span>
-                        </div>
+                        <div class="absolute bottom-5 left-10 right-10 border-t border-gray-300 pt-2 text-xs text-center text-gray-400 flex justify-between"><span>Page 1 - H1</span><span>CONFIDENTIEL</span></div>
                     </div>
 
-                    <!-- Section des Photos (Annexes) qui pourra déborder sur de nouvelles pages PDF -->
-                    <div id="out_photos_section" style="display: none;" class="mt-16 pt-8 border-t-2 border-slate-800">
-                        <h2 class="text-lg font-black uppercase tracking-tight text-slate-900 mb-6">5. Annexes Photographiques</h2>
-                        <div id="out_photos_grid" class="grid grid-cols-2 gap-6">
-                            <!-- Les photos s'afficheront ici pour le PDF -->
+                    <!-- ================= PAGE 2 : PHOTOS H1 (Optionnelle) ================= -->
+                    <div id="pdf-page-photos-h1" class="pdf-page page-break hidden-step">
+                        <div class="border-b-2 border-slate-800 pb-2 mb-6"><h1 class="text-xl font-black uppercase tracking-tight text-slate-900">Annexes Photographiques - H1</h1><p class="text-sm font-semibold text-slate-600 mt-1 out_reference">N/A</p></div>
+                        <div id="out_photos_grid_h1" class="grid grid-cols-2 gap-4"></div>
+                        <div class="absolute bottom-5 left-10 right-10 border-t border-gray-300 pt-2 text-xs text-center text-gray-400 flex justify-between"><span>Page Photos H1</span><span>CONFIDENTIEL</span></div>
+                    </div>
+
+                    <!-- ================= PAGE 3 : DONNÉES H2 (Optionnelle) ================= -->
+                    <div id="pdf-page-h2" class="pdf-page page-break hidden-step">
+                        <div class="border-b-2 border-slate-800 pb-2 mb-4 flex justify-between items-end">
+                            <div>
+                                <h1 class="text-2xl font-black uppercase tracking-tight text-slate-900">Fiche de Reconnaissance</h1>
+                                <p class="text-sm font-semibold text-slate-600 mt-1">ÉVALUATION D'ACCÈS BÂTIMENT - <span class="text-slate-600">OUVRANT H2</span></p>
+                            </div>
+                            <div class="text-right"><div class="text-3xl font-black text-red-600 font-mono tracking-tighter out_reference">N/A</div></div>
                         </div>
+
+                        <div class="flex justify-between items-center bg-slate-100 p-2 rounded mb-6 text-sm">
+                            <div><span class="font-bold text-slate-500 uppercase text-xs block">Date & Heure</span><span class="font-semibold out_date">-</span></div>
+                            <div class="text-right"><span class="font-bold text-slate-500 uppercase text-xs block">Opérateur / Équipe</span><span class="font-semibold out_operator">-</span></div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-8">
+                            <!-- Technique H2 -->
+                            <div class="col-span-1 space-y-5">
+                                <section>
+                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">1. Maçonnerie & Bâti</h2>
+                                    <div class="mb-2"><span class="block text-xs font-bold text-slate-500 uppercase">Structure du Bâtiment</span><p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_h2_structure">-</p></div>
+                                    <div><span class="block text-xs font-bold text-slate-500 uppercase">Dormant / Bâti</span><p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_h2_dormant">-</p></div>
+                                </section>
+                                <section>
+                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">2. Ouvrant & Serrurerie</h2>
+                                    <div class="mb-2"><span class="block text-xs font-bold text-slate-500 uppercase">Nature de la porte</span><p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_h2_porte">-</p></div>
+                                    <div class="mb-2"><span class="block text-xs font-bold text-slate-500 uppercase">Sens d'ouverture</span><p class="font-bold text-sm" id="out_h2_ouverture">-</p></div>
+                                    <div class="mb-2 bg-slate-50 p-2 border border-slate-200 rounded">
+                                        <span class="block text-xs font-bold text-slate-500 uppercase">Système de fermeture</span>
+                                        <p class="font-medium text-sm mt-1" id="out_h2_serrure">-</p>
+                                        <div class="mt-2 pt-2 border-t border-slate-200 flex justify-between"><span class="text-xs font-bold text-slate-500">Côté :</span><span class="text-xs font-bold" id="out_h2_cote_serrure">-</span></div>
+                                    </div>
+                                </section>
+                            </div>
+                            <!-- Mesures H2 -->
+                            <div class="col-span-1 space-y-5">
+                                <section>
+                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">3. Relevés dimensionnels</h2>
+                                    <table class="w-full text-sm border-collapse">
+                                        <tbody>
+                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Hauteur totale</td><td class="py-2 text-right font-mono font-bold" id="out_h2_h_totale">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
+                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Hauteur ouvrant</td><td class="py-2 text-right font-mono font-bold" id="out_h2_h_ouvrant">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
+                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Largeur ouvrant</td><td class="py-2 text-right font-mono font-bold" id="out_h2_l_ouvrant">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
+                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Largeur latérale</td><td class="py-2 text-right font-mono font-bold" id="out_h2_l_lat">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
+                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Espace supérieur</td><td class="py-2 text-right font-mono font-bold text-red-600" id="out_h2_espace_sup">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
+                                            <tr class="border-b border-gray-200 bg-gray-50"><td class="py-2 px-1 text-slate-600 font-medium">Obstacle direct</td><td class="py-2 text-right font-mono font-bold" id="out_h2_h_obstacle">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
+                                        </tbody>
+                                    </table>
+                                </section>
+                            </div>
+                        </div>
+
+                        <section class="mt-6">
+                            <h2 class="text-sm font-bold uppercase text-white bg-red-700 px-2 py-1 mb-2 rounded-sm inline-block">4. Points de vigilance & Environnement (H2)</h2>
+                            <div class="border-2 border-red-200 bg-red-50 p-3 rounded-md min-h-[60px]"><p class="text-sm text-slate-800 whitespace-pre-wrap font-medium" id="out_h2_observations">Aucune observation.</p></div>
+                        </section>
+                        <div class="absolute bottom-5 left-10 right-10 border-t border-gray-300 pt-2 text-xs text-center text-gray-400 flex justify-between"><span>Page H2</span><span>CONFIDENTIEL</span></div>
+                    </div>
+
+                    <!-- ================= PAGE 4 : PHOTOS H2 (Optionnelle) ================= -->
+                    <div id="pdf-page-photos-h2" class="pdf-page page-break hidden-step">
+                        <div class="border-b-2 border-slate-800 pb-2 mb-6"><h1 class="text-xl font-black uppercase tracking-tight text-slate-900">Annexes Photographiques - H2</h1><p class="text-sm font-semibold text-slate-600 mt-1 out_reference">N/A</p></div>
+                        <div id="out_photos_grid_h2" class="grid grid-cols-2 gap-4"></div>
+                        <div class="absolute bottom-5 left-10 right-10 border-t border-gray-300 pt-2 text-xs text-center text-gray-400 flex justify-between"><span>Page Photos H2</span><span>CONFIDENTIEL</span></div>
                     </div>
 
                 </div>
@@ -423,172 +413,201 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             
-            // --- GESTION DES ONGLETS ---
-            const tabBtns = document.querySelectorAll('.tab-btn');
-            const tabContents = document.querySelectorAll('.tab-content');
+            // --- GESTION DU WIZARD (NAVIGATION ÉTAPES) ---
+            const stepForm = document.getElementById('step-form');
+            const stepPreview = document.getElementById('step-preview');
+            const btnPrev = document.getElementById('btnWizardPrev');
+            const btnNext = document.getElementById('btnWizardNext');
+            const btnGenerate = document.getElementById('btnWizardGenerate');
+            const headerTitle = document.getElementById('headerTitle');
 
-            tabBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    // Retirer l'état actif de tous
-                    tabBtns.forEach(b => b.classList.remove('active'));
-                    tabContents.forEach(c => c.classList.remove('active'));
-                    
-                    // Activer le bouton cliqué et son contenu
-                    btn.classList.add('active');
-                    const targetId = btn.getAttribute('data-target');
-                    document.getElementById(targetId).classList.add('active');
-                });
+            btnNext.addEventListener('click', () => {
+                // Validation basique
+                if(!document.getElementById('reference').value.trim()) {
+                    alert("Veuillez saisir au minimum la Référence Cible.");
+                    document.getElementById('reference').focus();
+                    return;
+                }
+                stepForm.classList.add('hidden-step');
+                stepPreview.classList.remove('hidden-step');
+                btnPrev.classList.remove('hidden-step');
+                btnNext.classList.add('hidden-step');
+                btnGenerate.classList.remove('hidden-step');
+                headerTitle.textContent = "Étape 2 : Aperçu avant export";
+                updatePreview(); // Rafraichissement forcé
             });
 
-            // --- INITIALISATION DES DONNÉES ---
+            btnPrev.addEventListener('click', () => {
+                stepPreview.classList.add('hidden-step');
+                stepForm.classList.remove('hidden-step');
+                btnPrev.classList.add('hidden-step');
+                btnNext.classList.remove('hidden-step');
+                btnGenerate.classList.add('hidden-step');
+                headerTitle.textContent = "Étape 1 : Saisie";
+            });
+
+            // --- GESTION DU TOGGLE H1 / H2 DANS LE FORMULAIRE ---
+            const btnH1 = document.getElementById('toggleH1');
+            const btnH2 = document.getElementById('toggleH2');
+            const sectionH1 = document.getElementById('section-h1');
+            const sectionH2 = document.getElementById('section-h2');
+
+            btnH1.addEventListener('click', () => {
+                btnH1.className = "flex-1 py-3 bg-blue-600 text-white font-bold rounded shadow-md transition-colors border border-blue-700";
+                btnH2.className = "flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded shadow-sm transition-colors border border-gray-300 hover:bg-gray-300";
+                sectionH1.classList.remove('hidden-step');
+                sectionH2.classList.add('hidden-step');
+            });
+
+            btnH2.addEventListener('click', () => {
+                btnH2.className = "flex-1 py-3 bg-slate-600 text-white font-bold rounded shadow-md transition-colors border border-slate-700";
+                btnH1.className = "flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded shadow-sm transition-colors border border-gray-300 hover:bg-gray-300";
+                sectionH2.classList.remove('hidden-step');
+                sectionH1.classList.add('hidden-step');
+            });
+
+            // --- INITIALISATION DONNÉES GLOBALES ---
             const now = new Date();
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
             document.getElementById('date').value = now.toISOString().slice(0,16);
 
-            const fieldMappings = {
-                'reference': 'out_reference',
-                'date': 'out_date',
-                'operator': 'out_operator',
-                'h_totale': 'out_h_totale',
-                'h_ouvrant': 'out_h_ouvrant',
-                'l_ouvrant': 'out_l_ouvrant',
-                'l_lat': 'out_l_lat',
-                'espace_sup': 'out_espace_sup',
-                'h_obstacle': 'out_h_obstacle',
-                'structure': 'out_structure',
-                'dormant': 'out_dormant',
-                'porte_type': 'out_porte',
-                'serrure_desc': 'out_serrure',
-                'observations': 'out_observations'
-            };
-
-            // --- MISE À JOUR EN TEMPS RÉEL DU TEXTE ---
+            // --- LOGIQUE DE MISE A JOUR PREVIEW ---
             const updatePreview = () => {
-                for (const [inputId, outputId] of Object.entries(fieldMappings)) {
-                    const val = document.getElementById(inputId).value;
-                    let displayVal = val.trim() !== '' ? val : '-';
-                    
-                    if(inputId === 'date' && val) {
-                        const d = new Date(val);
-                        displayVal = d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
-                    }
-                    
-                    if(inputId === 'observations' && !val.trim()) {
-                        displayVal = 'Aucune observation saisie.';
-                    }
+                // Valeurs communes (Classes car multiples éléments sur plusieurs pages)
+                const ref = document.getElementById('reference').value || '-';
+                document.querySelectorAll('.out_reference').forEach(el => el.textContent = ref);
+                
+                const op = document.getElementById('operator').value || '-';
+                document.querySelectorAll('.out_operator').forEach(el => el.textContent = op);
 
-                    document.getElementById(outputId).textContent = displayVal;
+                const dateVal = document.getElementById('date').value;
+                let dateStr = '-';
+                if(dateVal) {
+                    const d = new Date(dateVal);
+                    dateStr = d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
                 }
+                document.querySelectorAll('.out_date').forEach(el => el.textContent = dateStr);
 
-                // Menus déroulants (Couleurs dynamiques)
-                const ouvertureVal = document.getElementById('ouverture').value;
-                const outOuverture = document.getElementById('out_ouverture');
-                outOuverture.textContent = ouvertureVal || '-';
-                outOuverture.className = 'font-bold text-sm ' + 
-                    (ouvertureVal === 'Favorable' ? 'text-green-600' : (ouvertureVal === 'Défavorable' ? 'text-red-600' : ''));
+                // Fonction helper pour H1 et H2
+                const mapData = (prefix) => {
+                    const fields = ['h_totale', 'h_ouvrant', 'l_ouvrant', 'l_lat', 'espace_sup', 'h_obstacle', 'structure', 'dormant', 'porte_type', 'serrure_desc'];
+                    let hasData = false;
+                    
+                    fields.forEach(f => {
+                        const val = document.getElementById(`${prefix}_${f}`).value.trim();
+                        if(val) hasData = true;
+                        document.getElementById(`out_${prefix}_${f === 'porte_type' ? 'porte' : (f === 'serrure_desc' ? 'serrure' : f)}`).textContent = val || '-';
+                    });
 
-                const coteVal = document.getElementById('cote_serrure').value;
-                const outCote = document.getElementById('out_cote_serrure');
-                outCote.textContent = coteVal || '-';
-                outCote.className = 'text-xs font-bold px-2 py-0.5 rounded ' + 
-                    (coteVal === 'Positif' ? 'bg-green-100 text-green-700' : (coteVal === 'Négatif' ? 'bg-red-100 text-red-700' : ''));
+                    const obs = document.getElementById(`${prefix}_observations`).value.trim();
+                    if(obs) hasData = true;
+                    document.getElementById(`out_${prefix}_observations`).textContent = obs || 'Aucune observation.';
+
+                    // Selects colores
+                    const ouv = document.getElementById(`${prefix}_ouverture`).value;
+                    if(ouv) hasData = true;
+                    const elOuv = document.getElementById(`out_${prefix}_ouverture`);
+                    elOuv.textContent = ouv || '-';
+                    elOuv.className = 'font-bold text-sm ' + (ouv === 'Favorable' ? 'text-green-600' : (ouv === 'Défavorable' ? 'text-red-600' : ''));
+
+                    const cote = document.getElementById(`${prefix}_cote_serrure`).value;
+                    if(cote) hasData = true;
+                    const elCote = document.getElementById(`out_${prefix}_cote_serrure`);
+                    elCote.textContent = cote || '-';
+                    elCote.className = 'text-xs font-bold px-2 py-0.5 rounded ' + (cote === 'Positif' ? 'bg-green-100 text-green-700' : (cote === 'Négatif' ? 'bg-red-100 text-red-700' : ''));
+
+                    return hasData;
+                };
+
+                mapData('h1');
+                const hasH2 = mapData('h2');
+
+                // Afficher ou masquer la page H2 selon saisie
+                const pageH2 = document.getElementById('pdf-page-h2');
+                if(hasH2) {
+                    pageH2.classList.remove('hidden-step');
+                } else {
+                    pageH2.classList.add('hidden-step');
+                }
             };
 
             document.getElementById('reconForm').addEventListener('input', updatePreview);
             updatePreview();
 
-            // --- GESTION DES PHOTOS MULTIPLES ---
-            const photosInput = document.getElementById('photosInput');
-            const formPhotosPreview = document.getElementById('formPhotosPreview');
-            const outPhotosSection = document.getElementById('out_photos_section');
-            const outPhotosGrid = document.getElementById('out_photos_grid');
+            // --- GESTION DES PHOTOS (Reusable pour H1 et H2) ---
+            const setupPhotos = (prefix) => {
+                const input = document.getElementById(`${prefix}_photosInput`);
+                const formGrid = document.getElementById(`${prefix}_formPhotosPreview`);
+                const pdfGrid = document.getElementById(`out_photos_grid_${prefix}`);
+                const pdfPage = document.getElementById(`pdf-page-photos-${prefix}`);
 
-            photosInput.addEventListener('change', function(e) {
-                // Réinitialiser les affichages
-                formPhotosPreview.innerHTML = '';
-                outPhotosGrid.innerHTML = '';
-                
-                const files = Array.from(e.target.files);
+                input.addEventListener('change', function(e) {
+                    formGrid.innerHTML = '';
+                    pdfGrid.innerHTML = '';
+                    const files = Array.from(e.target.files);
 
-                if (files.length > 0) {
-                    outPhotosSection.style.display = 'block';
-                } else {
-                    outPhotosSection.style.display = 'none';
-                }
+                    if (files.length > 0) {
+                        pdfPage.classList.remove('hidden-step');
+                    } else {
+                        pdfPage.classList.add('hidden-step');
+                    }
 
-                files.forEach((file, index) => {
-                    if (!file.type.startsWith('image/')) return;
+                    files.forEach((file, index) => {
+                        if (!file.type.startsWith('image/')) return;
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const base64Src = event.target.result;
+                            
+                            // Form Preview
+                            const divForm = document.createElement('div');
+                            divForm.className = 'relative group rounded overflow-hidden border border-gray-200';
+                            divForm.innerHTML = `<img src="${base64Src}" class="w-full h-20 object-cover"><div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all"></div>`;
+                            formGrid.appendChild(divForm);
 
-                    const reader = new FileReader();
-                    reader.onload = function(event) {
-                        const base64Src = event.target.result;
-
-                        // 1. Ajouter à l'aperçu du Formulaire (Miniatures)
-                        const formImgContainer = document.createElement('div');
-                        formImgContainer.className = 'relative group rounded overflow-hidden border border-gray-200';
-                        formImgContainer.innerHTML = `
-                            <img src="${base64Src}" class="w-full h-24 object-cover" alt="Photo ${index + 1}">
-                            <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all"></div>
-                        `;
-                        formPhotosPreview.appendChild(formImgContainer);
-
-                        // 2. Ajouter à l'aperçu PDF (Format d'impression)
-                        // L'utilisation de 'avoid-page-break' empêche la coupure d'une photo entre deux pages PDF
-                        const pdfImgContainer = document.createElement('div');
-                        pdfImgContainer.className = 'avoid-page-break flex flex-col items-center bg-gray-50 p-2 border border-gray-200 rounded';
-                        pdfImgContainer.innerHTML = `
-                            <img src="${base64Src}" class="max-w-full object-contain rounded" style="max-height: 250px;" alt="Annexe ${index + 1}">
-                            <span class="text-xs text-gray-500 mt-2 font-medium">Annexe ${index + 1}</span>
-                        `;
-                        outPhotosGrid.appendChild(pdfImgContainer);
-                    };
-                    // Lire en Base64 pour garantir que html2pdf capture bien l'image sans erreur de sécurité locale (CORS)
-                    reader.readAsDataURL(file);
+                            // PDF Preview (Hauteur restreinte pour tenir sur une page)
+                            const divPdf = document.createElement('div');
+                            divPdf.className = 'flex flex-col items-center bg-gray-50 p-2 border border-gray-200 rounded';
+                            divPdf.innerHTML = `<img src="${base64Src}" class="max-w-full object-contain rounded" style="max-height: 250px;"><span class="text-xs text-gray-500 mt-2 font-medium">Annexe ${index + 1} (${prefix.toUpperCase()})</span>`;
+                            pdfGrid.appendChild(divPdf);
+                        };
+                        reader.readAsDataURL(file);
+                    });
                 });
-            });
+            };
 
-            // --- GÉNÉRATION DU PDF ---
-            document.getElementById('downloadPdfBtn').addEventListener('click', () => {
-                const refValue = document.getElementById('reference').value.trim();
-                if(!refValue) {
-                    alert("Veuillez au moins saisir la Référence Cible pour générer le rapport.");
-                    // Basculer sur l'onglet formulaire si l'utilisateur est sur l'aperçu
-                    tabBtns.click(); 
-                    document.getElementById('reference').focus();
-                    return;
-                }
+            setupPhotos('h1');
+            setupPhotos('h2');
 
-                // Basculer momentanément sur l'onglet preview si on n'y est pas (assure un bon rendu DOM)
-                const isFormTabActive = tabBtns.classList.contains('active');
-                if(isFormTabActive) tabBtns.click();
-
+            // --- CORRECTION ET GÉNÉRATION DU PDF ---
+            document.getElementById('btnWizardGenerate').addEventListener('click', () => {
                 const btnText = document.getElementById('btnText');
                 const originalText = btnText.textContent;
-                btnText.textContent = "Génération...";
+                btnText.textContent = "Création du PDF...";
                 
+                // Le container ne doit pas être en 'display: none', ce qui est garanti ici 
+                // car le bouton Generate n'est visible que dans l'étape Preview.
                 const element = document.getElementById('pdfContainer');
+                const refValue = document.getElementById('reference').value.trim() || 'SANS-REF';
                 
+                // Options robustes pour html2pdf
                 const opt = {
-                    margin:       0,
+                    margin:       0, // On gère les marges en CSS (.pdf-page)
                     filename:     `FICHE-RECO-${refValue.replace(/\s+/g, '-')}.pdf`,
                     image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  { scale: 2, useCORS: true, logging: false },
-                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                    pagebreak:    { mode: ['css', 'legacy'] } // Active la gestion intelligente des sauts de page
+                    // useCORS permet de charger les images Base64 sans erreur, scale 2 améliore la netteté
+                    html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+                    // format a4 explicite
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
                 };
 
-                // Attendre un court instant pour s'assurer que le DOM de l'onglet Preview est bien rendu avant de capturer
-                setTimeout(() => {
-                    html2pdf().set(opt).from(element).save().then(() => {
-                        btnText.textContent = originalText;
-                        // Retourner à l'onglet formulaire s'il y était initialement
-                        if(isFormTabActive) tabBtns.click();
-                    }).catch(err => {
-                        console.error("Erreur PDF:", err);
-                        alert("Une erreur est survenue lors de la création du PDF.");
-                        btnText.textContent = originalText;
-                    });
-                }, 300);
+                // Lancement de la génération
+                html2pdf().set(opt).from(element).save().then(() => {
+                    btnText.textContent = originalText;
+                }).catch(err => {
+                    console.error("Erreur PDF:", err);
+                    alert("Une erreur technique est survenue lors de la création du PDF.");
+                    btnText.textContent = originalText;
+                });
             });
         });
     </script>

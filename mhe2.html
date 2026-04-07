@@ -1,0 +1,740 @@
+<html>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dossier de Reconnaissance d'Objectif</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        body { background-color: #f3f4f6; font-family: 'Inter', sans-serif; }
+        
+        /* Conteneur global du PDF */
+        .pdf-export-container { width: 210mm; margin: 0 auto; background: white; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .pdf-page { width: 210mm; padding: 15mm 20mm; position: relative; background: white; box-sizing: border-box; }
+        .page-break { page-break-before: always; }
+        .avoid-break { page-break-inside: avoid; }
+        .preview-wrapper { width: 100%; overflow-x: auto; padding: 2rem 1rem; }
+
+        /* Inputs & Form styling */
+        .form-input { width: 100%; border-radius: 0.375rem; border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; font-size: 0.875rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); transition: all 0.15s ease-in-out; }
+        .form-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.5); }
+        .form-label { display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem; }
+        
+        /* Wizard Steps */
+        .wizard-step { display: none; }
+        .wizard-step.active { display: block; }
+        .step-btn { opacity: 0.6; border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .step-btn.active { opacity: 1; border-color: #3b82f6; color: #1e3a8a; font-weight: 700; background-color: #eff6ff; }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Specific PDF Styling */
+        .pdf-section-title { font-size: 0.875rem; font-weight: bold; text-transform: uppercase; color: white; background-color: #1e293b; padding: 0.25rem 0.5rem; margin-bottom: 0.75rem; border-radius: 0.125rem; display: inline-block; }
+        .pdf-data-row { border-bottom: 1px dashed #d1d5db; padding-bottom: 0.25rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; }
+        .pdf-label { font-size: 0.75rem; font-weight: bold; color: #64748b; text-transform: uppercase; }
+        .pdf-value { font-size: 0.875rem; font-weight: 500; color: #0f172a; text-align: right; max-width: 60%; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <header class="bg-slate-900 text-white shadow-md z-30 py-3 px-4 md:px-6 flex flex-wrap justify-between items-center shrink-0 gap-3">
+        <div class="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+            <h1 class="text-lg md:text-xl font-bold tracking-wide truncate">Dossier Reconnaissance</h1>
+        </div>
+        <div class="flex gap-2 w-full md:w-auto">
+            <button id="btnWizardGenerate" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-4 rounded-md shadow transition-colors flex justify-center items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                <span id="btnText">Générer PDF</span>
+            </button>
+        </div>
+    </header>
+
+    <nav class="bg-white border-b border-gray-200 shrink-0 z-20 shadow-sm flex overflow-x-auto text-sm text-gray-600">
+        <button class="step-btn active flex-1 py-3 px-4 text-center font-medium whitespace-nowrap" data-target="step-contexte">1. Contexte</button>
+        <button class="step-btn flex-1 py-3 px-4 text-center font-medium whitespace-nowrap" data-target="step-cible">2. Cible</button>
+        <button class="step-btn flex-1 py-3 px-4 text-center font-medium whitespace-nowrap" data-target="step-batiment">3. Bâtiment</button>
+        <button class="step-btn flex-1 py-3 px-4 text-center font-medium whitespace-nowrap" data-target="step-ouvrants">4. Ouvrants (H1/H2)</button>
+        <button class="step-btn flex-1 py-3 px-4 text-center font-medium whitespace-nowrap bg-blue-50 border-l" data-target="step-preview">5. Aperçu PDF</button>
+    </nav>
+
+    <main class="flex-1 overflow-hidden relative bg-gray-50 flex flex-col">
+        
+        <form id="reconForm" class="w-full h-full">
+            
+            <div id="step-contexte" class="wizard-step active w-full h-full overflow-y-auto p-4 md:p-6">
+                <div class="max-w-4xl mx-auto pb-10 space-y-6">
+                    <div class="flex justify-between items-center bg-slate-800 text-white p-4 rounded shadow">
+                        <h2 class="text-xl font-bold tracking-widest uppercase">Cadre Opérationnel</h2>
+                        <button type="button" class="btn-clear text-red-300 hover:text-red-100 text-sm flex items-center gap-1" data-target="ctx">Nettoyer Section</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Unités & Hiérarchie</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="form-label">Unité Requérante</label><input type="text" id="ctx_unite_req" class="form-input persist"></div>
+                                <div><label class="form-label">Unité Requise</label><input type="text" id="ctx_unite_res" class="form-input persist" value="CELLULE EFFRACTION"></div>
+                                <div><label class="form-label">Dir. Opérations</label><input type="text" id="ctx_dir_ops" class="form-input persist"></div>
+                                <div><label class="form-label">Téléphone / Contact</label><input type="text" id="ctx_tel_ops" class="form-input persist"></div>
+                                <div><label class="form-label">Directeur Enquête</label><input type="text" id="ctx_dir_enq" class="form-input persist"></div>
+                                <div><label class="form-label">Téléphone / Contact</label><input type="text" id="ctx_tel_enq" class="form-input persist"></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Administratif</h3>
+                            <div><label class="form-label">Date et Heure *</label><input type="datetime-local" id="date" name="date" class="form-input persist" required></div>
+                            <div><label class="form-label">Opérateurs / Équipe déployée</label><input type="text" id="operator" class="form-input persist"></div>
+                            <div><label class="form-label">Cadre Juridique</label><input type="text" id="ctx_cadre" class="form-input persist" placeholder="Flagrance, Préliminaire, Commission Rogatoire..."></div>
+                            <div><label class="form-label">Nature de l'infraction</label><input type="text" id="ctx_infraction" class="form-input persist"></div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-2 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Détails de l'Affaire</h3>
+                            <div><label class="form-label">Synthèse de l'affaire</label><textarea id="ctx_synthese" rows="3" class="form-input persist"></textarea></div>
+                            <div><label class="form-label">Attente des enquêteurs vis-à-vis de l'effraction</label><textarea id="ctx_attente" rows="2" class="form-input persist"></textarea></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="step-cible" class="wizard-step w-full h-full overflow-y-auto p-4 md:p-6">
+                <div class="max-w-4xl mx-auto pb-10 space-y-6">
+                    <div class="flex justify-between items-center bg-slate-800 text-white p-4 rounded shadow">
+                        <h2 class="text-xl font-bold tracking-widest uppercase">Renseignements Cible</h2>
+                        <button type="button" class="btn-clear text-red-300 hover:text-red-100 text-sm flex items-center gap-1" data-target="cib">Nettoyer Section</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-2 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Identité & Morphologie</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="form-label">Nom</label><input type="text" id="cib_nom" class="form-input persist uppercase"></div>
+                                <div><label class="form-label">Prénom</label><input type="text" id="cib_prenom" class="form-input persist capitalize"></div>
+                                <div class="col-span-2"><label class="form-label">Date et Lieu de naissance</label><input type="text" id="cib_naissance" class="form-input persist"></div>
+                                <div><label class="form-label">Taille (cm)</label><input type="text" id="cib_taille" class="form-input persist"></div>
+                                <div><label class="form-label">Poids (kg)</label><input type="text" id="cib_poids" class="form-input persist"></div>
+                                <div><label class="form-label">Cheveux</label><input type="text" id="cib_cheveux" class="form-input persist"></div>
+                                <div><label class="form-label">Langue parlée</label><input type="text" id="cib_langue" class="form-input persist"></div>
+                                <div class="col-span-2"><label class="form-label">Signes particuliers (Tatouages, cicatrices...)</label><input type="text" id="cib_signes" class="form-input persist"></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Photo Target</h3>
+                            <input type="file" id="cib_photosInput" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border p-1 rounded">
+                            <div id="cib_formPhotosPreview" class="mt-2 w-full flex justify-center"></div>
+                            <div class="mt-4">
+                                <label class="form-label">Interpellation possible pdt reco ?</label>
+                                <select id="cib_interpellation" class="form-input persist">
+                                    <option value="">Sélectionner</option><option value="OUI">OUI</option><option value="NON">NON</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-3 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Environnement & Risques Humains</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label class="form-label text-red-600">Antécédents judiciaires / Dangérosité</label><textarea id="cib_antecedents" rows="2" class="form-input persist"></textarea></div>
+                                <div><label class="form-label">Problèmes médicaux</label><textarea id="cib_medical" rows="2" class="form-input persist"></textarea></div>
+                                <div class="md:col-span-2"><label class="form-label">Situation familiale (Présence potentielle femme/enfants sur l'objectif)</label><textarea id="cib_famille" rows="2" class="form-input persist"></textarea></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="step-batiment" class="wizard-step w-full h-full overflow-y-auto p-4 md:p-6">
+                <div class="max-w-4xl mx-auto pb-10 space-y-6">
+                    <div class="flex justify-between items-center bg-slate-800 text-white p-4 rounded shadow">
+                        <h2 class="text-xl font-bold tracking-widest uppercase">Topographie & Bâtiment</h2>
+                        <button type="button" class="btn-clear text-red-300 hover:text-red-100 text-sm flex items-center gap-1" data-target="bat">Nettoyer Section</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Environnement du domicile</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="col-span-2"><label class="form-label">Type de quartier</label>
+                                    <select id="bat_quartier" class="form-input persist">
+                                        <option value="">Sélectionner...</option><option value="Cité sensible">Cité sensible</option><option value="Cité dortoir">Cité dortoir</option><option value="Quartier résidentiel">Quartier résidentiel</option><option value="Centre ville">Centre ville</option><option value="Secteur isolé">Secteur isolé</option><option value="Zone industrielle">Zone industrielle</option><option value="Autre">Autre</option>
+                                    </select>
+                                </div>
+                                <div><label class="form-label">Approche des lieux</label><select id="bat_approche" class="form-input persist"><option value="">Sélectionner</option><option value="Aisée">Aisée</option><option value="Délicate">Délicate</option></select></div>
+                                <div><label class="form-label">Éclairage public</label><select id="bat_eclairage" class="form-input persist"><option value="">Sélectionner</option><option value="Oui">Oui</option><option value="Non">Non</option></select></div>
+                                <div class="col-span-2"><label class="form-label">Nature du sol</label><input type="text" id="bat_sol" class="form-input persist" placeholder="Bitume, Gravier, Risque de traces..."></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Structure de l'objectif</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="col-span-2"><label class="form-label">Type de Bâtiment</label>
+                                    <select id="bat_type" class="form-input persist">
+                                        <option value="">Sélectionner...</option><option value="Immeuble">Immeuble</option><option value="Maison de ville">Maison de ville</option><option value="Maison isolée">Maison isolée</option><option value="Maison lotissement">Maison lotissement</option><option value="Bâtiment mitoyen">Bâtiment mitoyen</option><option value="Cave">Cave</option><option value="Bureau/Local commercial">Bureau/Local commercial</option><option value="Autre">Autre</option>
+                                    </select>
+                                </div>
+                                <div><label class="form-label">Nbr d'étages</label><input type="number" id="bat_etages" class="form-input persist"></div>
+                                <div><label class="form-label">Ascenseur</label><select id="bat_ascenseur" class="form-input persist"><option value="">Sélectionner</option><option value="Oui">Oui</option><option value="Non">Non</option></select></div>
+                                <div class="col-span-2"><label class="form-label">Adresses / Remarques accès</label><input type="text" id="bat_adresse" class="form-input persist"></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-2 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Contrôle d'accès & Détection</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div><label class="form-label">Moyens de détection</label><input type="text" id="bat_detection" class="form-input persist" placeholder="Caméra, Chien, Alarme, Détecteur..."></div>
+                                <div><label class="form-label">Existence sas ou hall</label><select id="bat_sas" class="form-input persist"><option value="">Sélectionner</option><option value="Oui">Oui</option><option value="Non">Non</option></select></div>
+                                <div><label class="form-label">Fermé par</label><input type="text" id="bat_fermeture" class="form-input persist" placeholder="Code, Badge, Pass PTT..."></div>
+                                <div class="col-span-3"><label class="form-label">Portail / Portillon extérieur</label><input type="text" id="bat_portail" class="form-input persist" placeholder="Manuel, Électrique, Déverrouillage..."></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-2 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Annexes Environnement & Bâtiment</h3>
+                            <div><label class="form-label">Description textuelle libre</label><textarea id="bat_description" class="form-input resize-y persist" rows="2" placeholder="ex: Rue passante..."></textarea></div>
+                            <div>
+                                <label class="form-label">Photos Bâtiment/Env (Ajout multiple)</label>
+                                <input type="file" id="bat_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-indigo-50 file:text-indigo-700 border p-1 rounded">
+                                <div id="bat_formPhotosPreview" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="step-ouvrants" class="wizard-step w-full h-full overflow-y-auto p-4 md:p-6">
+                <div class="max-w-4xl mx-auto pb-10 space-y-6">
+                    
+                    <div class="flex gap-2 mb-4">
+                        <button type="button" id="toggleH1" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded shadow-md transition-colors border border-blue-700">Ouvrant H1 (Principal)</button>
+                        <button type="button" id="toggleH2" class="flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded shadow-sm transition-colors border border-gray-300 hover:bg-gray-300">Ouvrant H2 (Secondaire)</button>
+                    </div>
+
+                    <div id="ouvrants-container"></div>
+
+                </div>
+            </div>
+
+            <div id="step-preview" class="wizard-step w-full h-full overflow-y-auto bg-gray-300 flex flex-col items-center">
+                <div class="preview-wrapper flex flex-col items-center">
+                    
+                    <div id="pdfContainer" class="pdf-export-container text-slate-900">
+                        
+                        <div class="pdf-page">
+                            <div class="text-center mb-8 border-b-4 border-slate-900 pb-4">
+                                <h1 class="text-3xl font-black uppercase tracking-widest text-slate-900">Dossier Reconnaissance</h1>
+                                <h2 class="text-xl font-bold tracking-widest text-red-700 mt-1">D'OBJECTIF / EFFRACTION</h2>
+                            </div>
+                            
+                            <div class="bg-slate-100 p-3 rounded mb-8 flex justify-between font-medium text-sm">
+                                <div><span class="text-slate-500 uppercase text-xs">Date:</span> <span id="out_date">-</span></div>
+                                <div><span class="text-slate-500 uppercase text-xs">Équipe:</span> <span id="out_operator">-</span></div>
+                            </div>
+
+                            <div class="pdf-section-title w-full">Unités & Hiérarchie</div>
+                            <div class="grid grid-cols-2 gap-x-8 gap-y-2 mb-6">
+                                <div class="pdf-data-row"><span class="pdf-label">Unité Requérante</span><span class="pdf-value" id="out_ctx_unite_req">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label">Unité Requise</span><span class="pdf-value font-bold text-blue-700" id="out_ctx_unite_res">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label">Dir. Opérations</span><span class="pdf-value" id="out_ctx_dir_ops">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label">Tél Dir. Ops</span><span class="pdf-value" id="out_ctx_tel_ops">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label">Dir. Enquête</span><span class="pdf-value" id="out_ctx_dir_enq">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label">Tél Dir. Enq</span><span class="pdf-value" id="out_ctx_tel_enq">-</span></div>
+                            </div>
+
+                            <div class="pdf-section-title w-full">Cadre & Affaire</div>
+                            <div class="mb-6 space-y-3">
+                                <div class="flex flex-col border-b border-gray-200 pb-2"><span class="pdf-label">Cadre Juridique</span><span class="text-sm font-bold" id="out_ctx_cadre">-</span></div>
+                                <div class="flex flex-col border-b border-gray-200 pb-2"><span class="pdf-label">Nature Infraction</span><span class="text-sm font-bold" id="out_ctx_infraction">-</span></div>
+                                <div class="flex flex-col border-b border-gray-200 pb-2"><span class="pdf-label">Synthèse Affaire</span><span class="text-sm italic" id="out_ctx_synthese">-</span></div>
+                                <div class="flex flex-col border-b border-gray-200 pb-2"><span class="pdf-label">Attente Enquêteurs (Effraction)</span><span class="text-sm font-medium" id="out_ctx_attente">-</span></div>
+                            </div>
+                        </div>
+
+                        <div class="pdf-page page-break hidden-step" id="pdf-page-cible">
+                            <div class="text-center mb-6 border-b-2 border-slate-900 pb-2">
+                                <h2 class="text-2xl font-black uppercase tracking-widest">Renseignements Cible</h2>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-6">
+                                <div class="col-span-2">
+                                    <div class="pdf-section-title">Identité</div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Nom</span><span class="pdf-value text-lg font-black uppercase text-red-600" id="out_cib_nom">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Prénom</span><span class="pdf-value font-bold" id="out_cib_prenom">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Né(e) le</span><span class="pdf-value" id="out_cib_naissance">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Langue</span><span class="pdf-value" id="out_cib_langue">-</span></div>
+
+                                    <div class="pdf-section-title mt-4">Morphologie</div>
+                                    <div class="grid grid-cols-2 gap-x-4">
+                                        <div class="pdf-data-row"><span class="pdf-label">Taille</span><span class="pdf-value" id="out_cib_taille">-</span></div>
+                                        <div class="pdf-data-row"><span class="pdf-label">Poids</span><span class="pdf-value" id="out_cib_poids">-</span></div>
+                                        <div class="pdf-data-row"><span class="pdf-label">Cheveux</span><span class="pdf-value" id="out_cib_cheveux">-</span></div>
+                                    </div>
+                                    <div class="mt-2"><span class="pdf-label">Signes particuliers:</span> <span class="text-sm font-medium" id="out_cib_signes">-</span></div>
+                                </div>
+
+                                <div class="col-span-1 border-2 border-slate-300 rounded p-1 flex flex-col items-center justify-center min-h-[200px] bg-slate-50" id="out_cib_photo_box">
+                                    <span class="text-xs text-slate-400 font-bold uppercase mb-2">Photo Target</span>
+                                    </div>
+                            </div>
+
+                            <div class="pdf-section-title w-full mt-6 bg-red-800">Risques & Environnement Humain</div>
+                            <div class="space-y-3 bg-red-50 p-3 border border-red-200 rounded">
+                                <div><span class="pdf-label text-red-800">Antécédents / Dangérosité :</span><p class="text-sm font-bold text-slate-900" id="out_cib_antecedents">-</p></div>
+                                <div><span class="pdf-label text-red-800">Problèmes Médicaux :</span><p class="text-sm font-medium text-slate-900" id="out_cib_medical">-</p></div>
+                                <div><span class="pdf-label text-red-800">Présence Famille / Enfants :</span><p class="text-sm font-medium text-slate-900" id="out_cib_famille">-</p></div>
+                                <div class="border-t border-red-300 pt-2 mt-2 flex justify-between items-center">
+                                    <span class="pdf-label text-red-800">Interpellation possible pdt reco :</span>
+                                    <span class="text-lg font-black" id="out_cib_interpellation">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pdf-page page-break">
+                            <div class="text-center mb-6 border-b-2 border-slate-900 pb-2">
+                                <h2 class="text-2xl font-black uppercase tracking-widest">Topographie & Bâtiment</h2>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-8 mb-6">
+                                <div>
+                                    <div class="pdf-section-title w-full">Environnement Domicile</div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Type Quartier</span><span class="pdf-value font-bold" id="out_bat_quartier">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Approche</span><span class="pdf-value" id="out_bat_approche">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Éclairage public</span><span class="pdf-value" id="out_bat_eclairage">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Nature du sol</span><span class="pdf-value" id="out_bat_sol">-</span></div>
+                                </div>
+                                <div>
+                                    <div class="pdf-section-title w-full">Structure</div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Type Bâtiment</span><span class="pdf-value font-bold" id="out_bat_type">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Nbr Étages</span><span class="pdf-value" id="out_bat_etages">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Ascenseur</span><span class="pdf-value" id="out_bat_ascenseur">-</span></div>
+                                </div>
+                            </div>
+
+                            <div class="pdf-section-title w-full">Accès & Moyens de détection</div>
+                            <div class="bg-amber-50 p-3 border border-amber-200 rounded mb-4">
+                                <div class="pdf-data-row"><span class="pdf-label text-amber-800">Détection (Cam, Chien...)</span><span class="pdf-value font-bold text-red-600" id="out_bat_detection">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label text-amber-800">Portail / Extérieur</span><span class="pdf-value" id="out_bat_portail">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label text-amber-800">Sas / Hall</span><span class="pdf-value" id="out_bat_sas">-</span></div>
+                                <div class="pdf-data-row border-none mb-0"><span class="pdf-label text-amber-800">Moyen de fermeture</span><span class="pdf-value" id="out_bat_fermeture">-</span></div>
+                            </div>
+
+                            <div class="mb-4">
+                                <span class="pdf-label">Adresses / Remarques accès :</span>
+                                <p class="text-sm mt-1" id="out_bat_adresse">-</p>
+                            </div>
+                            <div>
+                                <span class="pdf-label">Description Topographique libre :</span>
+                                <p class="text-sm mt-1 italic" id="out_bat_description">-</p>
+                            </div>
+                        </div>
+
+                        <div id="pdf-section-photos-bat" class="hidden-step">
+                            <div class="pdf-page page-break avoid-break">
+                                <div class="border-b-2 border-slate-800 pb-2 mb-6"><h2 class="text-xl font-black uppercase tracking-tight">Annexes Topographie & Bâtiment</h2></div>
+                                <div id="out_photos_grid_bat" class="flex flex-col gap-8"></div>
+                            </div>
+                        </div>
+
+                        <div id="pdf-ouvrants-container"></div>
+
+                    </div>
+                </div>
+            </div>
+        </form>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- WIZARD NAVIGATION ---
+            const steps = ['step-contexte', 'step-cible', 'step-batiment', 'step-ouvrants', 'step-preview'];
+            const navBtns = document.querySelectorAll('.step-btn');
+            const btnGenerate = document.getElementById('btnWizardGenerate');
+
+            navBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const target = btn.getAttribute('data-target');
+                    // UI buttons
+                    navBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    // Div containers
+                    steps.forEach(s => document.getElementById(s).classList.remove('active'));
+                    document.getElementById(target).classList.add('active');
+                    
+                    if(target === 'step-preview') {
+                        btnGenerate.classList.remove('hidden');
+                        updatePreview();
+                    } else {
+                        btnGenerate.classList.add('hidden');
+                    }
+                });
+            });
+
+            // --- INJECTION HTML H1 / H2 (POUR EVITER LA DUPLICATION) ---
+            const createOuvrantForm = (prefix, name, isHidden) => `
+                <div id="section-${prefix}" class="space-y-6 ${isHidden ? 'hidden-step' : ''}">
+                    <div class="bg-slate-800 text-white p-3 rounded text-center font-bold tracking-widest uppercase flex justify-between items-center">
+                        <span>Formulaire ${name}</span>
+                        <button type="button" class="btn-clear text-red-300 hover:text-red-100 text-sm flex items-center gap-1" data-target="${prefix}">Nettoyer</button>
+                    </div>
+                    
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2"><label class="form-label text-blue-700 font-bold">Baptême ouvrant / Nom Cible *</label><input type="text" id="${prefix}_bapteme" class="form-input font-mono uppercase border-blue-300 bg-blue-50 persist" placeholder="ex: ECHO1 A103"></div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                        <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">Stratégie d'Effraction</h3>
+                        <div>
+                            <label class="form-label font-bold text-emerald-700">Moyen préconisé pour l'ouverture</label>
+                            <select id="${prefix}_moyen" class="form-input border-emerald-300 bg-emerald-50 text-emerald-900 font-bold persist">
+                                <option value="">Sélectionner le moyen d'effraction...</option>
+                                <option value="Door">Door</option>
+                                <option value="Céramique bélier">Céramique bélier</option>
+                                <option value="HDR">HDR</option>
+                                <option value="Lance thermique / Madelin">Lance thermique / Madelin</option>
+                                <option value="Cisaille écarteur">Cisaille écarteur</option>
+                                <option value="Hooligan">Hooligan</option>
+                                <option value="Autre (Voir observations)">Autre</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="sm:col-span-2"><h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Mesures (mm)</h3></div>
+                        <div><label class="form-label">Hauteur totale</label><input type="number" id="${prefix}_h_totale" class="form-input persist"></div>
+                        <div><label class="form-label">Hauteur ouvrant</label><input type="number" id="${prefix}_h_ouvrant" class="form-input persist"></div>
+                        <div><label class="form-label">Largeur ouvrant</label><input type="number" id="${prefix}_l_ouvrant" class="form-input persist"></div>
+                        <div><label class="form-label">Largeur latérale</label><input type="number" id="${prefix}_l_lat" class="form-input persist"></div>
+                        <div><label class="form-label">Espace supérieur</label><input type="number" id="${prefix}_espace_sup" class="form-input persist"></div>
+                        <div><label class="form-label">Hauteur obstacle</label><input type="number" id="${prefix}_h_obstacle" class="form-input persist"></div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                        <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Technique</h3>
+                        <div><label class="form-label">Structure du Bâtiment</label><input type="text" id="${prefix}_structure" class="form-input persist"></div>
+                        <div><label class="form-label">Dormant / Bâti</label><input type="text" id="${prefix}_dormant" class="form-input persist"></div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="form-label">Porte / Ouvrant</label><input type="text" id="${prefix}_porte_type" class="form-input persist"></div>
+                            <div><label class="form-label">Sens d'ouverture</label><select id="${prefix}_ouverture" class="form-input bg-white persist"><option value="">-</option><option value="Favorable">Favorable</option><option value="Défavorable">Défavorable</option></select></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2"><label class="form-label">Description Poignée / Serrure</label><input type="text" id="${prefix}_serrure_desc" class="form-input persist"></div>
+                            <div><label class="form-label">Côté Serrure</label><select id="${prefix}_cote_serrure" class="form-input bg-white persist"><option value="">-</option><option value="Positif">Positif</option><option value="Négatif">Négatif</option></select></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                        <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Observations & Photos</h3>
+                        <div><label class="form-label">Points de vigilance...</label><textarea id="${prefix}_observations" rows="3" class="form-input persist"></textarea></div>
+                        <div>
+                            <input type="file" id="${prefix}_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 border p-1 rounded">
+                            <div id="${prefix}_formPhotosPreview" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const createOuvrantPdfPage = (prefix, name) => `
+                <div id="pdf-page-${prefix}" class="pdf-page page-break hidden-step">
+                    <div class="border-b-2 border-slate-900 pb-2 mb-4 flex justify-between items-end">
+                        <h2 class="text-2xl font-black uppercase tracking-widest text-slate-900">Ouvrant ${name}</h2>
+                        <div class="text-2xl font-black text-red-600 font-mono tracking-tighter" id="out_${prefix}_bapteme">-</div>
+                    </div>
+
+                    <div class="bg-emerald-100 border-2 border-emerald-500 p-3 rounded flex justify-between items-center mb-6">
+                        <span class="font-bold text-emerald-800 uppercase tracking-widest text-sm">Système d'effraction préconisé :</span>
+                        <span class="text-xl font-black text-emerald-900" id="out_${prefix}_moyen">-</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="col-span-1">
+                            <div class="pdf-section-title w-full">1. Maçonnerie & Bâti</div>
+                            <div class="pdf-data-row"><span class="pdf-label">Structure</span><span class="pdf-value" id="out_${prefix}_structure">-</span></div>
+                            <div class="pdf-data-row"><span class="pdf-label">Dormant</span><span class="pdf-value" id="out_${prefix}_dormant">-</span></div>
+                            
+                            <div class="pdf-section-title w-full mt-4">2. Ouvrant & Serrurerie</div>
+                            <div class="pdf-data-row"><span class="pdf-label">Porte</span><span class="pdf-value" id="out_${prefix}_porte_type">-</span></div>
+                            <div class="pdf-data-row"><span class="pdf-label">Sens ouv.</span><span class="pdf-value font-bold" id="out_${prefix}_ouverture">-</span></div>
+                            <div class="pdf-data-row border-none"><span class="pdf-label">Serrure</span></div>
+                            <div class="text-sm font-medium mb-1 pl-2 text-right" id="out_${prefix}_serrure_desc">-</div>
+                            <div class="pdf-data-row"><span class="pdf-label text-xs">Côté menace</span><span class="pdf-value" id="out_${prefix}_cote_serrure">-</span></div>
+                        </div>
+                        <div class="col-span-1">
+                            <div class="pdf-section-title w-full">3. Relevés (mm)</div>
+                            <table class="w-full text-sm">
+                                <tr><td class="pdf-label py-1">H totale</td><td class="text-right font-mono font-bold" id="out_${prefix}_h_totale">-</td></tr>
+                                <tr><td class="pdf-label py-1">H ouvrant</td><td class="text-right font-mono font-bold" id="out_${prefix}_h_ouvrant">-</td></tr>
+                                <tr><td class="pdf-label py-1">L ouvrant</td><td class="text-right font-mono font-bold" id="out_${prefix}_l_ouvrant">-</td></tr>
+                                <tr><td class="pdf-label py-1">L latérale</td><td class="text-right font-mono font-bold" id="out_${prefix}_l_lat">-</td></tr>
+                                <tr><td class="pdf-label py-1">Espace sup</td><td class="text-right font-mono font-bold text-red-600" id="out_${prefix}_espace_sup">-</td></tr>
+                                <tr><td class="pdf-label py-1">H obstacle</td><td class="text-right font-mono font-bold" id="out_${prefix}_h_obstacle">-</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <div class="pdf-section-title bg-red-800">4. Points de vigilance</div>
+                        <div class="bg-red-50 p-2 border border-red-200 text-sm font-medium min-h-[60px]" id="out_${prefix}_observations">-</div>
+                    </div>
+                </div>
+
+                <div id="pdf-section-photos-${prefix}" class="hidden-step">
+                    <div class="pdf-page page-break avoid-break">
+                        <div class="border-b-2 border-slate-900 pb-2 mb-6"><h2 class="text-xl font-black uppercase tracking-tight">Annexes Photographiques - ${name}</h2></div>
+                        <div id="out_photos_grid_${prefix}" class="flex flex-col gap-8"></div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('ouvrants-container').innerHTML = createOuvrantForm('h1', 'H1', false) + createOuvrantForm('h2', 'H2', true);
+            document.getElementById('pdf-ouvrants-container').innerHTML = createOuvrantPdfPage('h1', 'H1') + createOuvrantPdfPage('h2', 'H2');
+
+            // Toggle H1/H2 UI
+            document.getElementById('toggleH1').addEventListener('click', (e) => {
+                e.target.className = "flex-1 py-3 bg-blue-600 text-white font-bold rounded shadow-md border border-blue-700";
+                document.getElementById('toggleH2').className = "flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded shadow-sm border border-gray-300";
+                document.getElementById('section-h1').classList.remove('hidden-step');
+                document.getElementById('section-h2').classList.add('hidden-step');
+            });
+            document.getElementById('toggleH2').addEventListener('click', (e) => {
+                e.target.className = "flex-1 py-3 bg-slate-600 text-white font-bold rounded shadow-md border border-slate-700";
+                document.getElementById('toggleH1').className = "flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded shadow-sm border border-gray-300";
+                document.getElementById('section-h2').classList.remove('hidden-step');
+                document.getElementById('section-h1').classList.add('hidden-step');
+            });
+
+            // --- INDEXED DB ---
+            const idb = {
+                db: null,
+                init: async function() {
+                    if(this.db) return this.db;
+                    return new Promise((resolve, reject) => {
+                        const req = indexedDB.open('ReconMasterDB', 2); // V2
+                        req.onupgradeneeded = e => {
+                            if (!e.target.result.objectStoreNames.contains('photos')) {
+                                e.target.result.createObjectStore('photos');
+                            }
+                        };
+                        req.onsuccess = e => { this.db = e.target.result; resolve(this.db); };
+                        req.onerror = e => reject(e.target.error);
+                    });
+                },
+                get: async function(key) {
+                    const db = await this.init();
+                    return new Promise(resolve => {
+                        const req = db.transaction('photos', 'readonly').objectStore('photos').get(key);
+                        req.onsuccess = () => resolve(req.result);
+                        req.onerror = () => resolve(null);
+                    });
+                },
+                set: async function(key, val) {
+                    const db = await this.init();
+                    return new Promise(resolve => {
+                        const req = db.transaction('photos', 'readwrite').objectStore('photos').put(val, key);
+                        req.onsuccess = () => resolve();
+                    });
+                },
+                del: async function(key) {
+                    const db = await this.init();
+                    return new Promise(resolve => {
+                        const req = db.transaction('photos', 'readwrite').objectStore('photos').delete(key);
+                        req.onsuccess = () => resolve();
+                    });
+                }
+            };
+
+            let statePhotos = { cib: [], bat: [], h1: [], h2: [] };
+
+            const loadData = async () => {
+                document.querySelectorAll('.persist').forEach(el => {
+                    const saved = localStorage.getItem(`rm_${el.id}`);
+                    if (saved !== null) el.value = saved;
+                });
+                if(!document.getElementById('date').value) {
+                    const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                    document.getElementById('date').value = now.toISOString().slice(0,16);
+                }
+                
+                statePhotos.cib = await idb.get('rm_cib_photos') || [];
+                statePhotos.bat = await idb.get('rm_bat_photos') || [];
+                statePhotos.h1 = await idb.get('rm_h1_photos') || [];
+                statePhotos.h2 = await idb.get('rm_h2_photos') || [];
+                
+                ['cib','bat','h1','h2'].forEach(renderPhotos);
+            };
+
+            document.getElementById('reconForm').addEventListener('input', (e) => {
+                if(e.target.classList.contains('persist')) localStorage.setItem(`rm_${e.target.id}`, e.target.value);
+                if(document.getElementById('step-preview').classList.contains('active')) updatePreview();
+            });
+
+            document.querySelectorAll('.btn-clear').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const target = e.currentTarget.getAttribute('data-target');
+                    if(confirm(`Effacer les données de la section ${target.toUpperCase()} ?`)) {
+                        document.querySelectorAll(`[id^="${target}_"].persist`).forEach(el => {
+                            el.value = ''; localStorage.removeItem(`rm_${el.id}`);
+                        });
+                        const fileInput = document.getElementById(`${target}_photosInput`);
+                        if(fileInput) fileInput.value = '';
+                        statePhotos[target] = [];
+                        await idb.del(`rm_${target}_photos`);
+                        renderPhotos(target);
+                    }
+                });
+            });
+
+            // --- MAP DATA TO PREVIEW ---
+            const updatePreview = () => {
+                // Header (Date/Eq)
+                const dateVal = document.getElementById('date').value;
+                document.getElementById('out_date').textContent = dateVal ? new Date(dateVal).toLocaleString('fr-FR') : '-';
+                document.getElementById('out_operator').textContent = document.getElementById('operator').value || '-';
+
+                // Generic text mapping
+                document.querySelectorAll('.persist').forEach(el => {
+                    const outEl = document.getElementById(`out_${el.id}`);
+                    if (outEl) {
+                        outEl.textContent = el.value.trim() || '-';
+                        // Add specific coloring logic if needed
+                        if(el.id.includes('ouverture') && el.value) {
+                            outEl.className = 'pdf-value font-bold ' + (el.value === 'Favorable' ? 'text-green-600' : 'text-red-600');
+                        }
+                    }
+                });
+
+                // Cible Page Logic
+                const cibNom = document.getElementById('cib_nom').value;
+                const cibPrenom = document.getElementById('cib_prenom').value;
+                const pageCible = document.getElementById('pdf-page-cible');
+                if(cibNom || cibPrenom || statePhotos.cib.length > 0) pageCible.classList.remove('hidden-step');
+                else pageCible.classList.add('hidden-step');
+
+                // Render Photo Target in specific box
+                const photoBox = document.getElementById('out_cib_photo_box');
+                if (statePhotos.cib.length > 0) {
+                    photoBox.innerHTML = `<img src="${statePhotos.cib.src}" class="max-w-full max-h-[250px] object-cover rounded">`;
+                } else {
+                    photoBox.innerHTML = `<span class="text-xs text-slate-400 font-bold uppercase mb-2">Photo Target</span><span class="text-slate-300">Aucune image</span>`;
+                }
+
+                // H1 & H2 Logic
+                ['h1', 'h2'].forEach(prefix => {
+                    const bapteme = document.getElementById(`${prefix}_bapteme`).value.trim();
+                    const page = document.getElementById(`pdf-page-${prefix}`);
+                    if(bapteme) page.classList.remove('hidden-step');
+                    else page.classList.add('hidden-step');
+                });
+            };
+
+            // --- PHOTO HANDLING ---
+            const processImages = async (files, prefix) => {
+                const promises = files.map(file => {
+                    return new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onload = e => resolve({ src: e.target.result, caption: '' });
+                        reader.readAsDataURL(file);
+                    });
+                });
+                const newPhotos = await Promise.all(promises);
+                statePhotos[prefix] = statePhotos[prefix].concat(newPhotos);
+                await idb.set(`rm_${prefix}_photos`, statePhotos[prefix]);
+                renderPhotos(prefix);
+            };
+
+            const renderPhotos = (prefix) => {
+                const formGrid = document.getElementById(`${prefix}_formPhotosPreview`);
+                if(!formGrid) return; // Case where prefix doesn't have form grid
+                
+                const pdfGrid = document.getElementById(`out_photos_grid_${prefix}`);
+                const pdfSection = document.getElementById(`pdf-section-photos-${prefix}`);
+                
+                formGrid.innerHTML = '';
+                if(pdfGrid) pdfGrid.innerHTML = '';
+
+                // Don't create separate page for 'cib' (target photo goes directly in profile)
+                if (pdfSection && prefix !== 'cib') {
+                    if (statePhotos[prefix].length > 0) pdfSection.classList.remove('hidden-step');
+                    else pdfSection.classList.add('hidden-step');
+                }
+
+                statePhotos[prefix].forEach((photoObj, index) => {
+                    // Form preview
+                    const divForm = document.createElement('div');
+                    divForm.className = 'relative flex flex-col border border-gray-200 rounded p-2 bg-gray-50';
+                    divForm.innerHTML = `<img src="${photoObj.src}" class="w-full h-24 object-cover rounded mb-2">`;
+                    
+                    if (prefix !== 'cib') {
+                        const captionInput = document.createElement('input');
+                        captionInput.type = 'text'; captionInput.className = 'form-input text-xs w-full py-1';
+                        captionInput.placeholder = 'Annotation...'; captionInput.value = photoObj.caption;
+                        captionInput.addEventListener('input', (e) => {
+                            statePhotos[prefix][index].caption = e.target.value;
+                            idb.set(`rm_${prefix}_photos`, statePhotos[prefix]);
+                            const pdfCaptionEl = document.getElementById(`pdf_caption_${prefix}_${index}`);
+                            if(pdfCaptionEl) pdfCaptionEl.textContent = e.target.value || `Annexe ${index + 1}`;
+                        });
+                        divForm.appendChild(captionInput);
+                    }
+                    formGrid.appendChild(divForm);
+
+                    // PDF Preview
+                    if(pdfGrid && prefix !== 'cib') {
+                        const divPdf = document.createElement('div');
+                        divPdf.className = 'avoid-break flex flex-col items-center bg-gray-50 p-2 border border-gray-200 rounded';
+                        divPdf.innerHTML = `<img src="${photoObj.src}" class="max-w-full object-contain rounded" style="max-height: 110mm;"><span class="text-sm text-gray-800 mt-2 font-bold text-center" id="pdf_caption_${prefix}_${index}">${photoObj.caption || `Annexe ${index + 1}`}</span>`;
+                        pdfGrid.appendChild(divPdf);
+                    }
+                });
+                if(document.getElementById('step-preview').classList.contains('active')) updatePreview();
+            };
+
+            ['cib', 'bat', 'h1', 'h2'].forEach(prefix => {
+                const input = document.getElementById(`${prefix}_photosInput`);
+                if(input) {
+                    input.addEventListener('change', (e) => {
+                        processImages(Array.from(e.target.files), prefix);
+                        e.target.value = '';
+                    });
+                }
+            });
+
+            loadData();
+
+            // --- PDF GEN ---
+            document.getElementById('btnWizardGenerate').addEventListener('click', () => {
+                const btnText = document.getElementById('btnText');
+                const originalText = btnText.textContent;
+                btnText.textContent = "Génération...";
+                
+                const element = document.getElementById('pdfContainer');
+                const refValue = document.getElementById('ctx_infraction').value.trim() || 'DOSSIER';
+                
+                const opt = {
+                    margin:       0, 
+                    filename:     `RECO-${refValue.replace(/\s+/g, '-')}.pdf`,
+                    image:        { type: 'jpeg', quality: 1.0 },
+                    html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                    pagebreak:    { mode: ['css', 'legacy'] } 
+                };
+
+                html2pdf().set(opt).from(element).save().then(() => {
+                    btnText.textContent = originalText;
+                }).catch(e => {
+                    console.error("Erreur PDF:", e);
+                    alert("Erreur technique lors du PDF.");
+                    btnText.textContent = originalText;
+                });
+            });
+        });
+    </script>
+</body>
+</html>

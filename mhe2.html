@@ -5,7 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dossier de Reconnaissance d'Objectif</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2pdf.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
@@ -43,12 +45,21 @@
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
 
+    <!-- Header -->
     <header class="bg-slate-900 text-white shadow-md z-30 py-3 px-4 md:px-6 flex flex-wrap justify-between items-center shrink-0 gap-3">
         <div class="flex items-center gap-3">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
             <h1 class="text-lg md:text-xl font-bold tracking-wide truncate">Dossier Reconnaissance</h1>
         </div>
         <div class="flex gap-2 w-full md:w-auto">
+            <button id="btnWizardPrev" class="hidden bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-md transition-colors flex justify-center items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Retour
+            </button>
+            <button id="btnWizardNext" class="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded-md shadow transition-colors flex justify-center items-center gap-2">
+                Suivant
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
             <button id="btnWizardGenerate" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-4 rounded-md shadow transition-colors flex justify-center items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                 <span id="btnText">Générer PDF</span>
@@ -56,6 +67,7 @@
         </div>
     </header>
 
+    <!-- Wizard Navigation Tabs -->
     <nav class="bg-white border-b border-gray-200 shrink-0 z-20 shadow-sm flex overflow-x-auto text-sm text-gray-600">
         <button class="step-btn active flex-1 py-3 px-4 text-center font-medium whitespace-nowrap" data-target="step-contexte">1. Contexte</button>
         <button class="step-btn flex-1 py-3 px-4 text-center font-medium whitespace-nowrap" data-target="step-cible">2. Cible</button>
@@ -64,10 +76,12 @@
         <button class="step-btn flex-1 py-3 px-4 text-center font-medium whitespace-nowrap bg-blue-50 border-l" data-target="step-preview">5. Aperçu PDF</button>
     </nav>
 
+    <!-- Main Content Area -->
     <main class="flex-1 overflow-hidden relative bg-gray-50 flex flex-col">
         
         <form id="reconForm" class="w-full h-full">
             
+            <!-- ================= ÉTAPE 1 : CONTEXTE ================= -->
             <div id="step-contexte" class="wizard-step active w-full h-full overflow-y-auto p-4 md:p-6">
                 <div class="max-w-4xl mx-auto pb-10 space-y-6">
                     <div class="flex justify-between items-center bg-slate-800 text-white p-4 rounded shadow">
@@ -76,6 +90,7 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Unités & Contacts -->
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
                             <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Unités & Hiérarchie</h3>
                             <div class="grid grid-cols-2 gap-4">
@@ -88,6 +103,7 @@
                             </div>
                         </div>
 
+                        <!-- Administratif -->
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
                             <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Administratif</h3>
                             <div><label class="form-label">Date et Heure *</label><input type="datetime-local" id="date" name="date" class="form-input persist" required></div>
@@ -96,6 +112,7 @@
                             <div><label class="form-label">Nature de l'infraction</label><input type="text" id="ctx_infraction" class="form-input persist"></div>
                         </div>
 
+                        <!-- Affaire -->
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-2 space-y-4">
                             <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Détails de l'Affaire</h3>
                             <div><label class="form-label">Synthèse de l'affaire</label><textarea id="ctx_synthese" rows="3" class="form-input persist"></textarea></div>
@@ -105,6 +122,7 @@
                 </div>
             </div>
 
+            <!-- ================= ÉTAPE 2 : CIBLE ================= -->
             <div id="step-cible" class="wizard-step w-full h-full overflow-y-auto p-4 md:p-6">
                 <div class="max-w-4xl mx-auto pb-10 space-y-6">
                     <div class="flex justify-between items-center bg-slate-800 text-white p-4 rounded shadow">
@@ -113,6 +131,7 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Identité -->
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-2 space-y-4">
                             <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Identité & Morphologie</h3>
                             <div class="grid grid-cols-2 gap-4">
@@ -127,6 +146,7 @@
                             </div>
                         </div>
 
+                        <!-- Photo Target -->
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
                             <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Photo Target</h3>
                             <input type="file" id="cib_photosInput" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border p-1 rounded">
@@ -139,6 +159,7 @@
                             </div>
                         </div>
 
+                        <!-- Risques -->
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-3 space-y-4">
                             <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Environnement & Risques Humains</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -151,6 +172,7 @@
                 </div>
             </div>
 
+            <!-- ================= ÉTAPE 3 : BÂTIMENT & ENVIRONNEMENT ================= -->
             <div id="step-batiment" class="wizard-step w-full h-full overflow-y-auto p-4 md:p-6">
                 <div class="max-w-4xl mx-auto pb-10 space-y-6">
                     <div class="flex justify-between items-center bg-slate-800 text-white p-4 rounded shadow">
@@ -159,6 +181,7 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Topographie -->
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
                             <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Environnement du domicile</h3>
                             <div class="grid grid-cols-2 gap-4">
@@ -173,6 +196,7 @@
                             </div>
                         </div>
 
+                        <!-- Type Bâtiment -->
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
                             <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Structure de l'objectif</h3>
                             <div class="grid grid-cols-2 gap-4">
@@ -187,6 +211,7 @@
                             </div>
                         </div>
 
+                        <!-- Détection & Périmètre -->
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-2 space-y-4">
                             <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Contrôle d'accès & Détection</h3>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -197,6 +222,7 @@
                             </div>
                         </div>
 
+                        <!-- Photos Bâtiment -->
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-2 space-y-4">
                             <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Annexes Environnement & Bâtiment</h3>
                             <div><label class="form-label">Description textuelle libre</label><textarea id="bat_description" class="form-input resize-y persist" rows="2" placeholder="ex: Rue passante..."></textarea></div>
@@ -210,6 +236,7 @@
                 </div>
             </div>
 
+            <!-- ================= ÉTAPE 4 : OUVRANTS (H1/H2) ================= -->
             <div id="step-ouvrants" class="wizard-step w-full h-full overflow-y-auto p-4 md:p-6">
                 <div class="max-w-4xl mx-auto pb-10 space-y-6">
                     
@@ -218,22 +245,27 @@
                         <button type="button" id="toggleH2" class="flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded shadow-sm transition-colors border border-gray-300 hover:bg-gray-300">Ouvrant H2 (Secondaire)</button>
                     </div>
 
+                    <!-- BOUCLE POUR H1 ET H2 via JS Template - on injecte le HTML pour réduire la redondance -->
                     <div id="ouvrants-container"></div>
 
                 </div>
             </div>
 
+            <!-- ================= ÉTAPE 5 : APERÇU PDF ================= -->
             <div id="step-preview" class="wizard-step w-full h-full overflow-y-auto bg-gray-300 flex flex-col items-center">
                 <div class="preview-wrapper flex flex-col items-center">
                     
+                    <!-- CONTENEUR DU PDF GLOBAL -->
                     <div id="pdfContainer" class="pdf-export-container text-slate-900">
                         
+                        <!-- PAGE 1 : COUVERTURE / CONTEXTE -->
                         <div class="pdf-page">
                             <div class="text-center mb-8 border-b-4 border-slate-900 pb-4">
                                 <h1 class="text-3xl font-black uppercase tracking-widest text-slate-900">Dossier Reconnaissance</h1>
                                 <h2 class="text-xl font-bold tracking-widest text-red-700 mt-1">D'OBJECTIF / EFFRACTION</h2>
                             </div>
                             
+                            <!-- Administratif -->
                             <div class="bg-slate-100 p-3 rounded mb-8 flex justify-between font-medium text-sm">
                                 <div><span class="text-slate-500 uppercase text-xs">Date:</span> <span id="out_date">-</span></div>
                                 <div><span class="text-slate-500 uppercase text-xs">Équipe:</span> <span id="out_operator">-</span></div>
@@ -258,6 +290,7 @@
                             </div>
                         </div>
 
+                        <!-- PAGE 2 : CIBLE -->
                         <div class="pdf-page page-break hidden-step" id="pdf-page-cible">
                             <div class="text-center mb-6 border-b-2 border-slate-900 pb-2">
                                 <h2 class="text-2xl font-black uppercase tracking-widest">Renseignements Cible</h2>
@@ -280,9 +313,11 @@
                                     <div class="mt-2"><span class="pdf-label">Signes particuliers:</span> <span class="text-sm font-medium" id="out_cib_signes">-</span></div>
                                 </div>
 
+                                <!-- Photo Target Box -->
                                 <div class="col-span-1 border-2 border-slate-300 rounded p-1 flex flex-col items-center justify-center min-h-[200px] bg-slate-50" id="out_cib_photo_box">
                                     <span class="text-xs text-slate-400 font-bold uppercase mb-2">Photo Target</span>
-                                    </div>
+                                    <!-- JS will inject image here -->
+                                </div>
                             </div>
 
                             <div class="pdf-section-title w-full mt-6 bg-red-800">Risques & Environnement Humain</div>
@@ -297,6 +332,7 @@
                             </div>
                         </div>
 
+                        <!-- PAGE 3 : BÂTIMENT & TOPO -->
                         <div class="pdf-page page-break">
                             <div class="text-center mb-6 border-b-2 border-slate-900 pb-2">
                                 <h2 class="text-2xl font-black uppercase tracking-widest">Topographie & Bâtiment</h2>
@@ -336,6 +372,7 @@
                             </div>
                         </div>
 
+                        <!-- SECTION PHOTOS BÂTIMENT (Pages auto) -->
                         <div id="pdf-section-photos-bat" class="hidden-step">
                             <div class="pdf-page page-break avoid-break">
                                 <div class="border-b-2 border-slate-800 pb-2 mb-6"><h2 class="text-xl font-black uppercase tracking-tight">Annexes Topographie & Bâtiment</h2></div>
@@ -343,6 +380,7 @@
                             </div>
                         </div>
 
+                        <!-- TEMPLATE INJECTION FOR H1 & H2 PDF PAGES -->
                         <div id="pdf-ouvrants-container"></div>
 
                     </div>
@@ -358,25 +396,46 @@
             const steps = ['step-contexte', 'step-cible', 'step-batiment', 'step-ouvrants', 'step-preview'];
             const navBtns = document.querySelectorAll('.step-btn');
             const btnGenerate = document.getElementById('btnWizardGenerate');
+            const btnPrev = document.getElementById('btnWizardPrev');
+            const btnNext = document.getElementById('btnWizardNext');
+            
+            let currentStepIndex = 0;
 
-            navBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const target = btn.getAttribute('data-target');
-                    // UI buttons
-                    navBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    // Div containers
-                    steps.forEach(s => document.getElementById(s).classList.remove('active'));
-                    document.getElementById(target).classList.add('active');
-                    
-                    if(target === 'step-preview') {
-                        btnGenerate.classList.remove('hidden');
-                        updatePreview();
-                    } else {
-                        btnGenerate.classList.add('hidden');
-                    }
+            const navigateToStep = (index) => {
+                if (index < 0 || index >= steps.length) return;
+                currentStepIndex = index;
+                
+                // UI buttons
+                navBtns.forEach((b, i) => {
+                    b.classList.toggle('active', i === currentStepIndex);
                 });
+                
+                // Div containers
+                steps.forEach((s, i) => {
+                    document.getElementById(s).classList.toggle('active', i === currentStepIndex);
+                });
+                
+                // Prev/Next/Generate buttons logic
+                btnPrev.classList.toggle('hidden', currentStepIndex === 0);
+                
+                if (currentStepIndex === steps.length - 1) { // Preview tab
+                    btnNext.classList.add('hidden');
+                    btnGenerate.classList.remove('hidden');
+                    updatePreview();
+                } else {
+                    btnNext.classList.remove('hidden');
+                    btnGenerate.classList.add('hidden');
+                }
+            };
+
+            navBtns.forEach((btn, index) => {
+                btn.addEventListener('click', () => navigateToStep(index));
             });
+            btnPrev.addEventListener('click', (e) => { e.preventDefault(); navigateToStep(currentStepIndex - 1); });
+            btnNext.addEventListener('click', (e) => { e.preventDefault(); navigateToStep(currentStepIndex + 1); });
+
+            // Initialize buttons correctly on load
+            navigateToStep(0);
 
             // --- INJECTION HTML H1 / H2 (POUR EVITER LA DUPLICATION) ---
             const createOuvrantForm = (prefix, name, isHidden) => `
@@ -449,6 +508,7 @@
                         <div class="text-2xl font-black text-red-600 font-mono tracking-tighter" id="out_${prefix}_bapteme">-</div>
                     </div>
 
+                    <!-- Highlight Moyen d'effraction -->
                     <div class="bg-emerald-100 border-2 border-emerald-500 p-3 rounded flex justify-between items-center mb-6">
                         <span class="font-bold text-emerald-800 uppercase tracking-widest text-sm">Système d'effraction préconisé :</span>
                         <span class="text-xl font-black text-emerald-900" id="out_${prefix}_moyen">-</span>
@@ -620,9 +680,16 @@
                 // Render Photo Target in specific box
                 const photoBox = document.getElementById('out_cib_photo_box');
                 if (statePhotos.cib.length > 0) {
-                    photoBox.innerHTML = `<img src="${statePhotos.cib.src}" class="max-w-full max-h-[250px] object-cover rounded">`;
+                    // UTILISATION D'UN STYLE EN LIGNE (inline-style) AU LIEU DES CLASSES DYNAMIQUES POUR html2canvas
+                    photoBox.innerHTML = `
+                        <span class="text-xs text-slate-400 font-bold uppercase mb-2">Photo Target</span>
+                        <img src="${statePhotos.cib.src}" style="max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 4px;">
+                    `;
                 } else {
-                    photoBox.innerHTML = `<span class="text-xs text-slate-400 font-bold uppercase mb-2">Photo Target</span><span class="text-slate-300">Aucune image</span>`;
+                    photoBox.innerHTML = `
+                        <span class="text-xs text-slate-400 font-bold uppercase mb-2">Photo Target</span>
+                        <span class="text-slate-300">Aucune image</span>
+                    `;
                 }
 
                 // H1 & H2 Logic
@@ -669,7 +736,7 @@
                     // Form preview
                     const divForm = document.createElement('div');
                     divForm.className = 'relative flex flex-col border border-gray-200 rounded p-2 bg-gray-50';
-                    divForm.innerHTML = `<img src="${photoObj.src}" class="w-full h-24 object-cover rounded mb-2">`;
+                    divForm.innerHTML = `<img src="${photoObj.src}" class="w-full object-cover rounded mb-2" style="height: 6rem;">`;
                     
                     if (prefix !== 'cib') {
                         const captionInput = document.createElement('input');

@@ -1,4 +1,3 @@
-<html>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -41,6 +40,10 @@
         .pdf-data-row { border-bottom: 1px dashed #d1d5db; padding-bottom: 0.25rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; }
         .pdf-label { font-size: 0.75rem; font-weight: bold; color: #64748b; text-transform: uppercase; }
         .pdf-value { font-size: 0.875rem; font-weight: 500; color: #0f172a; text-align: right; max-width: 60%; }
+
+        /* Drag & Drop Feedback styling */
+        .drag-over { border: 2px dashed #3b82f6 !important; background-color: #eff6ff !important; }
+        .dragging { opacity: 0.4; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
@@ -51,7 +54,21 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
             <h1 class="text-lg md:text-xl font-bold tracking-wide truncate">Dossier Reconnaissance</h1>
         </div>
-        <div class="flex gap-2 w-full md:w-auto">
+        
+        <!-- Boutons Import / Export JSON -->
+        <div class="flex items-center gap-2 md:mr-auto md:ml-4 order-3 md:order-none w-full md:w-auto justify-center md:justify-start">
+            <button type="button" id="btnExport" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium py-1.5 px-3 rounded flex items-center gap-1 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                Export Session
+            </button>
+            <label class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium py-1.5 px-3 rounded cursor-pointer flex items-center gap-1 transition-colors mb-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                Import Session
+                <input type="file" id="btnImport" accept=".json" class="hidden">
+            </label>
+        </div>
+
+        <div class="flex gap-2 w-full md:w-auto order-2 md:order-none">
             <button id="btnWizardPrev" class="hidden bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-md transition-colors flex justify-center items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                 Retour
@@ -150,7 +167,7 @@
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
                             <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Photo Target</h3>
                             <input type="file" id="cib_photosInput" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border p-1 rounded">
-                            <div id="cib_formPhotosPreview" class="mt-2 w-full flex justify-center"></div>
+                            <div id="cib_formPhotosPreview" class="mt-2 w-full flex flex-col gap-2"></div>
                             <div class="mt-4">
                                 <label class="form-label">Interpellation possible pdt reco ?</label>
                                 <select id="cib_interpellation" class="form-input persist">
@@ -229,6 +246,7 @@
                             <div>
                                 <label class="form-label">Photos Bâtiment/Env (Ajout multiple)</label>
                                 <input type="file" id="bat_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-indigo-50 file:text-indigo-700 border p-1 rounded">
+                                <p class="text-xs text-gray-400 mt-1">Vous pouvez réorganiser l'ordre des photos en les glissant-déposant.</p>
                                 <div id="bat_formPhotosPreview" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4"></div>
                             </div>
                         </div>
@@ -313,8 +331,8 @@
                                     <div class="mt-2"><span class="pdf-label">Signes particuliers:</span> <span class="text-sm font-medium" id="out_cib_signes">-</span></div>
                                 </div>
 
-                                <!-- Photo Target Box - Formattée pour une capture robuste par html2canvas -->
-                                <div class="col-span-1 border-2 border-slate-300 rounded p-2 bg-slate-50" id="out_cib_photo_box">
+                                <!-- Photo Target Box -->
+                                <div class="col-span-1 border-2 border-slate-300 rounded p-2 bg-slate-50 text-center" style="height: 230px;" id="out_cib_photo_box">
                                     <span class="text-xs text-slate-400 font-bold uppercase mb-2 block w-full text-center">Photo Target</span>
                                     <span class="text-slate-300 block w-full text-center mt-6">Aucune image</span>
                                 </div>
@@ -401,6 +419,9 @@
                 if(document.getElementById('step-preview').classList.contains('active')) window.forceUpdatePreview();
             }
         };
+
+        // Variable globale pour gérer le drag & drop des photos
+        let draggedItemInfo = { prefix: null, index: null };
 
         document.addEventListener('DOMContentLoaded', () => {
 
@@ -499,6 +520,7 @@
                         <div><label class="form-label">Points de vigilance...</label><textarea id="${prefix}_observations" rows="3" class="form-input persist"></textarea></div>
                         <div>
                             <input type="file" id="${prefix}_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 border p-1 rounded">
+                            <p class="text-xs text-gray-400 mt-1">Vous pouvez réorganiser l'ordre des photos en les glissant-déposant.</p>
                             <div id="${prefix}_formPhotosPreview" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4"></div>
                         </div>
                     </div>
@@ -617,11 +639,12 @@
             let statePhotos = { cib: [], bat: [], h1: [], h2: [] };
 
             const loadData = async () => {
-                // Texts
+                // Texts (Purge conditionnelle si la valeur n'existe plus en mémoire locale, vital pour l'import)
                 document.querySelectorAll('.persist').forEach(el => {
                     const saved = localStorage.getItem(`rm_${el.id}`);
-                    if (saved !== null) el.value = saved;
+                    el.value = saved !== null ? saved : ''; 
                 });
+                
                 if(!document.getElementById('date').value) {
                     const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
                     document.getElementById('date').value = now.toISOString().slice(0,16);
@@ -630,8 +653,8 @@
                 // Sync Checkboxes based on hidden inputs
                 ['h1', 'h2'].forEach(prefix => {
                     const hiddenInput = document.getElementById(`${prefix}_moyen`);
-                    if(hiddenInput && hiddenInput.value) {
-                        const savedTools = hiddenInput.value.split(' - ');
+                    if(hiddenInput) {
+                        const savedTools = hiddenInput.value ? hiddenInput.value.split(' - ') : [];
                         document.querySelectorAll(`.tool-cb-${prefix}`).forEach(cb => {
                             cb.checked = savedTools.includes(cb.value);
                         });
@@ -645,6 +668,9 @@
                 statePhotos.h2 = await idb.get('rm_h2_photos') || [];
                 
                 ['cib','bat','h1','h2'].forEach(renderPhotos);
+                
+                // Synchronisation visuelle au cas où on recharge la page directement sur Preview
+                updatePreview();
             };
 
             document.getElementById('reconForm').addEventListener('input', (e) => {
@@ -675,6 +701,58 @@
                 });
             });
 
+            // --- EXPORT / IMPORT SESSION ---
+            document.getElementById('btnExport').addEventListener('click', async () => {
+                const exportData = { localStorageData: {}, photosData: statePhotos };
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key.startsWith('rm_')) {
+                        exportData.localStorageData[key] = localStorage.getItem(key);
+                    }
+                }
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "session_recon.json");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            });
+
+            document.getElementById('btnImport').addEventListener('change', (e) => {
+                const file = e.target.files;
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        // Clean existing rm_ keys
+                        for (let i = localStorage.length - 1; i >= 0; i--) {
+                            const key = localStorage.key(i);
+                            if (key.startsWith('rm_')) localStorage.removeItem(key);
+                        }
+                        // Restore
+                        if (data.localStorageData) {
+                            for (const key in data.localStorageData) {
+                                localStorage.setItem(key, data.localStorageData[key]);
+                            }
+                        }
+                        if (data.photosData) {
+                            statePhotos = data.photosData;
+                            for (const prefix in statePhotos) {
+                                await idb.set(`rm_${prefix}_photos`, statePhotos[prefix]);
+                            }
+                        }
+                        await loadData();
+                        alert("Session importée avec succès !");
+                    } catch (err) {
+                        alert("Erreur lors de l'importation. Le fichier est invalide.");
+                    }
+                    e.target.value = ''; // Reset input
+                };
+                reader.readAsText(file);
+            });
+
             // --- MAP DATA TO PREVIEW ---
             const updatePreview = () => {
                 const dateVal = document.getElementById('date').value;
@@ -697,34 +775,40 @@
                 if(cibNom || cibPrenom || statePhotos.cib.length > 0) pageCible.classList.remove('hidden-step');
                 else pageCible.classList.add('hidden-step');
 
-                // Render Photo Target using exact identical approach as working annexes
+                // Render Photo Target 
                 const photoBox = document.getElementById('out_cib_photo_box');
                 if (statePhotos.cib.length > 0) {
                     photoBox.innerHTML = `
-                        <span class="text-xs text-slate-400 font-bold uppercase mb-2 block w-full text-center">Photo Target</span>
-                        <img src="${statePhotos.cib.src}" style="max-width: 100%; max-height: 180px; display: block; margin: 0 auto; border-radius: 4px;">
+                        <div style="height: 100%; width: 100%; text-align: center;">
+                            <span class="text-xs text-slate-400 font-bold uppercase block mb-1">Photo Target</span>
+                            <img src="${statePhotos.cib.src}" style="max-width: 100%; max-height: 180px; width: auto; height: auto; margin: 0 auto; display: inline-block; border-radius: 4px;">
+                        </div>
                     `;
                 } else {
                     photoBox.innerHTML = `
-                        <span class="text-xs text-slate-400 font-bold uppercase mb-2 block w-full text-center">Photo Target</span>
-                        <span class="text-slate-300 block w-full text-center mt-6">Aucune image</span>
+                        <div style="height: 100%; width: 100%; text-align: center; padding-top: 1rem;">
+                            <span class="text-xs text-slate-400 font-bold uppercase block mb-2">Photo Target</span>
+                            <span class="text-slate-300">Aucune image</span>
+                        </div>
                     `;
                 }
 
                 // Strict H1 / H2 Disparition
                 ['h1', 'h2'].forEach(prefix => {
-                    const bapteme = document.getElementById(`${prefix}_bapteme`).value.trim();
+                    const bapteme = document.getElementById(`${prefix}_bapteme`)?.value.trim();
                     const page = document.getElementById(`pdf-page-${prefix}`);
                     const photoSection = document.getElementById(`pdf-section-photos-${prefix}`);
                     
                     if(bapteme) {
-                        page.classList.remove('hidden-step');
+                        if(page) page.classList.remove('hidden-step');
                         // Show photos only if they exist for this active prefix
                         if(photoSection && statePhotos[prefix] && statePhotos[prefix].length > 0) {
                             photoSection.classList.remove('hidden-step');
+                        } else if(photoSection) {
+                            photoSection.classList.add('hidden-step');
                         }
                     } else {
-                        page.classList.add('hidden-step');
+                        if(page) page.classList.add('hidden-step');
                         if(photoSection) photoSection.classList.add('hidden-step');
                     }
                 });
@@ -763,7 +847,6 @@
                 if(pdfGrid) pdfGrid.innerHTML = '';
 
                 // Only touch pdfSection visibility if it's not the target photo 
-                // AND if the bapteme rule allows it (which is enforced in updatePreview anyway)
                 if (pdfSection && prefix !== 'cib') {
                     const baptemeValid = prefix === 'bat' || document.getElementById(`${prefix}_bapteme`)?.value.trim();
                     if (statePhotos[prefix].length > 0 && baptemeValid) pdfSection.classList.remove('hidden-step');
@@ -771,14 +854,59 @@
                 }
 
                 statePhotos[prefix].forEach((photoObj, index) => {
-                    // --- FORM PREVIEW (Miniatures + Corbeille) ---
+                    // --- FORM PREVIEW (Miniatures + Corbeille + DRAG & DROP) ---
                     const divForm = document.createElement('div');
                     divForm.className = 'relative flex flex-col border border-gray-200 rounded p-2 bg-gray-50';
-                    divForm.innerHTML = `<img src="${photoObj.src}" class="w-full object-cover rounded mb-2" style="height: 6rem;">`;
+                    
+                    // Configuration Drag & Drop FIXE
+                    if (prefix !== 'cib') {
+                        divForm.classList.add('cursor-move');
+                        divForm.draggable = true;
+                        divForm.dataset.index = index;
+
+                        divForm.addEventListener('dragstart', (e) => {
+                            draggedItemInfo.prefix = prefix;
+                            draggedItemInfo.index = parseInt(e.currentTarget.dataset.index); 
+                            e.dataTransfer.effectAllowed = "move";
+                            divForm.classList.add('dragging');
+                        });
+                        divForm.addEventListener('dragover', (e) => {
+                            e.preventDefault(); 
+                            if(draggedItemInfo.prefix === prefix) {
+                                e.dataTransfer.dropEffect = "move";
+                                divForm.classList.add('drag-over');
+                            }
+                        });
+                        divForm.addEventListener('dragleave', (e) => {
+                            divForm.classList.remove('drag-over');
+                        });
+                        divForm.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            divForm.classList.remove('drag-over');
+                            
+                            const targetIndex = parseInt(e.currentTarget.dataset.index);
+                            
+                            if (draggedItemInfo.prefix === prefix && draggedItemInfo.index !== null && draggedItemInfo.index !== targetIndex) {
+                                const itemToMove = statePhotos[prefix].splice(draggedItemInfo.index, 1);
+                                statePhotos[prefix].splice(targetIndex, 0, itemToMove);
+                                
+                                idb.set(`rm_${prefix}_photos`, statePhotos[prefix]).then(() => {
+                                     renderPhotos(prefix);
+                                });
+                            }
+                        });
+                        divForm.addEventListener('dragend', () => {
+                            divForm.classList.remove('dragging');
+                            document.querySelectorAll(`#${prefix}_formPhotosPreview > div`).forEach(el => el.classList.remove('drag-over'));
+                            draggedItemInfo = { prefix: null, index: null };
+                        });
+                    }
+
+                    divForm.innerHTML = `<img src="${photoObj.src}" class="w-full object-cover rounded mb-2" style="height: 6rem; pointer-events: none;">`;
                     
                     const delBtn = document.createElement('button');
                     delBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
-                    delBtn.className = 'absolute top-3 right-3 bg-red-500 hover:bg-red-700 text-white p-1.5 rounded shadow cursor-pointer transition-colors';
+                    delBtn.className = 'absolute top-3 right-3 bg-red-500 hover:bg-red-700 text-white p-1.5 rounded shadow cursor-pointer transition-colors z-10';
                     delBtn.onclick = (e) => {
                         e.preventDefault();
                         statePhotos[prefix].splice(index, 1);
@@ -791,7 +919,7 @@
                     
                     if (prefix !== 'cib') {
                         const captionInput = document.createElement('input');
-                        captionInput.type = 'text'; captionInput.className = 'form-input text-xs w-full py-1';
+                        captionInput.type = 'text'; captionInput.className = 'form-input text-xs w-full py-1 cursor-text';
                         captionInput.placeholder = 'Annotation...'; captionInput.value = photoObj.caption;
                         captionInput.addEventListener('input', (e) => {
                             statePhotos[prefix][index].caption = e.target.value;
@@ -803,7 +931,7 @@
                     }
                     formGrid.appendChild(divForm);
 
-                    // --- PDF PREVIEW (Pour les annexes uniquement, Cible géré globalement) ---
+                    // --- PDF PREVIEW ---
                     if(pdfGrid && prefix !== 'cib') {
                         const divPdf = document.createElement('div');
                         divPdf.className = 'avoid-break flex flex-col items-center bg-gray-50 p-2 border border-gray-200 rounded';
@@ -833,8 +961,6 @@
                     e.target.value = '';
                 });
             }
-
-            loadData();
 
             // --- PDF GEN ---
             document.getElementById('btnWizardGenerate').addEventListener('click', async () => {

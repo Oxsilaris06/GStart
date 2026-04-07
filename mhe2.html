@@ -313,12 +313,10 @@
                                     <div class="mt-2"><span class="pdf-label">Signes particuliers:</span> <span class="text-sm font-medium" id="out_cib_signes">-</span></div>
                                 </div>
 
-                                <!-- Photo Target Box - Modifié pour robustesse html2canvas -->
-                                <div class="col-span-1 border-2 border-slate-300 rounded p-2 bg-slate-50 text-center" style="min-height: 200px;">
-                                    <span class="text-xs text-slate-400 font-bold uppercase mb-2 block">Photo Target</span>
-                                    <!-- Image persistante, seule la source change, pas de flexbox -->
-                                    <img id="out_cib_photo_img" src="" style="max-width: 100%; max-height: 180px; display: none; margin: 0 auto; object-fit: contain; border-radius: 4px;">
-                                    <span id="out_cib_photo_empty" class="text-slate-300 block mt-12">Aucune image</span>
+                                <!-- Photo Target Box - Formattée pour une capture robuste par html2canvas -->
+                                <div class="col-span-1 border-2 border-slate-300 rounded p-2 bg-slate-50" id="out_cib_photo_box">
+                                    <span class="text-xs text-slate-400 font-bold uppercase mb-2 block w-full text-center">Photo Target</span>
+                                    <span class="text-slate-300 block w-full text-center">Aucune image</span>
                                 </div>
                             </div>
 
@@ -680,18 +678,18 @@
                 if(cibNom || cibPrenom || statePhotos.cib.length > 0) pageCible.classList.remove('hidden-step');
                 else pageCible.classList.add('hidden-step');
 
-                // Render Photo Target in specific box - Update image SRC cleanly without removing element
-                const photoImg = document.getElementById('out_cib_photo_img');
-                const photoEmpty = document.getElementById('out_cib_photo_empty');
-                
+                // Render Photo Target in specific box - Utilisation d'une structure DOM stricte et robuste (Identique aux annexes)
+                const photoBox = document.getElementById('out_cib_photo_box');
                 if (statePhotos.cib.length > 0) {
-                    photoImg.src = statePhotos.cib.src;
-                    photoImg.style.display = 'block';
-                    photoEmpty.style.display = 'none';
+                    photoBox.innerHTML = `
+                        <span class="text-xs text-slate-400 font-bold uppercase mb-2 block w-full text-center">Photo Target</span>
+                        <img src="${statePhotos.cib.src}" style="max-width: 100%; max-height: 200px; display: block; margin: 0 auto; border-radius: 4px;">
+                    `;
                 } else {
-                    photoImg.src = '';
-                    photoImg.style.display = 'none';
-                    photoEmpty.style.display = 'block';
+                    photoBox.innerHTML = `
+                        <span class="text-xs text-slate-400 font-bold uppercase mb-2 block w-full text-center">Photo Target</span>
+                        <span class="text-slate-300 block w-full text-center mt-6">Aucune image</span>
+                    `;
                 }
 
                 // H1 & H2 Logic
@@ -729,7 +727,7 @@
 
             const renderPhotos = (prefix) => {
                 const formGrid = document.getElementById(`${prefix}_formPhotosPreview`);
-                if(!formGrid) return; // Case where prefix doesn't have form grid
+                if(!formGrid) return; 
                 
                 const pdfGrid = document.getElementById(`out_photos_grid_${prefix}`);
                 const pdfSection = document.getElementById(`pdf-section-photos-${prefix}`);
@@ -737,17 +735,31 @@
                 formGrid.innerHTML = '';
                 if(pdfGrid) pdfGrid.innerHTML = '';
 
-                // Don't create separate page for 'cib' (target photo goes directly in profile)
+                // Don't create separate page for 'cib'
                 if (pdfSection && prefix !== 'cib') {
                     if (statePhotos[prefix].length > 0) pdfSection.classList.remove('hidden-step');
                     else pdfSection.classList.add('hidden-step');
                 }
 
                 statePhotos[prefix].forEach((photoObj, index) => {
-                    // Form preview
+                    // Form preview with Delete Button
                     const divForm = document.createElement('div');
                     divForm.className = 'relative flex flex-col border border-gray-200 rounded p-2 bg-gray-50';
                     divForm.innerHTML = `<img src="${photoObj.src}" class="w-full object-cover rounded mb-2" style="height: 6rem;">`;
+                    
+                    // Bouton de suppression individuel
+                    const delBtn = document.createElement('button');
+                    delBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
+                    delBtn.className = 'absolute top-3 right-3 bg-red-500 hover:bg-red-700 text-white p-1.5 rounded shadow cursor-pointer transition-colors';
+                    delBtn.onclick = (e) => {
+                        e.preventDefault();
+                        statePhotos[prefix].splice(index, 1);
+                        idb.set(`rm_${prefix}_photos`, statePhotos[prefix]);
+                        renderPhotos(prefix);
+                        const fileInput = document.getElementById(`${prefix}_photosInput`);
+                        if(fileInput) fileInput.value = '';
+                    };
+                    divForm.appendChild(delBtn);
                     
                     if (prefix !== 'cib') {
                         const captionInput = document.createElement('input');
@@ -763,7 +775,7 @@
                     }
                     formGrid.appendChild(divForm);
 
-                    // PDF Preview (Suppression de classes qui peuvent bugger html2canvas pour de grands rendus)
+                    // PDF Preview (pour annexes standards)
                     if(pdfGrid && prefix !== 'cib') {
                         const divPdf = document.createElement('div');
                         divPdf.className = 'avoid-break flex flex-col items-center bg-gray-50 p-2 border border-gray-200 rounded';
@@ -784,7 +796,7 @@
                 }
             });
 
-            // Special event listener specifically for target photo to ensure file input clearing properly
+            // Special event listener specifically for target photo
             const cibInput = document.getElementById('cib_photosInput');
             if(cibInput) {
                 cibInput.addEventListener('change', async (e) => {
@@ -796,7 +808,7 @@
 
             loadData();
 
-            // --- PDF GEN (CORRIGÉ POUR RÉSOUDRE LE BUG DES IMAGES BASE64 LOURDES) ---
+            // --- PDF GEN (RÉSOLUTION DES BUGS D'AFFICHAGE D'IMAGES) ---
             document.getElementById('btnWizardGenerate').addEventListener('click', async () => {
                 const btnText = document.getElementById('btnText');
                 const originalText = btnText.textContent;
@@ -804,17 +816,17 @@
                 
                 const element = document.getElementById('pdfContainer');
                 
-                // 1. FORCER LE SCROLL EN HAUT (contourne le bug de coupure html2canvas sur les conteneurs avec overflow)
+                // 1. FORCER LE SCROLL EN HAUT (contourne le bug html2canvas sur overflow)
                 const scrollParent = document.getElementById('step-preview');
                 if (scrollParent) scrollParent.scrollTop = 0;
 
-                // 2. ATTENDRE LE CHARGEMENT COMPLET DE TOUTES LES IMAGES
+                // 2. ATTENDRE LE CHARGEMENT COMPLET DE TOUTES LES IMAGES (Data URIs)
                 const images = element.querySelectorAll('img');
                 const imagePromises = Array.from(images).map(img => {
                     if (img.complete) return Promise.resolve();
                     return new Promise(resolve => {
                         img.onload = resolve;
-                        img.onerror = resolve; // On résout même si erreur pour ne pas bloquer
+                        img.onerror = resolve;
                     });
                 });
                 await Promise.all(imagePromises);
@@ -829,7 +841,7 @@
                     html2canvas:  { 
                         scale: 2, 
                         useCORS: true, 
-                        allowTaint: true, // Autorise expressément les datas Base64 locales (essentiel)
+                        allowTaint: true, 
                         scrollY: 0,
                         logging: false
                     },
@@ -837,7 +849,7 @@
                     pagebreak:    { mode: ['css', 'legacy'] } 
                 };
 
-                // 3. LAISSER LE TEMPS AU NAVIGATEUR DE DESSINER LE DOM AVANT CAPTURE
+                // 3. LAISSER LE DOM SE PEINDRE TOTALEMENT AVANT LA CAPTURE (Garantit l'apparition de la cible)
                 setTimeout(() => {
                     html2pdf().set(opt).from(element).save().then(() => {
                         btnText.textContent = originalText;

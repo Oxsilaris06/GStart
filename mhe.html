@@ -1,9 +1,10 @@
+<html>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fiche de Reconnaissance - Générateur PDF</title>
+    <title>Dossier de Reconnaissance d'Objectif</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- html2pdf.js -->
@@ -13,520 +14,573 @@
         body { background-color: #f3f4f6; font-family: 'Inter', sans-serif; }
         
         /* Conteneur global du PDF */
-        .pdf-export-container {
-            width: 210mm;
-            margin: 0 auto;
-            background: white;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        }
+        .pdf-export-container { width: 210mm; margin: 0 auto; background: white; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .pdf-page { width: 210mm; padding: 15mm 20mm; position: relative; background: white; box-sizing: border-box; }
+        .page-break { page-break-before: always; }
+        .avoid-break { page-break-inside: avoid; }
+        .preview-wrapper { width: 100%; overflow-x: auto; padding: 2rem 1rem; }
 
-        /* Définition de la page A4 (hauteur flexible pour laisser html2pdf couper au bon endroit) */
-        .pdf-page {
-            width: 210mm;
-            padding: 20mm;
-            position: relative;
-            background: white;
-            box-sizing: border-box;
-        }
-
-        /* Classes pour la gestion intelligente des sauts de page du PDF */
-        .page-break {
-            page-break-before: always;
-        }
-        .avoid-break {
-            page-break-inside: avoid;
-        }
-
-        .preview-wrapper {
-            width: 100%;
-            overflow-x: auto;
-            padding: 2rem 1rem;
-        }
-
-        /* Inputs */
-        .form-input {
-            width: 100%;
-            border-radius: 0.375rem;
-            border: 1px solid #d1d5db;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.875rem;
-            line-height: 1.25rem;
-            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            transition: all 0.15s ease-in-out;
-        }
-        .form-input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
-        }
-        .form-label {
-            display: block;
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: #374151;
-            margin-bottom: 0.25rem;
-        }
-
-        /* Scrollbars */
+        /* Inputs & Form styling */
+        .form-input { width: 100%; border-radius: 0.375rem; border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; font-size: 0.875rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); transition: all 0.15s ease-in-out; }
+        .form-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.5); }
+        .form-label { display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem; }
+        
+        /* Wizard Steps */
+        .wizard-step { display: none; }
+        .wizard-step.active { display: block; }
+        .step-btn { opacity: 0.6; border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .step-btn.active { opacity: 1; border-color: #3b82f6; color: #1e3a8a; font-weight: 700; background-color: #eff6ff; }
+        
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        .hidden-step { display: none !important; }
+        /* Specific PDF Styling */
+        .pdf-section-title { font-size: 0.875rem; font-weight: bold; text-transform: uppercase; color: white; background-color: #1e293b; padding: 0.25rem 0.5rem; margin-bottom: 0.75rem; border-radius: 0.125rem; display: inline-block; }
+        .pdf-data-row { border-bottom: 1px dashed #d1d5db; padding-bottom: 0.25rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; }
+        .pdf-label { font-size: 0.75rem; font-weight: bold; color: #64748b; text-transform: uppercase; }
+        .pdf-value { font-size: 0.875rem; font-weight: 500; color: #0f172a; text-align: right; max-width: 60%; }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
 
-    <!-- Header / Wizard Controls -->
-    <header class="bg-slate-900 text-white shadow-md z-20 py-3 px-4 md:px-6 flex flex-wrap justify-between items-center shrink-0 gap-3">
+    <!-- Header -->
+    <header class="bg-slate-900 text-white shadow-md z-30 py-3 px-4 md:px-6 flex flex-wrap justify-between items-center shrink-0 gap-3">
         <div class="flex items-center gap-3">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
-            <h1 id="headerTitle" class="text-lg md:text-xl font-bold tracking-wide truncate">Étape 1 : Saisie</h1>
+            <h1 class="text-lg md:text-xl font-bold tracking-wide truncate">Dossier Reconnaissance</h1>
         </div>
-        
         <div class="flex gap-2 w-full md:w-auto">
-            <button id="btnWizardPrev" class="hidden-step bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-md transition-colors flex-1 md:flex-none flex justify-center items-center gap-2">
+            <button id="btnWizardPrev" class="hidden bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-md transition-colors flex justify-center items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                Retour : Saisie
+                Retour
             </button>
-            <button id="btnWizardNext" class="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded-md shadow transition-colors flex-1 md:flex-none flex justify-center items-center gap-2">
-                Suivant : Aperçu
+            <button id="btnWizardNext" class="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded-md shadow transition-colors flex justify-center items-center gap-2">
+                Suivant
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
             </button>
-            <button id="btnWizardGenerate" class="hidden-step bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-4 rounded-md shadow transition-colors flex-1 md:flex-none flex justify-center items-center gap-2">
+            <button id="btnWizardGenerate" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-4 rounded-md shadow transition-colors flex justify-center items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                 <span id="btnText">Générer PDF</span>
             </button>
         </div>
     </header>
 
+    <!-- Wizard Navigation Tabs -->
+    <nav class="bg-white border-b border-gray-200 shrink-0 z-20 shadow-sm flex overflow-x-auto text-sm text-gray-600">
+        <button class="step-btn active flex-1 py-3 px-4 text-center font-medium whitespace-nowrap" data-target="step-contexte">1. Contexte</button>
+        <button class="step-btn flex-1 py-3 px-4 text-center font-medium whitespace-nowrap" data-target="step-cible">2. Cible</button>
+        <button class="step-btn flex-1 py-3 px-4 text-center font-medium whitespace-nowrap" data-target="step-batiment">3. Bâtiment</button>
+        <button class="step-btn flex-1 py-3 px-4 text-center font-medium whitespace-nowrap" data-target="step-ouvrants">4. Ouvrants (H1/H2)</button>
+        <button class="step-btn flex-1 py-3 px-4 text-center font-medium whitespace-nowrap bg-blue-50 border-l" data-target="step-preview">5. Aperçu PDF</button>
+    </nav>
+
     <!-- Main Content Area -->
     <main class="flex-1 overflow-hidden relative bg-gray-50 flex flex-col">
         
-        <!-- ========================================== -->
-        <!-- ÉTAPE 1 : FORMULAIRE DE SAISIE             -->
-        <!-- ========================================== -->
-        <div id="step-form" class="w-full h-full overflow-y-auto p-4 md:p-6">
-            <div class="max-w-3xl mx-auto pb-10">
-                <form id="reconForm" class="space-y-6">
+        <form id="reconForm" class="w-full h-full">
+            
+            <!-- ================= ÉTAPE 1 : CONTEXTE ================= -->
+            <div id="step-contexte" class="wizard-step active w-full h-full overflow-y-auto p-4 md:p-6">
+                <div class="max-w-4xl mx-auto pb-10 space-y-6">
+                    <div class="flex justify-between items-center bg-slate-800 text-white p-4 rounded shadow">
+                        <h2 class="text-xl font-bold tracking-widest uppercase">Cadre Opérationnel</h2>
+                        <button type="button" class="btn-clear text-red-300 hover:text-red-100 text-sm flex items-center gap-1" data-target="ctx">Nettoyer Section</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Unités & Contacts -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Unités & Hiérarchie</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="form-label">Unité Requérante</label><input type="text" id="ctx_unite_req" class="form-input persist"></div>
+                                <div><label class="form-label">Unité Requise</label><input type="text" id="ctx_unite_res" class="form-input persist" value="CELLULE EFFRACTION"></div>
+                                <div><label class="form-label">Dir. Opérations</label><input type="text" id="ctx_dir_ops" class="form-input persist"></div>
+                                <div><label class="form-label">Téléphone / Contact</label><input type="text" id="ctx_tel_ops" class="form-input persist"></div>
+                                <div><label class="form-label">Directeur Enquête</label><input type="text" id="ctx_dir_enq" class="form-input persist"></div>
+                                <div><label class="form-label">Téléphone / Contact</label><input type="text" id="ctx_tel_enq" class="form-input persist"></div>
+                            </div>
+                        </div>
+
+                        <!-- Administratif -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Administratif</h3>
+                            <div><label class="form-label">Date et Heure *</label><input type="datetime-local" id="date" name="date" class="form-input persist" required></div>
+                            <div><label class="form-label">Opérateurs / Équipe déployée</label><input type="text" id="operator" class="form-input persist"></div>
+                            <div><label class="form-label">Cadre Juridique</label><input type="text" id="ctx_cadre" class="form-input persist" placeholder="Flagrance, Préliminaire, Commission Rogatoire..."></div>
+                            <div><label class="form-label">Nature de l'infraction</label><input type="text" id="ctx_infraction" class="form-input persist"></div>
+                        </div>
+
+                        <!-- Affaire -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-2 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Détails de l'Affaire</h3>
+                            <div><label class="form-label">Synthèse de l'affaire</label><textarea id="ctx_synthese" rows="3" class="form-input persist"></textarea></div>
+                            <div><label class="form-label">Attente des enquêteurs vis-à-vis de l'effraction</label><textarea id="ctx_attente" rows="2" class="form-input persist"></textarea></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= ÉTAPE 2 : CIBLE ================= -->
+            <div id="step-cible" class="wizard-step w-full h-full overflow-y-auto p-4 md:p-6">
+                <div class="max-w-4xl mx-auto pb-10 space-y-6">
+                    <div class="flex justify-between items-center bg-slate-800 text-white p-4 rounded shadow">
+                        <h2 class="text-xl font-bold tracking-widest uppercase">Renseignements Cible</h2>
+                        <button type="button" class="btn-clear text-red-300 hover:text-red-100 text-sm flex items-center gap-1" data-target="cib">Nettoyer Section</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Identité -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-2 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Identité & Morphologie</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="form-label">Nom</label><input type="text" id="cib_nom" class="form-input persist uppercase"></div>
+                                <div><label class="form-label">Prénom</label><input type="text" id="cib_prenom" class="form-input persist capitalize"></div>
+                                <div class="col-span-2"><label class="form-label">Date et Lieu de naissance</label><input type="text" id="cib_naissance" class="form-input persist"></div>
+                                <div><label class="form-label">Taille (cm)</label><input type="text" id="cib_taille" class="form-input persist"></div>
+                                <div><label class="form-label">Poids (kg)</label><input type="text" id="cib_poids" class="form-input persist"></div>
+                                <div><label class="form-label">Cheveux</label><input type="text" id="cib_cheveux" class="form-input persist"></div>
+                                <div><label class="form-label">Langue parlée</label><input type="text" id="cib_langue" class="form-input persist"></div>
+                                <div class="col-span-2"><label class="form-label">Signes particuliers (Tatouages, cicatrices...)</label><input type="text" id="cib_signes" class="form-input persist"></div>
+                            </div>
+                        </div>
+
+                        <!-- Photo Target -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Photo Target</h3>
+                            <input type="file" id="cib_photosInput" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border p-1 rounded">
+                            <div id="cib_formPhotosPreview" class="mt-2 w-full flex justify-center"></div>
+                            <div class="mt-4">
+                                <label class="form-label">Interpellation possible pdt reco ?</label>
+                                <select id="cib_interpellation" class="form-input persist">
+                                    <option value="">Sélectionner</option><option value="OUI">OUI</option><option value="NON">NON</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Risques -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-3 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Environnement & Risques Humains</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label class="form-label text-red-600">Antécédents judiciaires / Dangérosité</label><textarea id="cib_antecedents" rows="2" class="form-input persist"></textarea></div>
+                                <div><label class="form-label">Problèmes médicaux</label><textarea id="cib_medical" rows="2" class="form-input persist"></textarea></div>
+                                <div class="md:col-span-2"><label class="form-label">Situation familiale (Présence potentielle femme/enfants sur l'objectif)</label><textarea id="cib_famille" rows="2" class="form-input persist"></textarea></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= ÉTAPE 3 : BÂTIMENT & ENVIRONNEMENT ================= -->
+            <div id="step-batiment" class="wizard-step w-full h-full overflow-y-auto p-4 md:p-6">
+                <div class="max-w-4xl mx-auto pb-10 space-y-6">
+                    <div class="flex justify-between items-center bg-slate-800 text-white p-4 rounded shadow">
+                        <h2 class="text-xl font-bold tracking-widest uppercase">Topographie & Bâtiment</h2>
+                        <button type="button" class="btn-clear text-red-300 hover:text-red-100 text-sm flex items-center gap-1" data-target="bat">Nettoyer Section</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Topographie -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Environnement du domicile</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="col-span-2"><label class="form-label">Type de quartier</label>
+                                    <select id="bat_quartier" class="form-input persist">
+                                        <option value="">Sélectionner...</option><option value="Cité sensible">Cité sensible</option><option value="Cité dortoir">Cité dortoir</option><option value="Quartier résidentiel">Quartier résidentiel</option><option value="Centre ville">Centre ville</option><option value="Secteur isolé">Secteur isolé</option><option value="Zone industrielle">Zone industrielle</option><option value="Autre">Autre</option>
+                                    </select>
+                                </div>
+                                <div><label class="form-label">Approche des lieux</label><select id="bat_approche" class="form-input persist"><option value="">Sélectionner</option><option value="Aisée">Aisée</option><option value="Délicate">Délicate</option></select></div>
+                                <div><label class="form-label">Éclairage public</label><select id="bat_eclairage" class="form-input persist"><option value="">Sélectionner</option><option value="Oui">Oui</option><option value="Non">Non</option></select></div>
+                                <div class="col-span-2"><label class="form-label">Nature du sol</label><input type="text" id="bat_sol" class="form-input persist" placeholder="Bitume, Gravier, Risque de traces..."></div>
+                            </div>
+                        </div>
+
+                        <!-- Type Bâtiment -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Structure de l'objectif</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="col-span-2"><label class="form-label">Type de Bâtiment</label>
+                                    <select id="bat_type" class="form-input persist">
+                                        <option value="">Sélectionner...</option><option value="Immeuble">Immeuble</option><option value="Maison de ville">Maison de ville</option><option value="Maison isolée">Maison isolée</option><option value="Maison lotissement">Maison lotissement</option><option value="Bâtiment mitoyen">Bâtiment mitoyen</option><option value="Cave">Cave</option><option value="Bureau/Local commercial">Bureau/Local commercial</option><option value="Autre">Autre</option>
+                                    </select>
+                                </div>
+                                <div><label class="form-label">Nbr d'étages</label><input type="number" id="bat_etages" class="form-input persist"></div>
+                                <div><label class="form-label">Ascenseur</label><select id="bat_ascenseur" class="form-input persist"><option value="">Sélectionner</option><option value="Oui">Oui</option><option value="Non">Non</option></select></div>
+                                <div class="col-span-2"><label class="form-label">Adresses / Remarques accès</label><input type="text" id="bat_adresse" class="form-input persist"></div>
+                            </div>
+                        </div>
+
+                        <!-- Détection & Périmètre -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-2 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Contrôle d'accès & Détection</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div><label class="form-label">Moyens de détection</label><input type="text" id="bat_detection" class="form-input persist" placeholder="Caméra, Chien, Alarme, Détecteur..."></div>
+                                <div><label class="form-label">Existence sas ou hall</label><select id="bat_sas" class="form-input persist"><option value="">Sélectionner</option><option value="Oui">Oui</option><option value="Non">Non</option></select></div>
+                                <div><label class="form-label">Fermé par</label><input type="text" id="bat_fermeture" class="form-input persist" placeholder="Code, Badge, Pass PTT..."></div>
+                                <div class="col-span-3"><label class="form-label">Portail / Portillon extérieur</label><input type="text" id="bat_portail" class="form-input persist" placeholder="Manuel, Électrique, Déverrouillage..."></div>
+                            </div>
+                        </div>
+
+                        <!-- Photos Bâtiment -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 md:col-span-2 space-y-4">
+                            <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Annexes Environnement & Bâtiment</h3>
+                            <div><label class="form-label">Description textuelle libre</label><textarea id="bat_description" class="form-input resize-y persist" rows="2" placeholder="ex: Rue passante..."></textarea></div>
+                            <div>
+                                <label class="form-label">Photos Bâtiment/Env (Ajout multiple)</label>
+                                <input type="file" id="bat_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-indigo-50 file:text-indigo-700 border p-1 rounded">
+                                <div id="bat_formPhotosPreview" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= ÉTAPE 4 : OUVRANTS (H1/H2) ================= -->
+            <div id="step-ouvrants" class="wizard-step w-full h-full overflow-y-auto p-4 md:p-6">
+                <div class="max-w-4xl mx-auto pb-10 space-y-6">
                     
-                    <!-- Section Globale : Date et Équipe -->
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                        <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                            <span class="bg-blue-100 text-blue-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-                            Intervention
-                        </h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label class="form-label" for="date">Date et Heure *</label><input type="datetime-local" id="date" name="date" class="form-input persist" required></div>
-                            <div><label class="form-label" for="operator">Opérateur / Équipe</label><input type="text" id="operator" name="operator" class="form-input persist" placeholder="ex: Alpha Team"></div>
-                        </div>
-                    </div>
-
-                    <!-- Section Globale : Environnement -->
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                        <div class="flex justify-between items-center mb-4 border-b pb-2">
-                            <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                                <span class="bg-indigo-100 text-indigo-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></span>
-                                Environnement Général
-                            </h3>
-                            <button type="button" class="btn-clear text-red-400 hover:text-red-600 text-sm flex items-center gap-1" data-target="env">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg> Nettoyer
-                            </button>
-                        </div>
-                        <div class="space-y-4">
-                            <div>
-                                <label class="form-label" for="env_description">Description de l'environnement</label>
-                                <textarea id="env_description" class="form-input resize-y persist" rows="3" placeholder="ex: Rue passante, caméras, éclairage fort, chiens..."></textarea>
-                            </div>
-                            <div>
-                                <label class="form-label">Photos Environnement (Ajout multiple possible)</label>
-                                <input type="file" id="env_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border p-1 rounded">
-                                <!-- Conteneur pour les miniatures et champs d'annotation -->
-                                <div id="env_formPhotosPreview" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TOGGLE H1 / H2 -->
-                    <div class="flex gap-2 mt-8 mb-4">
+                    <div class="flex gap-2 mb-4">
                         <button type="button" id="toggleH1" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded shadow-md transition-colors border border-blue-700">Ouvrant H1 (Principal)</button>
                         <button type="button" id="toggleH2" class="flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded shadow-sm transition-colors border border-gray-300 hover:bg-gray-300">Ouvrant H2 (Secondaire)</button>
                     </div>
 
-                    <!-- ================= CONTAINER H1 ================= -->
-                    <div id="section-h1" class="space-y-6">
-                        <div class="bg-slate-800 text-white p-3 rounded text-center font-bold tracking-widest uppercase flex justify-between items-center">
-                            <span>Formulaire H1</span>
-                            <button type="button" class="btn-clear text-red-300 hover:text-red-100 text-sm flex items-center gap-1" data-target="h1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg> Nettoyer
-                            </button>
-                        </div>
-                        
-                        <!-- Identification H1 -->
-                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                            <div>
-                                <label class="form-label text-blue-700 font-bold" for="h1_bapteme">Baptême ouvrant (H1) *</label>
-                                <input type="text" id="h1_bapteme" class="form-input font-mono uppercase border-blue-300 bg-blue-50 persist" placeholder="ex: ECHO1 A103">
-                            </div>
-                        </div>
-
-                        <!-- Mesures H1 -->
-                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                            <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                                <span class="bg-emerald-100 text-emerald-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></span>
-                                Relevé des mesures H1 (mm)
-                            </h3>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div><label class="form-label">Hauteur totale</label><div class="relative"><input type="number" id="h1_h_totale" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Hauteur ouvrant</label><div class="relative"><input type="number" id="h1_h_ouvrant" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Largeur ouvrant</label><div class="relative"><input type="number" id="h1_l_ouvrant" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Largeur latérale</label><div class="relative"><input type="number" id="h1_l_lat" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Espace supérieur</label><div class="relative"><input type="number" id="h1_espace_sup" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Hauteur obstacle</label><div class="relative"><input type="number" id="h1_h_obstacle" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                            </div>
-                        </div>
-
-                        <!-- Tech H1 -->
-                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                            <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                                <span class="bg-amber-100 text-amber-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
-                                Caractéristiques Techniques H1
-                            </h3>
-                            <div class="space-y-4">
-                                <div><label class="form-label">Structure du Bâtiment</label><input type="text" id="h1_structure" class="form-input persist"></div>
-                                <div><label class="form-label">Dormant / Bâti</label><input type="text" id="h1_dormant" class="form-input persist"></div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><label class="form-label">Porte / Ouvrant</label><input type="text" id="h1_porte_type" class="form-input persist"></div>
-                                    <div><label class="form-label">Sens d'ouverture</label><select id="h1_ouverture" class="form-input bg-white persist"><option value="">Sélectionner...</option><option value="Favorable">Favorable (Poussant)</option><option value="Défavorable">Défavorable (Tirant)</option></select></div>
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="md:col-span-2"><label class="form-label">Description Poignée / Serrure</label><input type="text" id="h1_serrure_desc" class="form-input persist"></div>
-                                    <div><label class="form-label">Côté Serrure</label><select id="h1_cote_serrure" class="form-input bg-white persist"><option value="">Sélectionner...</option><option value="Positif">Positif</option><option value="Négatif">Négatif</option></select></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Obs & Photos H1 -->
-                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                            <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                                <span class="bg-red-100 text-red-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
-                                Observations & Photos H1
-                            </h3>
-                            <div class="space-y-4">
-                                <div><label class="form-label">Autres (Points de vigilance...)</label><textarea id="h1_observations" rows="3" class="form-input resize-y persist"></textarea></div>
-                                <div>
-                                    <label class="form-label">Photos H1</label>
-                                    <input type="file" id="h1_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border p-1 rounded">
-                                    <div id="h1_formPhotosPreview" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ================= CONTAINER H2 ================= -->
-                    <div id="section-h2" class="space-y-6 hidden-step">
-                        <div class="bg-slate-600 text-white p-3 rounded text-center font-bold tracking-widest uppercase flex justify-between items-center">
-                            <span>Formulaire H2</span>
-                            <button type="button" class="btn-clear text-red-300 hover:text-red-100 text-sm flex items-center gap-1" data-target="h2">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg> Nettoyer
-                            </button>
-                        </div>
-                        
-                        <!-- Identification H2 -->
-                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                            <div>
-                                <label class="form-label text-blue-700 font-bold" for="h2_bapteme">Baptême ouvrant (H2) *</label>
-                                <input type="text" id="h2_bapteme" class="form-input font-mono uppercase border-blue-300 bg-blue-50 persist" placeholder="ex: ECHO1 A104">
-                            </div>
-                        </div>
-
-                        <!-- Mesures H2 -->
-                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                            <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                                <span class="bg-emerald-100 text-emerald-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg></span>
-                                Relevé des mesures H2 (mm)
-                            </h3>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div><label class="form-label">Hauteur totale</label><div class="relative"><input type="number" id="h2_h_totale" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Hauteur ouvrant</label><div class="relative"><input type="number" id="h2_h_ouvrant" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Largeur ouvrant</label><div class="relative"><input type="number" id="h2_l_ouvrant" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Largeur latérale</label><div class="relative"><input type="number" id="h2_l_lat" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Espace supérieur</label><div class="relative"><input type="number" id="h2_espace_sup" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Hauteur obstacle</label><div class="relative"><input type="number" id="h2_h_obstacle" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                            </div>
-                        </div>
-
-                        <!-- Tech H2 -->
-                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                            <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                                <span class="bg-amber-100 text-amber-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
-                                Caractéristiques Techniques H2
-                            </h3>
-                            <div class="space-y-4">
-                                <div><label class="form-label">Structure du Bâtiment</label><input type="text" id="h2_structure" class="form-input persist"></div>
-                                <div><label class="form-label">Dormant / Bâti</label><input type="text" id="h2_dormant" class="form-input persist"></div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><label class="form-label">Porte / Ouvrant</label><input type="text" id="h2_porte_type" class="form-input persist"></div>
-                                    <div><label class="form-label">Sens d'ouverture</label><select id="h2_ouverture" class="form-input bg-white persist"><option value="">Sélectionner...</option><option value="Favorable">Favorable (Poussant)</option><option value="Défavorable">Défavorable (Tirant)</option></select></div>
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="md:col-span-2"><label class="form-label">Description Poignée / Serrure</label><input type="text" id="h2_serrure_desc" class="form-input persist"></div>
-                                    <div><label class="form-label">Côté Serrure</label><select id="h2_cote_serrure" class="form-input bg-white persist"><option value="">Sélectionner...</option><option value="Positif">Positif</option><option value="Négatif">Négatif</option></select></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Obs & Photos H2 -->
-                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
-                            <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                                <span class="bg-red-100 text-red-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
-                                Observations & Photos H2
-                            </h3>
-                            <div class="space-y-4">
-                                <div><label class="form-label">Autres (Points de vigilance...)</label><textarea id="h2_observations" rows="3" class="form-input resize-y persist"></textarea></div>
-                                <div>
-                                    <label class="form-label">Photos H2</label>
-                                    <input type="file" id="h2_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border p-1 rounded">
-                                    <div id="h2_formPhotosPreview" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </form>
-            </div>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- ÉTAPE 2 : APERÇU & EXPORT PDF              -->
-        <!-- ========================================== -->
-        <div id="step-preview" class="w-full h-full overflow-y-auto bg-gray-300 hidden-step flex flex-col items-center">
-            <div class="w-full text-center py-3 bg-gray-200 border-b border-gray-400 text-sm font-medium text-gray-600 shadow-inner shrink-0">
-                Vue finale du document (Format A4)
-            </div>
-            
-            <div class="preview-wrapper flex flex-col items-center">
-                
-                <!-- CONTENEUR DU PDF -->
-                <div id="pdfContainer" class="pdf-export-container">
-                    
-                    <!-- ================= PAGE 1 : DONNÉES H1 ================= -->
-                    <div id="pdf-page-h1" class="pdf-page">
-                        <div class="border-b-2 border-slate-800 pb-2 mb-4 flex justify-between items-end">
-                            <div>
-                                <h1 class="text-2xl font-black uppercase tracking-tight text-slate-900">Fiche de Reconnaissance</h1>
-                                <p class="text-sm font-semibold text-slate-600 mt-1">ÉVALUATION D'ACCÈS BÂTIMENT - <span class="text-blue-600">OUVRANT H1</span></p>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-2xl font-black text-red-600 font-mono tracking-tighter" id="out_h1_bapteme_title">N/A</div>
-                            </div>
-                        </div>
-
-                        <div class="flex justify-between items-center bg-slate-100 p-2 rounded mb-6 text-sm">
-                            <div><span class="font-bold text-slate-500 uppercase text-xs block">Date & Heure</span><span class="font-semibold out_date">-</span></div>
-                            <div class="text-right"><span class="font-bold text-slate-500 uppercase text-xs block">Opérateur / Équipe</span><span class="font-semibold out_operator">-</span></div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-8">
-                            <div class="col-span-1 space-y-5">
-                                <section>
-                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">1. Maçonnerie & Bâti</h2>
-                                    <div class="mb-2"><span class="block text-xs font-bold text-slate-500 uppercase">Structure du Bâtiment</span><p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_h1_structure">-</p></div>
-                                    <div><span class="block text-xs font-bold text-slate-500 uppercase">Dormant / Bâti</span><p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_h1_dormant">-</p></div>
-                                </section>
-                                <section>
-                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">2. Ouvrant & Serrurerie</h2>
-                                    <div class="mb-2"><span class="block text-xs font-bold text-slate-500 uppercase">Nature de la porte</span><p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_h1_porte">-</p></div>
-                                    <div class="mb-2"><span class="block text-xs font-bold text-slate-500 uppercase">Sens d'ouverture</span><p class="font-bold text-sm" id="out_h1_ouverture">-</p></div>
-                                    <div class="mb-2 bg-slate-50 p-2 border border-slate-200 rounded">
-                                        <span class="block text-xs font-bold text-slate-500 uppercase">Système de fermeture</span>
-                                        <p class="font-medium text-sm mt-1" id="out_h1_serrure">-</p>
-                                        <div class="mt-2 pt-2 border-t border-slate-200 flex justify-between"><span class="text-xs font-bold text-slate-500">Côté :</span><span class="text-xs font-bold" id="out_h1_cote_serrure">-</span></div>
-                                    </div>
-                                </section>
-                            </div>
-                            <div class="col-span-1 space-y-5">
-                                <section>
-                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">3. Relevés dimensionnels</h2>
-                                    <table class="w-full text-sm border-collapse">
-                                        <tbody>
-                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Hauteur totale</td><td class="py-2 text-right font-mono font-bold" id="out_h1_h_totale">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
-                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Hauteur ouvrant</td><td class="py-2 text-right font-mono font-bold" id="out_h1_h_ouvrant">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
-                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Largeur ouvrant</td><td class="py-2 text-right font-mono font-bold" id="out_h1_l_ouvrant">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
-                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Largeur latérale</td><td class="py-2 text-right font-mono font-bold" id="out_h1_l_lat">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
-                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Espace supérieur</td><td class="py-2 text-right font-mono font-bold text-red-600" id="out_h1_espace_sup">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
-                                            <tr class="border-b border-gray-200 bg-gray-50"><td class="py-2 px-1 text-slate-600 font-medium">Obstacle direct</td><td class="py-2 text-right font-mono font-bold" id="out_h1_h_obstacle">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
-                                        </tbody>
-                                    </table>
-                                </section>
-                            </div>
-                        </div>
-
-                        <section class="mt-6">
-                            <h2 class="text-sm font-bold uppercase text-white bg-red-700 px-2 py-1 mb-2 rounded-sm inline-block">4. Points de vigilance (H1)</h2>
-                            <div class="border-2 border-red-200 bg-red-50 p-3 rounded-md min-h-[60px]"><p class="text-sm text-slate-800 whitespace-pre-wrap font-medium" id="out_h1_observations">Aucune observation.</p></div>
-                        </section>
-                    </div>
-
-                    <!-- ================= SECTION ENVIRONNEMENT (Page dédiée AVANT H1 Photos) ================= -->
-                    <div id="pdf-section-environnement" class="hidden-step">
-                        <div class="pdf-page page-break avoid-break">
-                            <div class="border-b-2 border-slate-800 pb-2 mb-6">
-                                <h1 class="text-xl font-black uppercase tracking-tight text-slate-900">Environnement Général</h1>
-                                <p class="text-sm font-semibold text-slate-600 mt-1" id="out_env_bapteme_photo">N/A</p>
-                            </div>
-                            
-                            <div class="mb-6 bg-gray-50 p-3 rounded border border-gray-200">
-                                <span class="block text-xs font-bold text-slate-500 uppercase mb-2">Description du secteur</span>
-                                <p class="text-sm font-medium text-slate-800 whitespace-pre-wrap" id="out_env_description">Aucune description.</p>
-                            </div>
-
-                            <div id="out_photos_grid_env" class="flex flex-col gap-8"></div>
-                        </div>
-                    </div>
-
-                    <!-- ================= SECTION PHOTOS H1 (Sauts de page gérés par CSS) ================= -->
-                    <div id="pdf-section-photos-h1" class="hidden-step">
-                        <div class="pdf-page page-break avoid-break">
-                            <div class="border-b-2 border-slate-800 pb-2 mb-6"><h1 class="text-xl font-black uppercase tracking-tight text-slate-900">Annexes Photographiques - H1</h1><p class="text-sm font-semibold text-slate-600 mt-1" id="out_h1_bapteme_photo">N/A</p></div>
-                            <div id="out_photos_grid_h1" class="flex flex-col gap-8"></div>
-                        </div>
-                    </div>
-
-                    <!-- ================= PAGE 3 : DONNÉES H2 ================= -->
-                    <div id="pdf-page-h2" class="pdf-page page-break hidden-step">
-                        <div class="border-b-2 border-slate-800 pb-2 mb-4 flex justify-between items-end">
-                            <div>
-                                <h1 class="text-2xl font-black uppercase tracking-tight text-slate-900">Fiche de Reconnaissance</h1>
-                                <p class="text-sm font-semibold text-slate-600 mt-1">ÉVALUATION D'ACCÈS BÂTIMENT - <span class="text-slate-600">OUVRANT H2</span></p>
-                            </div>
-                            <div class="text-right"><div class="text-2xl font-black text-red-600 font-mono tracking-tighter" id="out_h2_bapteme_title">N/A</div></div>
-                        </div>
-
-                        <div class="flex justify-between items-center bg-slate-100 p-2 rounded mb-6 text-sm">
-                            <div><span class="font-bold text-slate-500 uppercase text-xs block">Date & Heure</span><span class="font-semibold out_date">-</span></div>
-                            <div class="text-right"><span class="font-bold text-slate-500 uppercase text-xs block">Opérateur / Équipe</span><span class="font-semibold out_operator">-</span></div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-8">
-                            <div class="col-span-1 space-y-5">
-                                <section>
-                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">1. Maçonnerie & Bâti</h2>
-                                    <div class="mb-2"><span class="block text-xs font-bold text-slate-500 uppercase">Structure du Bâtiment</span><p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_h2_structure">-</p></div>
-                                    <div><span class="block text-xs font-bold text-slate-500 uppercase">Dormant / Bâti</span><p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_h2_dormant">-</p></div>
-                                </section>
-                                <section>
-                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">2. Ouvrant & Serrurerie</h2>
-                                    <div class="mb-2"><span class="block text-xs font-bold text-slate-500 uppercase">Nature de la porte</span><p class="font-medium text-sm border-b border-dashed border-gray-300 pb-1" id="out_h2_porte">-</p></div>
-                                    <div class="mb-2"><span class="block text-xs font-bold text-slate-500 uppercase">Sens d'ouverture</span><p class="font-bold text-sm" id="out_h2_ouverture">-</p></div>
-                                    <div class="mb-2 bg-slate-50 p-2 border border-slate-200 rounded">
-                                        <span class="block text-xs font-bold text-slate-500 uppercase">Système de fermeture</span>
-                                        <p class="font-medium text-sm mt-1" id="out_h2_serrure">-</p>
-                                        <div class="mt-2 pt-2 border-t border-slate-200 flex justify-between"><span class="text-xs font-bold text-slate-500">Côté :</span><span class="text-xs font-bold" id="out_h2_cote_serrure">-</span></div>
-                                    </div>
-                                </section>
-                            </div>
-                            <div class="col-span-1 space-y-5">
-                                <section>
-                                    <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">3. Relevés dimensionnels</h2>
-                                    <table class="w-full text-sm border-collapse">
-                                        <tbody>
-                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Hauteur totale</td><td class="py-2 text-right font-mono font-bold" id="out_h2_h_totale">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
-                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Hauteur ouvrant</td><td class="py-2 text-right font-mono font-bold" id="out_h2_h_ouvrant">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
-                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Largeur ouvrant</td><td class="py-2 text-right font-mono font-bold" id="out_h2_l_ouvrant">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
-                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Largeur latérale</td><td class="py-2 text-right font-mono font-bold" id="out_h2_l_lat">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
-                                            <tr class="border-b border-gray-200"><td class="py-2 text-slate-600 font-medium">Espace supérieur</td><td class="py-2 text-right font-mono font-bold text-red-600" id="out_h2_espace_sup">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
-                                            <tr class="border-b border-gray-200 bg-gray-50"><td class="py-2 px-1 text-slate-600 font-medium">Obstacle direct</td><td class="py-2 text-right font-mono font-bold" id="out_h2_h_obstacle">-</td><td class="py-2 pl-1 text-xs text-gray-400">mm</td></tr>
-                                        </tbody>
-                                    </table>
-                                </section>
-                            </div>
-                        </div>
-
-                        <section class="mt-6">
-                            <h2 class="text-sm font-bold uppercase text-white bg-red-700 px-2 py-1 mb-2 rounded-sm inline-block">4. Points de vigilance (H2)</h2>
-                            <div class="border-2 border-red-200 bg-red-50 p-3 rounded-md min-h-[60px]"><p class="text-sm text-slate-800 whitespace-pre-wrap font-medium" id="out_h2_observations">Aucune observation.</p></div>
-                        </section>
-                    </div>
-
-                    <!-- ================= SECTION PHOTOS H2 ================= -->
-                    <div id="pdf-section-photos-h2" class="hidden-step">
-                        <div class="pdf-page page-break avoid-break">
-                            <div class="border-b-2 border-slate-800 pb-2 mb-6"><h1 class="text-xl font-black uppercase tracking-tight text-slate-900">Annexes Photographiques - H2</h1><p class="text-sm font-semibold text-slate-600 mt-1" id="out_h2_bapteme_photo">N/A</p></div>
-                            <div id="out_photos_grid_h2" class="flex flex-col gap-8"></div>
-                        </div>
-                    </div>
+                    <!-- BOUCLE POUR H1 ET H2 via JS Template -->
+                    <div id="ouvrants-container"></div>
 
                 </div>
             </div>
-        </div>
+
+            <!-- ================= ÉTAPE 5 : APERÇU PDF ================= -->
+            <div id="step-preview" class="wizard-step w-full h-full overflow-y-auto bg-gray-300 flex flex-col items-center">
+                <div class="preview-wrapper flex flex-col items-center">
+                    
+                    <!-- CONTENEUR DU PDF GLOBAL -->
+                    <div id="pdfContainer" class="pdf-export-container text-slate-900">
+                        
+                        <!-- PAGE 1 : COUVERTURE / CONTEXTE -->
+                        <div class="pdf-page">
+                            <div class="text-center mb-8 border-b-4 border-slate-900 pb-4">
+                                <h1 class="text-3xl font-black uppercase tracking-widest text-slate-900">Dossier Reconnaissance</h1>
+                                <h2 class="text-xl font-bold tracking-widest text-red-700 mt-1">D'OBJECTIF / EFFRACTION</h2>
+                            </div>
+                            
+                            <!-- Administratif -->
+                            <div class="bg-slate-100 p-3 rounded mb-8 flex justify-between font-medium text-sm">
+                                <div><span class="text-slate-500 uppercase text-xs">Date:</span> <span id="out_date">-</span></div>
+                                <div><span class="text-slate-500 uppercase text-xs">Équipe:</span> <span id="out_operator">-</span></div>
+                            </div>
+
+                            <div class="pdf-section-title w-full">Unités & Hiérarchie</div>
+                            <div class="grid grid-cols-2 gap-x-8 gap-y-2 mb-6">
+                                <div class="pdf-data-row"><span class="pdf-label">Unité Requérante</span><span class="pdf-value" id="out_ctx_unite_req">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label">Unité Requise</span><span class="pdf-value font-bold text-blue-700" id="out_ctx_unite_res">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label">Dir. Opérations</span><span class="pdf-value" id="out_ctx_dir_ops">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label">Tél Dir. Ops</span><span class="pdf-value" id="out_ctx_tel_ops">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label">Dir. Enquête</span><span class="pdf-value" id="out_ctx_dir_enq">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label">Tél Dir. Enq</span><span class="pdf-value" id="out_ctx_tel_enq">-</span></div>
+                            </div>
+
+                            <div class="pdf-section-title w-full">Cadre & Affaire</div>
+                            <div class="mb-6 space-y-3">
+                                <div class="flex flex-col border-b border-gray-200 pb-2"><span class="pdf-label">Cadre Juridique</span><span class="text-sm font-bold" id="out_ctx_cadre">-</span></div>
+                                <div class="flex flex-col border-b border-gray-200 pb-2"><span class="pdf-label">Nature Infraction</span><span class="text-sm font-bold" id="out_ctx_infraction">-</span></div>
+                                <div class="flex flex-col border-b border-gray-200 pb-2"><span class="pdf-label">Synthèse Affaire</span><span class="text-sm italic" id="out_ctx_synthese">-</span></div>
+                                <div class="flex flex-col border-b border-gray-200 pb-2"><span class="pdf-label">Attente Enquêteurs (Effraction)</span><span class="text-sm font-medium" id="out_ctx_attente">-</span></div>
+                            </div>
+                        </div>
+
+                        <!-- PAGE 2 : CIBLE -->
+                        <div class="pdf-page page-break hidden-step" id="pdf-page-cible">
+                            <div class="text-center mb-6 border-b-2 border-slate-900 pb-2">
+                                <h2 class="text-2xl font-black uppercase tracking-widest">Renseignements Cible</h2>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-6">
+                                <div class="col-span-2">
+                                    <div class="pdf-section-title">Identité</div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Nom</span><span class="pdf-value text-lg font-black uppercase text-red-600" id="out_cib_nom">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Prénom</span><span class="pdf-value font-bold" id="out_cib_prenom">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Né(e) le</span><span class="pdf-value" id="out_cib_naissance">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Langue</span><span class="pdf-value" id="out_cib_langue">-</span></div>
+
+                                    <div class="pdf-section-title mt-4">Morphologie</div>
+                                    <div class="grid grid-cols-2 gap-x-4">
+                                        <div class="pdf-data-row"><span class="pdf-label">Taille</span><span class="pdf-value" id="out_cib_taille">-</span></div>
+                                        <div class="pdf-data-row"><span class="pdf-label">Poids</span><span class="pdf-value" id="out_cib_poids">-</span></div>
+                                        <div class="pdf-data-row"><span class="pdf-label">Cheveux</span><span class="pdf-value" id="out_cib_cheveux">-</span></div>
+                                    </div>
+                                    <div class="mt-2"><span class="pdf-label">Signes particuliers:</span> <span class="text-sm font-medium" id="out_cib_signes">-</span></div>
+                                </div>
+
+                                <!-- Photo Target Box - Formattée pour une capture robuste par html2canvas -->
+                                <div class="col-span-1 border-2 border-slate-300 rounded p-2 bg-slate-50" id="out_cib_photo_box">
+                                    <span class="text-xs text-slate-400 font-bold uppercase mb-2 block w-full text-center">Photo Target</span>
+                                    <span class="text-slate-300 block w-full text-center mt-6">Aucune image</span>
+                                </div>
+                            </div>
+
+                            <div class="pdf-section-title w-full mt-6 bg-red-800">Risques & Environnement Humain</div>
+                            <div class="space-y-3 bg-red-50 p-3 border border-red-200 rounded">
+                                <div><span class="pdf-label text-red-800">Antécédents / Dangérosité :</span><p class="text-sm font-bold text-slate-900" id="out_cib_antecedents">-</p></div>
+                                <div><span class="pdf-label text-red-800">Problèmes Médicaux :</span><p class="text-sm font-medium text-slate-900" id="out_cib_medical">-</p></div>
+                                <div><span class="pdf-label text-red-800">Présence Famille / Enfants :</span><p class="text-sm font-medium text-slate-900" id="out_cib_famille">-</p></div>
+                                <div class="border-t border-red-300 pt-2 mt-2 flex justify-between items-center">
+                                    <span class="pdf-label text-red-800">Interpellation possible pdt reco :</span>
+                                    <span class="text-lg font-black" id="out_cib_interpellation">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PAGE 3 : BÂTIMENT & TOPO -->
+                        <div class="pdf-page page-break">
+                            <div class="text-center mb-6 border-b-2 border-slate-900 pb-2">
+                                <h2 class="text-2xl font-black uppercase tracking-widest">Topographie & Bâtiment</h2>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-8 mb-6">
+                                <div>
+                                    <div class="pdf-section-title w-full">Environnement Domicile</div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Type Quartier</span><span class="pdf-value font-bold" id="out_bat_quartier">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Approche</span><span class="pdf-value" id="out_bat_approche">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Éclairage public</span><span class="pdf-value" id="out_bat_eclairage">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Nature du sol</span><span class="pdf-value" id="out_bat_sol">-</span></div>
+                                </div>
+                                <div>
+                                    <div class="pdf-section-title w-full">Structure</div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Type Bâtiment</span><span class="pdf-value font-bold" id="out_bat_type">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Nbr Étages</span><span class="pdf-value" id="out_bat_etages">-</span></div>
+                                    <div class="pdf-data-row"><span class="pdf-label">Ascenseur</span><span class="pdf-value" id="out_bat_ascenseur">-</span></div>
+                                </div>
+                            </div>
+
+                            <div class="pdf-section-title w-full">Accès & Moyens de détection</div>
+                            <div class="bg-amber-50 p-3 border border-amber-200 rounded mb-4">
+                                <div class="pdf-data-row"><span class="pdf-label text-amber-800">Détection (Cam, Chien...)</span><span class="pdf-value font-bold text-red-600" id="out_bat_detection">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label text-amber-800">Portail / Extérieur</span><span class="pdf-value" id="out_bat_portail">-</span></div>
+                                <div class="pdf-data-row"><span class="pdf-label text-amber-800">Sas / Hall</span><span class="pdf-value" id="out_bat_sas">-</span></div>
+                                <div class="pdf-data-row border-none mb-0"><span class="pdf-label text-amber-800">Moyen de fermeture</span><span class="pdf-value" id="out_bat_fermeture">-</span></div>
+                            </div>
+
+                            <div class="mb-4">
+                                <span class="pdf-label">Adresses / Remarques accès :</span>
+                                <p class="text-sm mt-1" id="out_bat_adresse">-</p>
+                            </div>
+                            <div>
+                                <span class="pdf-label">Description Topographique libre :</span>
+                                <p class="text-sm mt-1 italic" id="out_bat_description">-</p>
+                            </div>
+                        </div>
+
+                        <!-- SECTION PHOTOS BÂTIMENT (Pages auto) -->
+                        <div id="pdf-section-photos-bat" class="hidden-step">
+                            <div class="pdf-page page-break avoid-break">
+                                <div class="border-b-2 border-slate-800 pb-2 mb-6"><h2 class="text-xl font-black uppercase tracking-tight">Annexes Topographie & Bâtiment</h2></div>
+                                <div id="out_photos_grid_bat" class="flex flex-col gap-8"></div>
+                            </div>
+                        </div>
+
+                        <!-- TEMPLATE INJECTION FOR H1 & H2 PDF PAGES -->
+                        <div id="pdf-ouvrants-container"></div>
+
+                    </div>
+                </div>
+            </div>
+        </form>
     </main>
 
-    <!-- Logique Applicative JS -->
     <script>
+        // GLOBAL Fonction pour mettre à jour l'input caché quand les checkboxes changent
+        window.updateHiddenMoyen = (prefix) => {
+            const checkboxes = document.querySelectorAll(`.tool-cb-${prefix}:checked`);
+            const values = Array.from(checkboxes).map(cb => cb.value);
+            const hiddenInput = document.getElementById(`${prefix}_moyen`);
+            if(hiddenInput) {
+                hiddenInput.value = values.length > 0 ? values.join(' - ') : '';
+                localStorage.setItem(`rm_${hiddenInput.id}`, hiddenInput.value);
+                if(document.getElementById('step-preview').classList.contains('active')) window.forceUpdatePreview();
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
-            
-            // --- GESTION DU WIZARD ---
-            const stepForm = document.getElementById('step-form');
-            const stepPreview = document.getElementById('step-preview');
+
+            // --- WIZARD NAVIGATION ---
+            const steps = ['step-contexte', 'step-cible', 'step-batiment', 'step-ouvrants', 'step-preview'];
+            const navBtns = document.querySelectorAll('.step-btn');
+            const btnGenerate = document.getElementById('btnWizardGenerate');
             const btnPrev = document.getElementById('btnWizardPrev');
             const btnNext = document.getElementById('btnWizardNext');
-            const btnGenerate = document.getElementById('btnWizardGenerate');
-            const headerTitle = document.getElementById('headerTitle');
+            
+            let currentStepIndex = 0;
 
-            btnNext.addEventListener('click', () => {
-                // Validation minimale
-                if(!document.getElementById('h1_bapteme').value.trim() && !document.getElementById('h2_bapteme').value.trim()) {
-                    alert("Veuillez saisir au moins un Baptême ouvrant (H1 ou H2).");
-                    document.getElementById('h1_bapteme').focus();
-                    return;
+            const navigateToStep = (index) => {
+                if (index < 0 || index >= steps.length) return;
+                currentStepIndex = index;
+                
+                navBtns.forEach((b, i) => b.classList.toggle('active', i === currentStepIndex));
+                steps.forEach((s, i) => document.getElementById(s).classList.toggle('active', i === currentStepIndex));
+                
+                btnPrev.classList.toggle('hidden', currentStepIndex === 0);
+                
+                if (currentStepIndex === steps.length - 1) { 
+                    btnNext.classList.add('hidden');
+                    btnGenerate.classList.remove('hidden');
+                    updatePreview();
+                } else {
+                    btnNext.classList.remove('hidden');
+                    btnGenerate.classList.add('hidden');
                 }
-                stepForm.classList.add('hidden-step');
-                stepPreview.classList.remove('hidden-step');
-                btnPrev.classList.remove('hidden-step');
-                btnNext.classList.add('hidden-step');
-                btnGenerate.classList.remove('hidden-step');
-                headerTitle.textContent = "Étape 2 : Aperçu avant export";
-                updatePreview();
+            };
+
+            navBtns.forEach((btn, index) => btn.addEventListener('click', () => navigateToStep(index)));
+            btnPrev.addEventListener('click', (e) => { e.preventDefault(); navigateToStep(currentStepIndex - 1); });
+            btnNext.addEventListener('click', (e) => { e.preventDefault(); navigateToStep(currentStepIndex + 1); });
+
+            navigateToStep(0);
+
+            // --- INJECTION HTML H1 / H2 ---
+            const createOuvrantForm = (prefix, name, isHidden) => {
+                const outils = ['DoorRaider', 'OP71', 'HDR50', 'HDB90', 'HR7', 'Kit 5.11', 'Bélier', 'Pince monseigneur'];
+                const checkboxesHtml = outils.map(outil => `
+                    <label class="flex items-center gap-2 cursor-pointer p-2 border border-emerald-200 rounded bg-white hover:bg-emerald-50 transition-colors">
+                        <input type="checkbox" value="${outil}" class="tool-cb-${prefix} w-4 h-4 text-emerald-600 border-emerald-300 rounded focus:ring-emerald-500" onchange="window.updateHiddenMoyen('${prefix}')">
+                        <span class="text-xs font-bold text-emerald-900 leading-tight">${outil}</span>
+                    </label>
+                `).join('');
+
+                return `
+                <div id="section-${prefix}" class="space-y-6 ${isHidden ? 'hidden-step' : ''}">
+                    <div class="bg-slate-800 text-white p-3 rounded text-center font-bold tracking-widest uppercase flex justify-between items-center">
+                        <span>Formulaire ${name}</span>
+                        <button type="button" class="btn-clear text-red-300 hover:text-red-100 text-sm flex items-center gap-1" data-target="${prefix}">Nettoyer</button>
+                    </div>
+                    
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2"><label class="form-label text-blue-700 font-bold">Baptême ouvrant / Nom Cible *</label><input type="text" id="${prefix}_bapteme" class="form-input font-mono uppercase border-blue-300 bg-blue-50 persist" placeholder="ex: ECHO1 A103"></div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                        <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2">Stratégie d'Effraction</h3>
+                        <div>
+                            <label class="form-label font-bold text-emerald-700">Moyens préconisés pour l'ouverture (Choix multiples)</label>
+                            <input type="hidden" id="${prefix}_moyen" class="persist form-input">
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+                                ${checkboxesHtml}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="sm:col-span-2"><h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Mesures (mm)</h3></div>
+                        <div><label class="form-label">Hauteur totale</label><input type="number" id="${prefix}_h_totale" class="form-input persist"></div>
+                        <div><label class="form-label">Hauteur ouvrant</label><input type="number" id="${prefix}_h_ouvrant" class="form-input persist"></div>
+                        <div><label class="form-label">Largeur ouvrant</label><input type="number" id="${prefix}_l_ouvrant" class="form-input persist"></div>
+                        <div><label class="form-label">Largeur latérale</label><input type="number" id="${prefix}_l_lat" class="form-input persist"></div>
+                        <div><label class="form-label">Espace supérieur</label><input type="number" id="${prefix}_espace_sup" class="form-input persist"></div>
+                        <div><label class="form-label">Hauteur obstacle</label><input type="number" id="${prefix}_h_obstacle" class="form-input persist"></div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                        <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Technique</h3>
+                        <div><label class="form-label">Structure du Bâtiment</label><input type="text" id="${prefix}_structure" class="form-input persist"></div>
+                        <div><label class="form-label">Dormant / Bâti</label><input type="text" id="${prefix}_dormant" class="form-input persist"></div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="form-label">Porte / Ouvrant</label><input type="text" id="${prefix}_porte_type" class="form-input persist"></div>
+                            <div><label class="form-label">Sens d'ouverture</label><select id="${prefix}_ouverture" class="form-input bg-white persist"><option value="">-</option><option value="Favorable">Favorable</option><option value="Défavorable">Défavorable</option></select></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="md:col-span-2"><label class="form-label">Description Poignée / Serrure</label><input type="text" id="${prefix}_serrure_desc" class="form-input persist"></div>
+                            <div><label class="form-label">Côté Serrure</label><select id="${prefix}_cote_serrure" class="form-input bg-white persist"><option value="">-</option><option value="Positif">Positif</option><option value="Négatif">Négatif</option></select></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100 space-y-4">
+                        <h3 class="text-lg font-semibold text-slate-800 border-b pb-2">Observations & Photos</h3>
+                        <div><label class="form-label">Points de vigilance...</label><textarea id="${prefix}_observations" rows="3" class="form-input persist"></textarea></div>
+                        <div>
+                            <input type="file" id="${prefix}_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 border p-1 rounded">
+                            <div id="${prefix}_formPhotosPreview" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4"></div>
+                        </div>
+                    </div>
+                </div>
+                `;
+            };
+
+            const createOuvrantPdfPage = (prefix, name) => `
+                <div id="pdf-page-${prefix}" class="pdf-page page-break hidden-step">
+                    <div class="border-b-2 border-slate-900 pb-2 mb-4 flex justify-between items-end">
+                        <h2 class="text-2xl font-black uppercase tracking-widest text-slate-900">Ouvrant ${name}</h2>
+                        <div class="text-2xl font-black text-red-600 font-mono tracking-tighter" id="out_${prefix}_bapteme">-</div>
+                    </div>
+
+                    <div class="bg-emerald-100 border-2 border-emerald-500 p-3 rounded flex justify-between items-center mb-6">
+                        <span class="font-bold text-emerald-800 uppercase tracking-widest text-sm">Outils préconisés :</span>
+                        <span class="text-lg font-black text-emerald-900 text-right max-w-[70%]" id="out_${prefix}_moyen">Aucun</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="col-span-1">
+                            <div class="pdf-section-title w-full">1. Maçonnerie & Bâti</div>
+                            <div class="pdf-data-row"><span class="pdf-label">Structure</span><span class="pdf-value" id="out_${prefix}_structure">-</span></div>
+                            <div class="pdf-data-row"><span class="pdf-label">Dormant</span><span class="pdf-value" id="out_${prefix}_dormant">-</span></div>
+                            
+                            <div class="pdf-section-title w-full mt-4">2. Ouvrant & Serrurerie</div>
+                            <div class="pdf-data-row"><span class="pdf-label">Porte</span><span class="pdf-value" id="out_${prefix}_porte_type">-</span></div>
+                            <div class="pdf-data-row"><span class="pdf-label">Sens ouv.</span><span class="pdf-value font-bold" id="out_${prefix}_ouverture">-</span></div>
+                            <div class="pdf-data-row border-none"><span class="pdf-label">Serrure</span></div>
+                            <div class="text-sm font-medium mb-1 pl-2 text-right" id="out_${prefix}_serrure_desc">-</div>
+                            <div class="pdf-data-row"><span class="pdf-label text-xs">Côté menace</span><span class="pdf-value" id="out_${prefix}_cote_serrure">-</span></div>
+                        </div>
+                        <div class="col-span-1">
+                            <div class="pdf-section-title w-full">3. Relevés (mm)</div>
+                            <table class="w-full text-sm">
+                                <tr><td class="pdf-label py-1">H totale</td><td class="text-right font-mono font-bold" id="out_${prefix}_h_totale">-</td></tr>
+                                <tr><td class="pdf-label py-1">H ouvrant</td><td class="text-right font-mono font-bold" id="out_${prefix}_h_ouvrant">-</td></tr>
+                                <tr><td class="pdf-label py-1">L ouvrant</td><td class="text-right font-mono font-bold" id="out_${prefix}_l_ouvrant">-</td></tr>
+                                <tr><td class="pdf-label py-1">L latérale</td><td class="text-right font-mono font-bold" id="out_${prefix}_l_lat">-</td></tr>
+                                <tr><td class="pdf-label py-1">Espace sup</td><td class="text-right font-mono font-bold text-red-600" id="out_${prefix}_espace_sup">-</td></tr>
+                                <tr><td class="pdf-label py-1">H obstacle</td><td class="text-right font-mono font-bold" id="out_${prefix}_h_obstacle">-</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <div class="pdf-section-title bg-red-800">4. Points de vigilance</div>
+                        <div class="bg-red-50 p-2 border border-red-200 text-sm font-medium min-h-[60px]" id="out_${prefix}_observations">-</div>
+                    </div>
+                </div>
+
+                <div id="pdf-section-photos-${prefix}" class="hidden-step">
+                    <div class="pdf-page page-break avoid-break">
+                        <div class="border-b-2 border-slate-900 pb-2 mb-6"><h2 class="text-xl font-black uppercase tracking-tight">Annexes Photographiques - ${name}</h2></div>
+                        <div id="out_photos_grid_${prefix}" class="flex flex-col gap-8"></div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('ouvrants-container').innerHTML = createOuvrantForm('h1', 'H1', false) + createOuvrantForm('h2', 'H2', true);
+            document.getElementById('pdf-ouvrants-container').innerHTML = createOuvrantPdfPage('h1', 'H1') + createOuvrantPdfPage('h2', 'H2');
+
+            // Toggle H1/H2 UI
+            document.getElementById('toggleH1').addEventListener('click', (e) => {
+                e.target.className = "flex-1 py-3 bg-blue-600 text-white font-bold rounded shadow-md border border-blue-700";
+                document.getElementById('toggleH2').className = "flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded shadow-sm border border-gray-300";
+                document.getElementById('section-h1').classList.remove('hidden-step');
+                document.getElementById('section-h2').classList.add('hidden-step');
+            });
+            document.getElementById('toggleH2').addEventListener('click', (e) => {
+                e.target.className = "flex-1 py-3 bg-slate-600 text-white font-bold rounded shadow-md border border-slate-700";
+                document.getElementById('toggleH1').className = "flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded shadow-sm border border-gray-300";
+                document.getElementById('section-h2').classList.remove('hidden-step');
+                document.getElementById('section-h1').classList.add('hidden-step');
             });
 
-            btnPrev.addEventListener('click', () => {
-                stepPreview.classList.add('hidden-step');
-                stepForm.classList.remove('hidden-step');
-                btnPrev.classList.add('hidden-step');
-                btnNext.classList.remove('hidden-step');
-                btnGenerate.classList.add('hidden-step');
-                headerTitle.textContent = "Étape 1 : Saisie";
-            });
-
-            // --- TOGGLE H1 / H2 ---
-            const btnH1 = document.getElementById('toggleH1');
-            const btnH2 = document.getElementById('toggleH2');
-            const sectionH1 = document.getElementById('section-h1');
-            const sectionH2 = document.getElementById('section-h2');
-
-            btnH1.addEventListener('click', () => {
-                btnH1.className = "flex-1 py-3 bg-blue-600 text-white font-bold rounded shadow-md transition-colors border border-blue-700";
-                btnH2.className = "flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded shadow-sm transition-colors border border-gray-300 hover:bg-gray-300";
-                sectionH1.classList.remove('hidden-step');
-                sectionH2.classList.add('hidden-step');
-            });
-
-            btnH2.addEventListener('click', () => {
-                btnH2.className = "flex-1 py-3 bg-slate-600 text-white font-bold rounded shadow-md transition-colors border border-slate-700";
-                btnH1.className = "flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded shadow-sm transition-colors border border-gray-300 hover:bg-gray-300";
-                sectionH2.classList.remove('hidden-step');
-                sectionH1.classList.add('hidden-step');
-            });
-
-            // --- INDEXED DB WRAPPER POUR IMAGES (Performant et non-bloquant) ---
+            // --- INDEXED DB ---
             const idb = {
                 db: null,
                 init: async function() {
                     if(this.db) return this.db;
                     return new Promise((resolve, reject) => {
-                        const req = indexedDB.open('ReconFormDB', 1);
+                        const req = indexedDB.open('ReconMasterDB', 2);
                         req.onupgradeneeded = e => {
                             if (!e.target.result.objectStoreNames.contains('photos')) {
                                 e.target.result.createObjectStore('photos');
@@ -560,252 +614,276 @@
                 }
             };
 
-            // Structure mémoire des photos : { src: string(base64), caption: string }
-            let statePhotos = { env: [], h1: [], h2: [] };
+            let statePhotos = { cib: [], bat: [], h1: [], h2: [] };
 
             const loadData = async () => {
-                // 1. Text Data (LocalStorage)
+                // Texts
                 document.querySelectorAll('.persist').forEach(el => {
-                    const saved = localStorage.getItem(`recon_${el.id}`);
+                    const saved = localStorage.getItem(`rm_${el.id}`);
                     if (saved !== null) el.value = saved;
                 });
                 if(!document.getElementById('date').value) {
-                    const now = new Date();
-                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                    const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
                     document.getElementById('date').value = now.toISOString().slice(0,16);
                 }
                 
-                // 2. Migration silencieuse (si anciennes photos dans LocalStorage)
-                for (let p of ['env', 'h1', 'h2']) {
-                    const oldStr = localStorage.getItem(`recon_${p}_photos`);
-                    if (oldStr) {
-                        try {
-                            const parsed = JSON.parse(oldStr);
-                            // Mapping au nouveau format {src, caption}
-                            const formatted = parsed.map(item => typeof item === 'string' ? { src: item, caption: '' } : item);
-                            await idb.set(`recon_${p}_photos`, formatted);
-                            localStorage.removeItem(`recon_${p}_photos`);
-                        } catch (e) {}
+                // Sync Checkboxes based on hidden inputs
+                ['h1', 'h2'].forEach(prefix => {
+                    const hiddenInput = document.getElementById(`${prefix}_moyen`);
+                    if(hiddenInput && hiddenInput.value) {
+                        const savedTools = hiddenInput.value.split(' - ');
+                        document.querySelectorAll(`.tool-cb-${prefix}`).forEach(cb => {
+                            cb.checked = savedTools.includes(cb.value);
+                        });
                     }
-                }
-
-                // 3. Charger Images depuis IndexedDB
-                statePhotos.env = await idb.get('recon_env_photos') || [];
-                statePhotos.h1 = await idb.get('recon_h1_photos') || [];
-                statePhotos.h2 = await idb.get('recon_h2_photos') || [];
-                
-                renderPhotos('env');
-                renderPhotos('h1');
-                renderPhotos('h2');
-                updatePreview();
-            };
-
-            const saveData = () => {
-                document.querySelectorAll('.persist').forEach(el => {
-                    localStorage.setItem(`recon_${el.id}`, el.value);
                 });
+                
+                // Photos
+                statePhotos.cib = await idb.get('rm_cib_photos') || [];
+                statePhotos.bat = await idb.get('rm_bat_photos') || [];
+                statePhotos.h1 = await idb.get('rm_h1_photos') || [];
+                statePhotos.h2 = await idb.get('rm_h2_photos') || [];
+                
+                ['cib','bat','h1','h2'].forEach(renderPhotos);
             };
 
             document.getElementById('reconForm').addEventListener('input', (e) => {
-                if(e.target.classList.contains('persist')) saveData();
-                updatePreview();
+                if(e.target.classList.contains('persist')) localStorage.setItem(`rm_${e.target.id}`, e.target.value);
+                if(document.getElementById('step-preview').classList.contains('active')) updatePreview();
             });
 
-            // Nettoyage ciblé (H1, H2, Env)
             document.querySelectorAll('.btn-clear').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
-                    const target = e.currentTarget.getAttribute('data-target'); // env, h1, h2
-                    if(confirm(`Voulez-vous vraiment effacer toutes les données et photos de la section ${target.toUpperCase()} ?`)) {
+                    const target = e.currentTarget.getAttribute('data-target');
+                    if(confirm(`Effacer les données de la section ${target.toUpperCase()} ?`)) {
                         document.querySelectorAll(`[id^="${target}_"].persist`).forEach(el => {
-                            el.value = '';
-                            localStorage.removeItem(`recon_${el.id}`);
+                            el.value = ''; localStorage.removeItem(`rm_${el.id}`);
                         });
-                        document.getElementById(`${target}_photosInput`).value = '';
+                        
+                        // Uncheck cb
+                        if(target === 'h1' || target === 'h2') {
+                            document.querySelectorAll(`.tool-cb-${target}`).forEach(cb => cb.checked = false);
+                        }
+
+                        const fileInput = document.getElementById(`${target}_photosInput`);
+                        if(fileInput) fileInput.value = '';
                         statePhotos[target] = [];
-                        await idb.del(`recon_${target}_photos`);
+                        await idb.del(`rm_${target}_photos`);
                         renderPhotos(target);
-                        updatePreview();
+                        if(document.getElementById('step-preview').classList.contains('active')) updatePreview();
                     }
                 });
             });
 
-            // --- MISE A JOUR PREVIEW ---
+            // --- MAP DATA TO PREVIEW ---
             const updatePreview = () => {
-                const op = document.getElementById('operator').value || '-';
-                document.querySelectorAll('.out_operator').forEach(el => el.textContent = op);
-
                 const dateVal = document.getElementById('date').value;
-                let dateStr = '-';
-                if(dateVal) {
-                    const d = new Date(dateVal);
-                    dateStr = d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
-                }
-                document.querySelectorAll('.out_date').forEach(el => el.textContent = dateStr);
+                document.getElementById('out_date').textContent = dateVal ? new Date(dateVal).toLocaleString('fr-FR') : '-';
+                document.getElementById('out_operator').textContent = document.getElementById('operator').value || '-';
 
-                // Setup Environment
-                const envDesc = document.getElementById('env_description').value.trim();
-                document.getElementById('out_env_description').textContent = envDesc || 'Aucune description.';
-                const pdfEnvSection = document.getElementById('pdf-section-environnement');
-                if (envDesc || statePhotos.env.length > 0) {
-                    pdfEnvSection.classList.remove('hidden-step');
+                document.querySelectorAll('.persist').forEach(el => {
+                    const outEl = document.getElementById(`out_${el.id}`);
+                    if (outEl) {
+                        outEl.textContent = el.value.trim() || (el.id.includes('moyen') ? 'Aucun' : '-');
+                        if(el.id.includes('ouverture') && el.value) {
+                            outEl.className = 'pdf-value font-bold ' + (el.value === 'Favorable' ? 'text-green-600' : 'text-red-600');
+                        }
+                    }
+                });
+
+                const cibNom = document.getElementById('cib_nom').value;
+                const cibPrenom = document.getElementById('cib_prenom').value;
+                const pageCible = document.getElementById('pdf-page-cible');
+                if(cibNom || cibPrenom || statePhotos.cib.length > 0) pageCible.classList.remove('hidden-step');
+                else pageCible.classList.add('hidden-step');
+
+                // Render Photo Target using exact identical approach as working annexes
+                const photoBox = document.getElementById('out_cib_photo_box');
+                if (statePhotos.cib.length > 0) {
+                    photoBox.innerHTML = `
+                        <span class="text-xs text-slate-400 font-bold uppercase mb-2 block w-full text-center">Photo Target</span>
+                        <img src="${statePhotos.cib.src}" style="max-width: 100%; max-height: 180px; display: block; margin: 0 auto; border-radius: 4px;">
+                    `;
                 } else {
-                    pdfEnvSection.classList.add('hidden-step');
+                    photoBox.innerHTML = `
+                        <span class="text-xs text-slate-400 font-bold uppercase mb-2 block w-full text-center">Photo Target</span>
+                        <span class="text-slate-300 block w-full text-center mt-6">Aucune image</span>
+                    `;
                 }
 
-                // Setup H1 & H2
-                const globalBapteme = document.getElementById('h1_bapteme').value.trim() || document.getElementById('h2_bapteme').value.trim() || 'N/A';
-                document.getElementById('out_env_bapteme_photo').textContent = globalBapteme;
-
-                const mapData = (prefix) => {
+                // Strict H1 / H2 Disparition
+                ['h1', 'h2'].forEach(prefix => {
                     const bapteme = document.getElementById(`${prefix}_bapteme`).value.trim();
-                    document.getElementById(`out_${prefix}_bapteme_title`).textContent = bapteme || 'N/A';
-                    document.getElementById(`out_${prefix}_bapteme_photo`).textContent = bapteme || 'N/A';
-
-                    const fields = ['h_totale', 'h_ouvrant', 'l_ouvrant', 'l_lat', 'espace_sup', 'h_obstacle', 'structure', 'dormant', 'porte_type', 'serrure_desc'];
-                    let hasData = !!bapteme;
+                    const page = document.getElementById(`pdf-page-${prefix}`);
+                    const photoSection = document.getElementById(`pdf-section-photos-${prefix}`);
                     
-                    fields.forEach(f => {
-                        const val = document.getElementById(`${prefix}_${f}`).value.trim();
-                        if(val) hasData = true;
-                        document.getElementById(`out_${prefix}_${f === 'porte_type' ? 'porte' : (f === 'serrure_desc' ? 'serrure' : f)}`).textContent = val || '-';
-                    });
-
-                    const obs = document.getElementById(`${prefix}_observations`).value.trim();
-                    if(obs) hasData = true;
-                    document.getElementById(`out_${prefix}_observations`).textContent = obs || 'Aucune observation.';
-
-                    const ouv = document.getElementById(`${prefix}_ouverture`).value;
-                    if(ouv) hasData = true;
-                    const elOuv = document.getElementById(`out_${prefix}_ouverture`);
-                    elOuv.textContent = ouv || '-';
-                    elOuv.className = 'font-bold text-sm ' + (ouv === 'Favorable' ? 'text-green-600' : (ouv === 'Défavorable' ? 'text-red-600' : ''));
-
-                    const cote = document.getElementById(`${prefix}_cote_serrure`).value;
-                    if(cote) hasData = true;
-                    const elCote = document.getElementById(`out_${prefix}_cote_serrure`);
-                    elCote.textContent = cote || '-';
-                    elCote.className = 'text-xs font-bold px-2 py-0.5 rounded ' + (cote === 'Positif' ? 'bg-green-100 text-green-700' : (cote === 'Négatif' ? 'bg-red-100 text-red-700' : ''));
-
-                    return hasData;
-                };
-
-                mapData('h1');
-                const hasH2 = mapData('h2');
-                
-                const pageH2 = document.getElementById('pdf-page-h2');
-                if(hasH2) pageH2.classList.remove('hidden-step');
-                else pageH2.classList.add('hidden-step');
+                    if(bapteme) {
+                        page.classList.remove('hidden-step');
+                        // Show photos only if they exist for this active prefix
+                        if(photoSection && statePhotos[prefix] && statePhotos[prefix].length > 0) {
+                            photoSection.classList.remove('hidden-step');
+                        }
+                    } else {
+                        page.classList.add('hidden-step');
+                        if(photoSection) photoSection.classList.add('hidden-step');
+                    }
+                });
             };
+            window.forceUpdatePreview = updatePreview;
 
-            // --- GESTION DES PHOTOS (LECTURE DIRECTE SANS COMPRESSION) ---
-            const processAndStoreImages = async (files, prefix) => {
+            // --- PHOTO HANDLING ---
+            const processImages = async (files, prefix) => {
                 const promises = files.map(file => {
                     return new Promise(resolve => {
                         const reader = new FileReader();
                         reader.onload = e => resolve({ src: e.target.result, caption: '' });
-                        reader.readAsDataURL(file); // Lecture brute pour qualité max
+                        reader.readAsDataURL(file); 
                     });
                 });
                 
                 const newPhotos = await Promise.all(promises);
-                statePhotos[prefix] = statePhotos[prefix].concat(newPhotos);
-                await idb.set(`recon_${prefix}_photos`, statePhotos[prefix]);
+                if (prefix === 'cib') {
+                    statePhotos[prefix] = newPhotos.slice(0, 1);
+                } else {
+                    statePhotos[prefix] = statePhotos[prefix].concat(newPhotos);
+                }
+                
+                await idb.set(`rm_${prefix}_photos`, statePhotos[prefix]);
                 renderPhotos(prefix);
-                updatePreview();
             };
 
             const renderPhotos = (prefix) => {
                 const formGrid = document.getElementById(`${prefix}_formPhotosPreview`);
+                if(!formGrid) return; 
+                
                 const pdfGrid = document.getElementById(`out_photos_grid_${prefix}`);
-                const pdfSection = document.getElementById(`pdf-section-photos-${prefix}`); // N'existe pas pour env, géré globalement
+                const pdfSection = document.getElementById(`pdf-section-photos-${prefix}`);
                 
                 formGrid.innerHTML = '';
-                pdfGrid.innerHTML = '';
+                if(pdfGrid) pdfGrid.innerHTML = '';
 
-                if (pdfSection) {
-                    if (statePhotos[prefix].length > 0) pdfSection.classList.remove('hidden-step');
+                // Only touch pdfSection visibility if it's not the target photo 
+                // AND if the bapteme rule allows it (which is enforced in updatePreview anyway)
+                if (pdfSection && prefix !== 'cib') {
+                    const baptemeValid = prefix === 'bat' || document.getElementById(`${prefix}_bapteme`)?.value.trim();
+                    if (statePhotos[prefix].length > 0 && baptemeValid) pdfSection.classList.remove('hidden-step');
                     else pdfSection.classList.add('hidden-step');
                 }
 
                 statePhotos[prefix].forEach((photoObj, index) => {
-                    // Preview Formulaire
+                    // --- FORM PREVIEW (Miniatures + Corbeille) ---
                     const divForm = document.createElement('div');
                     divForm.className = 'relative flex flex-col border border-gray-200 rounded p-2 bg-gray-50';
+                    divForm.innerHTML = `<img src="${photoObj.src}" class="w-full object-cover rounded mb-2" style="height: 6rem;">`;
                     
-                    const img = document.createElement('img');
-                    img.src = photoObj.src;
-                    img.className = 'w-full h-32 object-cover rounded mb-2';
-                    divForm.appendChild(img);
-
-                    // Champ d'annotation (Toujours présent pour Env, optionnel mais utile pour H1/H2)
-                    const captionInput = document.createElement('input');
-                    captionInput.type = 'text';
-                    captionInput.className = 'form-input text-xs w-full py-1';
-                    captionInput.placeholder = prefix === 'env' ? 'Annotation de l\'environnement...' : 'Description de l\'image...';
-                    captionInput.value = photoObj.caption;
-                    captionInput.addEventListener('input', (e) => {
-                        statePhotos[prefix][index].caption = e.target.value;
-                        idb.set(`recon_${prefix}_photos`, statePhotos[prefix]); // Sauvegarde asynchrone
-                        const pdfCaptionEl = document.getElementById(`pdf_caption_${prefix}_${index}`);
-                        if(pdfCaptionEl) pdfCaptionEl.textContent = e.target.value || `Annexe ${prefix.toUpperCase()} ${index + 1}`;
-                    });
-                    divForm.appendChild(captionInput);
+                    const delBtn = document.createElement('button');
+                    delBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
+                    delBtn.className = 'absolute top-3 right-3 bg-red-500 hover:bg-red-700 text-white p-1.5 rounded shadow cursor-pointer transition-colors';
+                    delBtn.onclick = (e) => {
+                        e.preventDefault();
+                        statePhotos[prefix].splice(index, 1);
+                        idb.set(`rm_${prefix}_photos`, statePhotos[prefix]);
+                        renderPhotos(prefix);
+                        const fileInput = document.getElementById(`${prefix}_photosInput`);
+                        if(fileInput) fileInput.value = '';
+                    };
+                    divForm.appendChild(delBtn);
                     
+                    if (prefix !== 'cib') {
+                        const captionInput = document.createElement('input');
+                        captionInput.type = 'text'; captionInput.className = 'form-input text-xs w-full py-1';
+                        captionInput.placeholder = 'Annotation...'; captionInput.value = photoObj.caption;
+                        captionInput.addEventListener('input', (e) => {
+                            statePhotos[prefix][index].caption = e.target.value;
+                            idb.set(`rm_${prefix}_photos`, statePhotos[prefix]);
+                            const pdfCaptionEl = document.getElementById(`pdf_caption_${prefix}_${index}`);
+                            if(pdfCaptionEl) pdfCaptionEl.textContent = e.target.value || `Annexe ${index + 1}`;
+                        });
+                        divForm.appendChild(captionInput);
+                    }
                     formGrid.appendChild(divForm);
 
-                    // Preview PDF
-                    const divPdf = document.createElement('div');
-                    divPdf.className = 'avoid-break flex flex-col items-center bg-gray-50 p-2 border border-gray-200 rounded';
-                    divPdf.innerHTML = `
-                        <img src="${photoObj.src}" class="max-w-full object-contain rounded" style="max-height: 110mm;">
-                        <span class="text-sm text-gray-800 mt-2 font-bold text-center" id="pdf_caption_${prefix}_${index}">${photoObj.caption || `Annexe ${prefix.toUpperCase()} ${index + 1}`}</span>
-                    `;
-                    pdfGrid.appendChild(divPdf);
+                    // --- PDF PREVIEW (Pour les annexes uniquement, Cible géré globalement) ---
+                    if(pdfGrid && prefix !== 'cib') {
+                        const divPdf = document.createElement('div');
+                        divPdf.className = 'avoid-break flex flex-col items-center bg-gray-50 p-2 border border-gray-200 rounded';
+                        divPdf.innerHTML = `<img src="${photoObj.src}" style="max-width: 100%; max-height: 110mm; display: block; margin: 0 auto; border-radius: 4px;"><span class="text-sm text-gray-800 mt-2 font-bold text-center" id="pdf_caption_${prefix}_${index}">${photoObj.caption || `Annexe ${index + 1}`}</span>`;
+                        pdfGrid.appendChild(divPdf);
+                    }
                 });
+                
+                if(document.getElementById('step-preview').classList.contains('active')) updatePreview();
             };
 
-            // Écouteurs de fichiers
-            document.getElementById('env_photosInput').addEventListener('change', (e) => {
-                processAndStoreImages(Array.from(e.target.files), 'env');
-                e.target.value = '';
-            });
-            document.getElementById('h1_photosInput').addEventListener('change', (e) => {
-                processAndStoreImages(Array.from(e.target.files), 'h1');
-                e.target.value = '';
-            });
-            document.getElementById('h2_photosInput').addEventListener('change', (e) => {
-                processAndStoreImages(Array.from(e.target.files), 'h2');
-                e.target.value = '';
+            ['bat', 'h1', 'h2'].forEach(prefix => {
+                const input = document.getElementById(`${prefix}_photosInput`);
+                if(input) {
+                    input.addEventListener('change', (e) => {
+                        processImages(Array.from(e.target.files), prefix);
+                        e.target.value = '';
+                    });
+                }
             });
 
-            // Initial Load
+            const cibInput = document.getElementById('cib_photosInput');
+            if(cibInput) {
+                cibInput.addEventListener('change', async (e) => {
+                    statePhotos.cib = []; 
+                    await processImages(Array.from(e.target.files), 'cib');
+                    e.target.value = '';
+                });
+            }
+
             loadData();
 
-            // --- GÉNÉRATION DU PDF ---
-            document.getElementById('btnWizardGenerate').addEventListener('click', () => {
+            // --- PDF GEN ---
+            document.getElementById('btnWizardGenerate').addEventListener('click', async () => {
                 const btnText = document.getElementById('btnText');
                 const originalText = btnText.textContent;
-                btnText.textContent = "Création du PDF...";
+                btnText.textContent = "Préparation...";
                 
                 const element = document.getElementById('pdfContainer');
-                let refValue = document.getElementById('h1_bapteme').value.trim() || document.getElementById('h2_bapteme').value.trim() || 'SANS-REF';
+                
+                const scrollParent = document.getElementById('step-preview');
+                if (scrollParent) scrollParent.scrollTop = 0;
+
+                const images = element.querySelectorAll('img');
+                const imagePromises = Array.from(images).map(img => {
+                    if (img.complete) return Promise.resolve();
+                    return new Promise(resolve => {
+                        img.onload = resolve;
+                        img.onerror = resolve;
+                    });
+                });
+                await Promise.all(imagePromises);
+
+                btnText.textContent = "Génération...";
+                const refValue = document.getElementById('ctx_infraction').value.trim() || 'DOSSIER';
                 
                 const opt = {
                     margin:       0, 
-                    filename:     `FICHE-RECO-${refValue.replace(/\s+/g, '-')}.pdf`,
-                    image:        { type: 'jpeg', quality: 1.0 }, // Qualité maximale
-                    html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+                    filename:     `RECO-${refValue.replace(/\s+/g, '-')}.pdf`,
+                    image:        { type: 'jpeg', quality: 0.98 }, 
+                    html2canvas:  { 
+                        scale: 2, 
+                        useCORS: true, 
+                        allowTaint: true, 
+                        scrollY: 0,
+                        logging: false
+                    },
                     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
                     pagebreak:    { mode: ['css', 'legacy'] } 
                 };
 
-                html2pdf().set(opt).from(element).save().then(() => {
-                    btnText.textContent = originalText;
-                }).catch(err => {
-                    console.error("Erreur PDF:", err);
-                    alert("Une erreur technique est survenue lors de la création du PDF.");
-                    btnText.textContent = originalText;
-                });
+                setTimeout(() => {
+                    html2pdf().set(opt).from(element).save().then(() => {
+                        btnText.textContent = originalText;
+                    }).catch(e => {
+                        console.error("Erreur PDF:", e);
+                        alert("Erreur technique lors du PDF.");
+                        btnText.textContent = originalText;
+                    });
+                }, 500);
             });
         });
     </script>

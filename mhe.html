@@ -1,18 +1,19 @@
+```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fiche de Reconnaissance - Générateur PDF</title>
-    <!-- Tailwind CSS (CDN) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- html2pdf.js (CDN) : Version stable pour la génération PDF -->
+    <!-- html2pdf.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
         body { background-color: #f3f4f6; font-family: 'Inter', sans-serif; }
         
-        /* Conteneur global du PDF - strictement dimensionné pour éviter les bugs html2pdf */
+        /* Conteneur global du PDF */
         .pdf-export-container {
             width: 210mm;
             margin: 0 auto;
@@ -20,19 +21,21 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
 
-        /* Définition stricte d'une page A4 */
+        /* Définition de la page A4 (hauteur flexible pour laisser html2pdf couper au bon endroit) */
         .pdf-page {
             width: 210mm;
-            min-height: 297mm;
             padding: 20mm;
             position: relative;
             background: white;
             box-sizing: border-box;
         }
 
-        /* Classe cruciale pour forcer le saut de page dans le PDF */
+        /* Classes pour la gestion intelligente des sauts de page du PDF */
         .page-break {
             page-break-before: always;
+        }
+        .avoid-break {
+            page-break-inside: avoid;
         }
 
         .preview-wrapper {
@@ -41,7 +44,7 @@
             padding: 2rem 1rem;
         }
 
-        /* Personnalisation des inputs */
+        /* Inputs */
         .form-input {
             width: 100%;
             border-radius: 0.375rem;
@@ -76,14 +79,13 @@
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
 
-    <!-- Header / Navbar / Wizard Controls -->
+    <!-- Header / Wizard Controls -->
     <header class="bg-slate-900 text-white shadow-md z-20 py-3 px-4 md:px-6 flex flex-wrap justify-between items-center shrink-0 gap-3">
         <div class="flex items-center gap-3">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 shrink-0"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
             <h1 id="headerTitle" class="text-lg md:text-xl font-bold tracking-wide truncate">Étape 1 : Saisie</h1>
         </div>
         
-        <!-- Boutons de navigation Wizard -->
         <div class="flex gap-2 w-full md:w-auto">
             <button id="btnWizardPrev" class="hidden-step bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-md transition-colors flex-1 md:flex-none flex justify-center items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
@@ -110,25 +112,15 @@
             <div class="max-w-3xl mx-auto pb-10">
                 <form id="reconForm" class="space-y-6">
                     
-                    <!-- Section Globale : Identification -->
+                    <!-- Section Globale : Date et Équipe -->
                     <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
                         <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
-                            <span class="bg-blue-100 text-blue-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21a8 8 0 0 1 13.292-6"/></svg></span>
-                            Identification Générale
+                            <span class="bg-blue-100 text-blue-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+                            Intervention
                         </h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="md:col-span-2">
-                                <label class="form-label" for="reference">Référence Cible / Nom de code *</label>
-                                <input type="text" id="reference" name="reference" class="form-input font-mono uppercase" placeholder="ex: ECHO1 A103" required>
-                            </div>
-                            <div>
-                                <label class="form-label" for="date">Date et Heure *</label>
-                                <input type="datetime-local" id="date" name="date" class="form-input" required>
-                            </div>
-                            <div>
-                                <label class="form-label" for="operator">Opérateur / Équipe</label>
-                                <input type="text" id="operator" name="operator" class="form-input" placeholder="ex: Alpha Team">
-                            </div>
+                            <div><label class="form-label" for="date">Date et Heure *</label><input type="datetime-local" id="date" name="date" class="form-input persist" required></div>
+                            <div><label class="form-label" for="operator">Opérateur / Équipe</label><input type="text" id="operator" name="operator" class="form-input persist" placeholder="ex: Alpha Team"></div>
                         </div>
                     </div>
 
@@ -140,8 +132,21 @@
 
                     <!-- ================= CONTAINER H1 ================= -->
                     <div id="section-h1" class="space-y-6">
-                        <div class="bg-slate-800 text-white p-3 rounded text-center font-bold tracking-widest uppercase">Formulaire H1</div>
+                        <div class="bg-slate-800 text-white p-3 rounded text-center font-bold tracking-widest uppercase flex justify-between items-center">
+                            <span>Formulaire H1</span>
+                            <button type="button" class="btn-clear text-red-300 hover:text-red-100 text-sm flex items-center gap-1" data-target="h1">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg> Nettoyer
+                            </button>
+                        </div>
                         
+                        <!-- Identification H1 -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                            <div>
+                                <label class="form-label text-blue-700 font-bold" for="h1_bapteme">Baptême ouvrant (H1) *</label>
+                                <input type="text" id="h1_bapteme" class="form-input font-mono uppercase border-blue-300 bg-blue-50 persist" placeholder="ex: ECHO1 A103">
+                            </div>
+                        </div>
+
                         <!-- Mesures H1 -->
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
                             <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
@@ -149,12 +154,12 @@
                                 Relevé des mesures H1 (mm)
                             </h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div><label class="form-label">Hauteur totale</label><div class="relative"><input type="number" id="h1_h_totale" class="form-input pr-10" placeholder="2300"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Hauteur ouvrant</label><div class="relative"><input type="number" id="h1_h_ouvrant" class="form-input pr-10" placeholder="2000"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Largeur ouvrant</label><div class="relative"><input type="number" id="h1_l_ouvrant" class="form-input pr-10" placeholder="840"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Largeur latérale</label><div class="relative"><input type="number" id="h1_l_lat" class="form-input pr-10" placeholder="350"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Espace supérieur</label><div class="relative"><input type="number" id="h1_espace_sup" class="form-input pr-10" placeholder="120"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Hauteur obstacle</label><div class="relative"><input type="number" id="h1_h_obstacle" class="form-input pr-10" placeholder="90"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Hauteur totale</label><div class="relative"><input type="number" id="h1_h_totale" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Hauteur ouvrant</label><div class="relative"><input type="number" id="h1_h_ouvrant" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Largeur ouvrant</label><div class="relative"><input type="number" id="h1_l_ouvrant" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Largeur latérale</label><div class="relative"><input type="number" id="h1_l_lat" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Espace supérieur</label><div class="relative"><input type="number" id="h1_espace_sup" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Hauteur obstacle</label><div class="relative"><input type="number" id="h1_h_obstacle" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
                             </div>
                         </div>
 
@@ -165,15 +170,15 @@
                                 Caractéristiques Techniques H1
                             </h3>
                             <div class="space-y-4">
-                                <div><label class="form-label">Structure du Bâtiment</label><input type="text" id="h1_structure" class="form-input"></div>
-                                <div><label class="form-label">Dormant / Bâti</label><input type="text" id="h1_dormant" class="form-input"></div>
+                                <div><label class="form-label">Structure du Bâtiment</label><input type="text" id="h1_structure" class="form-input persist"></div>
+                                <div><label class="form-label">Dormant / Bâti</label><input type="text" id="h1_dormant" class="form-input persist"></div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><label class="form-label">Porte / Ouvrant</label><input type="text" id="h1_porte_type" class="form-input"></div>
-                                    <div><label class="form-label">Sens d'ouverture</label><select id="h1_ouverture" class="form-input bg-white"><option value="">Sélectionner...</option><option value="Favorable">Favorable (Poussant)</option><option value="Défavorable">Défavorable (Tirant)</option></select></div>
+                                    <div><label class="form-label">Porte / Ouvrant</label><input type="text" id="h1_porte_type" class="form-input persist"></div>
+                                    <div><label class="form-label">Sens d'ouverture</label><select id="h1_ouverture" class="form-input bg-white persist"><option value="">Sélectionner...</option><option value="Favorable">Favorable (Poussant)</option><option value="Défavorable">Défavorable (Tirant)</option></select></div>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="md:col-span-2"><label class="form-label">Description Poignée / Serrure</label><input type="text" id="h1_serrure_desc" class="form-input"></div>
-                                    <div><label class="form-label">Côté Serrure</label><select id="h1_cote_serrure" class="form-input bg-white"><option value="">Sélectionner...</option><option value="Positif">Positif</option><option value="Négatif">Négatif</option></select></div>
+                                    <div class="md:col-span-2"><label class="form-label">Description Poignée / Serrure</label><input type="text" id="h1_serrure_desc" class="form-input persist"></div>
+                                    <div><label class="form-label">Côté Serrure</label><select id="h1_cote_serrure" class="form-input bg-white persist"><option value="">Sélectionner...</option><option value="Positif">Positif</option><option value="Négatif">Négatif</option></select></div>
                                 </div>
                             </div>
                         </div>
@@ -185,9 +190,9 @@
                                 Observations & Photos H1
                             </h3>
                             <div class="space-y-4">
-                                <div><label class="form-label">Autres (Points de vigilance...)</label><textarea id="h1_observations" rows="3" class="form-input resize-y"></textarea></div>
+                                <div><label class="form-label">Autres (Points de vigilance...)</label><textarea id="h1_observations" rows="3" class="form-input resize-y persist"></textarea></div>
                                 <div>
-                                    <label class="form-label">Photos H1</label>
+                                    <label class="form-label">Photos H1 (S'ajouteront aux existantes)</label>
                                     <input type="file" id="h1_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border p-1 rounded">
                                     <div id="h1_formPhotosPreview" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3"></div>
                                 </div>
@@ -197,8 +202,21 @@
 
                     <!-- ================= CONTAINER H2 ================= -->
                     <div id="section-h2" class="space-y-6 hidden-step">
-                        <div class="bg-slate-600 text-white p-3 rounded text-center font-bold tracking-widest uppercase">Formulaire H2</div>
+                        <div class="bg-slate-600 text-white p-3 rounded text-center font-bold tracking-widest uppercase flex justify-between items-center">
+                            <span>Formulaire H2</span>
+                            <button type="button" class="btn-clear text-red-300 hover:text-red-100 text-sm flex items-center gap-1" data-target="h2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg> Nettoyer
+                            </button>
+                        </div>
                         
+                        <!-- Identification H2 -->
+                        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                            <div>
+                                <label class="form-label text-blue-700 font-bold" for="h2_bapteme">Baptême ouvrant (H2) *</label>
+                                <input type="text" id="h2_bapteme" class="form-input font-mono uppercase border-blue-300 bg-blue-50 persist" placeholder="ex: ECHO1 A104">
+                            </div>
+                        </div>
+
                         <!-- Mesures H2 -->
                         <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
                             <h3 class="text-lg font-semibold text-slate-800 mb-4 border-b pb-2 flex items-center gap-2">
@@ -206,12 +224,12 @@
                                 Relevé des mesures H2 (mm)
                             </h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div><label class="form-label">Hauteur totale</label><div class="relative"><input type="number" id="h2_h_totale" class="form-input pr-10"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Hauteur ouvrant</label><div class="relative"><input type="number" id="h2_h_ouvrant" class="form-input pr-10"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Largeur ouvrant</label><div class="relative"><input type="number" id="h2_l_ouvrant" class="form-input pr-10"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Largeur latérale</label><div class="relative"><input type="number" id="h2_l_lat" class="form-input pr-10"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Espace supérieur</label><div class="relative"><input type="number" id="h2_espace_sup" class="form-input pr-10"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
-                                <div><label class="form-label">Hauteur obstacle</label><div class="relative"><input type="number" id="h2_h_obstacle" class="form-input pr-10"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Hauteur totale</label><div class="relative"><input type="number" id="h2_h_totale" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Hauteur ouvrant</label><div class="relative"><input type="number" id="h2_h_ouvrant" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Largeur ouvrant</label><div class="relative"><input type="number" id="h2_l_ouvrant" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Largeur latérale</label><div class="relative"><input type="number" id="h2_l_lat" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Espace supérieur</label><div class="relative"><input type="number" id="h2_espace_sup" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
+                                <div><label class="form-label">Hauteur obstacle</label><div class="relative"><input type="number" id="h2_h_obstacle" class="form-input pr-10 persist"><span class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 text-sm">mm</span></div></div>
                             </div>
                         </div>
 
@@ -222,15 +240,15 @@
                                 Caractéristiques Techniques H2
                             </h3>
                             <div class="space-y-4">
-                                <div><label class="form-label">Structure du Bâtiment</label><input type="text" id="h2_structure" class="form-input"></div>
-                                <div><label class="form-label">Dormant / Bâti</label><input type="text" id="h2_dormant" class="form-input"></div>
+                                <div><label class="form-label">Structure du Bâtiment</label><input type="text" id="h2_structure" class="form-input persist"></div>
+                                <div><label class="form-label">Dormant / Bâti</label><input type="text" id="h2_dormant" class="form-input persist"></div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><label class="form-label">Porte / Ouvrant</label><input type="text" id="h2_porte_type" class="form-input"></div>
-                                    <div><label class="form-label">Sens d'ouverture</label><select id="h2_ouverture" class="form-input bg-white"><option value="">Sélectionner...</option><option value="Favorable">Favorable (Poussant)</option><option value="Défavorable">Défavorable (Tirant)</option></select></div>
+                                    <div><label class="form-label">Porte / Ouvrant</label><input type="text" id="h2_porte_type" class="form-input persist"></div>
+                                    <div><label class="form-label">Sens d'ouverture</label><select id="h2_ouverture" class="form-input bg-white persist"><option value="">Sélectionner...</option><option value="Favorable">Favorable (Poussant)</option><option value="Défavorable">Défavorable (Tirant)</option></select></div>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="md:col-span-2"><label class="form-label">Description Poignée / Serrure</label><input type="text" id="h2_serrure_desc" class="form-input"></div>
-                                    <div><label class="form-label">Côté Serrure</label><select id="h2_cote_serrure" class="form-input bg-white"><option value="">Sélectionner...</option><option value="Positif">Positif</option><option value="Négatif">Négatif</option></select></div>
+                                    <div class="md:col-span-2"><label class="form-label">Description Poignée / Serrure</label><input type="text" id="h2_serrure_desc" class="form-input persist"></div>
+                                    <div><label class="form-label">Côté Serrure</label><select id="h2_cote_serrure" class="form-input bg-white persist"><option value="">Sélectionner...</option><option value="Positif">Positif</option><option value="Négatif">Négatif</option></select></div>
                                 </div>
                             </div>
                         </div>
@@ -242,9 +260,9 @@
                                 Observations & Photos H2
                             </h3>
                             <div class="space-y-4">
-                                <div><label class="form-label">Autres (Points de vigilance...)</label><textarea id="h2_observations" rows="3" class="form-input resize-y"></textarea></div>
+                                <div><label class="form-label">Autres (Points de vigilance...)</label><textarea id="h2_observations" rows="3" class="form-input resize-y persist"></textarea></div>
                                 <div>
-                                    <label class="form-label">Photos H2</label>
+                                    <label class="form-label">Photos H2 (S'ajouteront aux existantes)</label>
                                     <input type="file" id="h2_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border p-1 rounded">
                                     <div id="h2_formPhotosPreview" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3"></div>
                                 </div>
@@ -260,14 +278,13 @@
         <!-- ÉTAPE 2 : APERÇU & EXPORT PDF              -->
         <!-- ========================================== -->
         <div id="step-preview" class="w-full h-full overflow-y-auto bg-gray-300 hidden-step flex flex-col items-center">
-            <div class="w-full text-center py-3 bg-gray-200 border-b border-gray-400 text-sm font-medium text-gray-600 shadow-inner">
-                Vue finale du document (Dimensions A4 réelles)
+            <div class="w-full text-center py-3 bg-gray-200 border-b border-gray-400 text-sm font-medium text-gray-600 shadow-inner shrink-0">
+                Vue finale du document (Format A4)
             </div>
             
-            <div class="preview-wrapper flex flex-col items-center gap-8">
+            <div class="preview-wrapper flex flex-col items-center">
                 
-                <!-- CONTENEUR DU PDF (Tout ce qui est dedans sera exporté) -->
-                <!-- Note: Pas de contraintes d'overflow ici pour garantir que html2pdf lise tout -->
+                <!-- CONTENEUR DU PDF -->
                 <div id="pdfContainer" class="pdf-export-container">
                     
                     <!-- ================= PAGE 1 : DONNÉES H1 ================= -->
@@ -278,7 +295,7 @@
                                 <p class="text-sm font-semibold text-slate-600 mt-1">ÉVALUATION D'ACCÈS BÂTIMENT - <span class="text-blue-600">OUVRANT H1</span></p>
                             </div>
                             <div class="text-right">
-                                <div class="text-3xl font-black text-red-600 font-mono tracking-tighter out_reference">N/A</div>
+                                <div class="text-2xl font-black text-red-600 font-mono tracking-tighter" id="out_h1_bapteme_title">N/A</div>
                             </div>
                         </div>
 
@@ -288,7 +305,6 @@
                         </div>
 
                         <div class="grid grid-cols-2 gap-8">
-                            <!-- Technique -->
                             <div class="col-span-1 space-y-5">
                                 <section>
                                     <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">1. Maçonnerie & Bâti</h2>
@@ -306,7 +322,6 @@
                                     </div>
                                 </section>
                             </div>
-                            <!-- Mesures -->
                             <div class="col-span-1 space-y-5">
                                 <section>
                                     <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">3. Relevés dimensionnels</h2>
@@ -328,24 +343,25 @@
                             <h2 class="text-sm font-bold uppercase text-white bg-red-700 px-2 py-1 mb-2 rounded-sm inline-block">4. Points de vigilance & Environnement (H1)</h2>
                             <div class="border-2 border-red-200 bg-red-50 p-3 rounded-md min-h-[60px]"><p class="text-sm text-slate-800 whitespace-pre-wrap font-medium" id="out_h1_observations">Aucune observation.</p></div>
                         </section>
-                        <div class="absolute bottom-5 left-10 right-10 border-t border-gray-300 pt-2 text-xs text-center text-gray-400 flex justify-between"><span>Page 1 - H1</span><span>CONFIDENTIEL</span></div>
                     </div>
 
-                    <!-- ================= PAGE 2 : PHOTOS H1 (Optionnelle) ================= -->
-                    <div id="pdf-page-photos-h1" class="pdf-page page-break hidden-step">
-                        <div class="border-b-2 border-slate-800 pb-2 mb-6"><h1 class="text-xl font-black uppercase tracking-tight text-slate-900">Annexes Photographiques - H1</h1><p class="text-sm font-semibold text-slate-600 mt-1 out_reference">N/A</p></div>
-                        <div id="out_photos_grid_h1" class="grid grid-cols-2 gap-4"></div>
-                        <div class="absolute bottom-5 left-10 right-10 border-t border-gray-300 pt-2 text-xs text-center text-gray-400 flex justify-between"><span>Page Photos H1</span><span>CONFIDENTIEL</span></div>
+                    <!-- ================= SECTION PHOTOS H1 (Sauts de page gérés par CSS) ================= -->
+                    <div id="pdf-section-photos-h1" class="hidden-step">
+                        <div class="pdf-page page-break avoid-break">
+                            <div class="border-b-2 border-slate-800 pb-2 mb-6"><h1 class="text-xl font-black uppercase tracking-tight text-slate-900">Annexes Photographiques - H1</h1><p class="text-sm font-semibold text-slate-600 mt-1" id="out_h1_bapteme_photo">N/A</p></div>
+                            <!-- Max 2 photos grandes par page via CSS max-height: 120mm et avoid-break -->
+                            <div id="out_photos_grid_h1" class="flex flex-col gap-8"></div>
+                        </div>
                     </div>
 
-                    <!-- ================= PAGE 3 : DONNÉES H2 (Optionnelle) ================= -->
+                    <!-- ================= PAGE 3 : DONNÉES H2 ================= -->
                     <div id="pdf-page-h2" class="pdf-page page-break hidden-step">
                         <div class="border-b-2 border-slate-800 pb-2 mb-4 flex justify-between items-end">
                             <div>
                                 <h1 class="text-2xl font-black uppercase tracking-tight text-slate-900">Fiche de Reconnaissance</h1>
                                 <p class="text-sm font-semibold text-slate-600 mt-1">ÉVALUATION D'ACCÈS BÂTIMENT - <span class="text-slate-600">OUVRANT H2</span></p>
                             </div>
-                            <div class="text-right"><div class="text-3xl font-black text-red-600 font-mono tracking-tighter out_reference">N/A</div></div>
+                            <div class="text-right"><div class="text-2xl font-black text-red-600 font-mono tracking-tighter" id="out_h2_bapteme_title">N/A</div></div>
                         </div>
 
                         <div class="flex justify-between items-center bg-slate-100 p-2 rounded mb-6 text-sm">
@@ -354,7 +370,6 @@
                         </div>
 
                         <div class="grid grid-cols-2 gap-8">
-                            <!-- Technique H2 -->
                             <div class="col-span-1 space-y-5">
                                 <section>
                                     <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">1. Maçonnerie & Bâti</h2>
@@ -372,7 +387,6 @@
                                     </div>
                                 </section>
                             </div>
-                            <!-- Mesures H2 -->
                             <div class="col-span-1 space-y-5">
                                 <section>
                                     <h2 class="text-sm font-bold uppercase text-white bg-slate-800 px-2 py-1 mb-2 rounded-sm inline-block">3. Relevés dimensionnels</h2>
@@ -394,14 +408,14 @@
                             <h2 class="text-sm font-bold uppercase text-white bg-red-700 px-2 py-1 mb-2 rounded-sm inline-block">4. Points de vigilance & Environnement (H2)</h2>
                             <div class="border-2 border-red-200 bg-red-50 p-3 rounded-md min-h-[60px]"><p class="text-sm text-slate-800 whitespace-pre-wrap font-medium" id="out_h2_observations">Aucune observation.</p></div>
                         </section>
-                        <div class="absolute bottom-5 left-10 right-10 border-t border-gray-300 pt-2 text-xs text-center text-gray-400 flex justify-between"><span>Page H2</span><span>CONFIDENTIEL</span></div>
                     </div>
 
-                    <!-- ================= PAGE 4 : PHOTOS H2 (Optionnelle) ================= -->
-                    <div id="pdf-page-photos-h2" class="pdf-page page-break hidden-step">
-                        <div class="border-b-2 border-slate-800 pb-2 mb-6"><h1 class="text-xl font-black uppercase tracking-tight text-slate-900">Annexes Photographiques - H2</h1><p class="text-sm font-semibold text-slate-600 mt-1 out_reference">N/A</p></div>
-                        <div id="out_photos_grid_h2" class="grid grid-cols-2 gap-4"></div>
-                        <div class="absolute bottom-5 left-10 right-10 border-t border-gray-300 pt-2 text-xs text-center text-gray-400 flex justify-between"><span>Page Photos H2</span><span>CONFIDENTIEL</span></div>
+                    <!-- ================= SECTION PHOTOS H2 ================= -->
+                    <div id="pdf-section-photos-h2" class="hidden-step">
+                        <div class="pdf-page page-break avoid-break">
+                            <div class="border-b-2 border-slate-800 pb-2 mb-6"><h1 class="text-xl font-black uppercase tracking-tight text-slate-900">Annexes Photographiques - H2</h1><p class="text-sm font-semibold text-slate-600 mt-1" id="out_h2_bapteme_photo">N/A</p></div>
+                            <div id="out_photos_grid_h2" class="flex flex-col gap-8"></div>
+                        </div>
                     </div>
 
                 </div>
@@ -409,11 +423,11 @@
         </div>
     </main>
 
-    <!-- Logique Applicative (Vanilla JS) -->
+    <!-- Logique Applicative JS -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             
-            // --- GESTION DU WIZARD (NAVIGATION ÉTAPES) ---
+            // --- GESTION DU WIZARD ---
             const stepForm = document.getElementById('step-form');
             const stepPreview = document.getElementById('step-preview');
             const btnPrev = document.getElementById('btnWizardPrev');
@@ -422,10 +436,10 @@
             const headerTitle = document.getElementById('headerTitle');
 
             btnNext.addEventListener('click', () => {
-                // Validation basique
-                if(!document.getElementById('reference').value.trim()) {
-                    alert("Veuillez saisir au minimum la Référence Cible.");
-                    document.getElementById('reference').focus();
+                // Validation
+                if(!document.getElementById('h1_bapteme').value.trim() && !document.getElementById('h2_bapteme').value.trim()) {
+                    alert("Veuillez saisir au moins un Baptême ouvrant (H1 ou H2).");
+                    document.getElementById('h1_bapteme').focus();
                     return;
                 }
                 stepForm.classList.add('hidden-step');
@@ -434,7 +448,7 @@
                 btnNext.classList.add('hidden-step');
                 btnGenerate.classList.remove('hidden-step');
                 headerTitle.textContent = "Étape 2 : Aperçu avant export";
-                updatePreview(); // Rafraichissement forcé
+                updatePreview();
             });
 
             btnPrev.addEventListener('click', () => {
@@ -446,7 +460,7 @@
                 headerTitle.textContent = "Étape 1 : Saisie";
             });
 
-            // --- GESTION DU TOGGLE H1 / H2 DANS LE FORMULAIRE ---
+            // --- TOGGLE H1 / H2 ---
             const btnH1 = document.getElementById('toggleH1');
             const btnH2 = document.getElementById('toggleH2');
             const sectionH1 = document.getElementById('section-h1');
@@ -466,17 +480,64 @@
                 sectionH1.classList.add('hidden-step');
             });
 
-            // --- INITIALISATION DONNÉES GLOBALES ---
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            document.getElementById('date').value = now.toISOString().slice(0,16);
+            // --- LOCAL STORAGE & DATA STATE ---
+            // On conserve les photos en mémoire sous forme de tableaux Base64 pour ne pas dépendre du <input file>
+            let statePhotos = { h1: [], h2: [] };
 
-            // --- LOGIQUE DE MISE A JOUR PREVIEW ---
-            const updatePreview = () => {
-                // Valeurs communes (Classes car multiples éléments sur plusieurs pages)
-                const ref = document.getElementById('reference').value || '-';
-                document.querySelectorAll('.out_reference').forEach(el => el.textContent = ref);
+            const loadData = () => {
+                document.querySelectorAll('.persist').forEach(el => {
+                    const saved = localStorage.getItem(`recon_${el.id}`);
+                    if (saved !== null) el.value = saved;
+                });
+                // Initialisation date si vide
+                if(!document.getElementById('date').value) {
+                    const now = new Date();
+                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                    document.getElementById('date').value = now.toISOString().slice(0,16);
+                }
                 
+                // Load photos
+                const savedH1Photos = localStorage.getItem('recon_h1_photos');
+                if(savedH1Photos) statePhotos.h1 = JSON.parse(savedH1Photos);
+                const savedH2Photos = localStorage.getItem('recon_h2_photos');
+                if(savedH2Photos) statePhotos.h2 = JSON.parse(savedH2Photos);
+                
+                renderPhotos('h1');
+                renderPhotos('h2');
+                updatePreview();
+            };
+
+            const saveData = () => {
+                document.querySelectorAll('.persist').forEach(el => {
+                    localStorage.setItem(`recon_${el.id}`, el.value);
+                });
+            };
+
+            document.getElementById('reconForm').addEventListener('input', (e) => {
+                if(e.target.classList.contains('persist')) saveData();
+                updatePreview();
+            });
+
+            // Nettoyage spécifique
+            document.querySelectorAll('.btn-clear').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const target = e.currentTarget.getAttribute('data-target'); // h1 ou h2
+                    if(confirm(`Voulez-vous vraiment effacer toutes les données et photos de l'ouvrant ${target.toUpperCase()} ?`)) {
+                        document.querySelectorAll(`[id^="${target}_"].persist`).forEach(el => {
+                            el.value = '';
+                            localStorage.removeItem(`recon_${el.id}`);
+                        });
+                        document.getElementById(`${target}_photosInput`).value = '';
+                        statePhotos[target] = [];
+                        localStorage.removeItem(`recon_${target}_photos`);
+                        renderPhotos(target);
+                        updatePreview();
+                    }
+                });
+            });
+
+            // --- MISE A JOUR PREVIEW ---
+            const updatePreview = () => {
                 const op = document.getElementById('operator').value || '-';
                 document.querySelectorAll('.out_operator').forEach(el => el.textContent = op);
 
@@ -488,10 +549,13 @@
                 }
                 document.querySelectorAll('.out_date').forEach(el => el.textContent = dateStr);
 
-                // Fonction helper pour H1 et H2
                 const mapData = (prefix) => {
+                    const bapteme = document.getElementById(`${prefix}_bapteme`).value.trim();
+                    document.getElementById(`out_${prefix}_bapteme_title`).textContent = bapteme || 'N/A';
+                    document.getElementById(`out_${prefix}_bapteme_photo`).textContent = bapteme || 'N/A';
+
                     const fields = ['h_totale', 'h_ouvrant', 'l_ouvrant', 'l_lat', 'espace_sup', 'h_obstacle', 'structure', 'dormant', 'porte_type', 'serrure_desc'];
-                    let hasData = false;
+                    let hasData = !!bapteme;
                     
                     fields.forEach(f => {
                         const val = document.getElementById(`${prefix}_${f}`).value.trim();
@@ -503,7 +567,6 @@
                     if(obs) hasData = true;
                     document.getElementById(`out_${prefix}_observations`).textContent = obs || 'Aucune observation.';
 
-                    // Selects colores
                     const ouv = document.getElementById(`${prefix}_ouverture`).value;
                     if(ouv) hasData = true;
                     const elOuv = document.getElementById(`out_${prefix}_ouverture`);
@@ -522,85 +585,110 @@
                 mapData('h1');
                 const hasH2 = mapData('h2');
 
-                // Afficher ou masquer la page H2 selon saisie
+                // Affichage conditionnel de la page H2
                 const pageH2 = document.getElementById('pdf-page-h2');
-                if(hasH2) {
-                    pageH2.classList.remove('hidden-step');
-                } else {
-                    pageH2.classList.add('hidden-step');
-                }
+                if(hasH2) pageH2.classList.remove('hidden-step');
+                else pageH2.classList.add('hidden-step');
             };
 
-            document.getElementById('reconForm').addEventListener('input', updatePreview);
-            updatePreview();
-
-            // --- GESTION DES PHOTOS (Reusable pour H1 et H2) ---
-            const setupPhotos = (prefix) => {
-                const input = document.getElementById(`${prefix}_photosInput`);
-                const formGrid = document.getElementById(`${prefix}_formPhotosPreview`);
-                const pdfGrid = document.getElementById(`out_photos_grid_${prefix}`);
-                const pdfPage = document.getElementById(`pdf-page-photos-${prefix}`);
-
-                input.addEventListener('change', function(e) {
-                    formGrid.innerHTML = '';
-                    pdfGrid.innerHTML = '';
-                    const files = Array.from(e.target.files);
-
-                    if (files.length > 0) {
-                        pdfPage.classList.remove('hidden-step');
-                    } else {
-                        pdfPage.classList.add('hidden-step');
-                    }
-
-                    files.forEach((file, index) => {
-                        if (!file.type.startsWith('image/')) return;
+            // --- GESTION DES PHOTOS (COMPRESSION & RENDU) ---
+            const processAndStoreImages = (files, prefix) => {
+                const promises = files.map(file => {
+                    return new Promise(resolve => {
                         const reader = new FileReader();
-                        reader.onload = function(event) {
-                            const base64Src = event.target.result;
-                            
-                            // Form Preview
-                            const divForm = document.createElement('div');
-                            divForm.className = 'relative group rounded overflow-hidden border border-gray-200';
-                            divForm.innerHTML = `<img src="${base64Src}" class="w-full h-20 object-cover"><div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all"></div>`;
-                            formGrid.appendChild(divForm);
-
-                            // PDF Preview (Hauteur restreinte pour tenir sur une page)
-                            const divPdf = document.createElement('div');
-                            divPdf.className = 'flex flex-col items-center bg-gray-50 p-2 border border-gray-200 rounded';
-                            divPdf.innerHTML = `<img src="${base64Src}" class="max-w-full object-contain rounded" style="max-height: 250px;"><span class="text-xs text-gray-500 mt-2 font-medium">Annexe ${index + 1} (${prefix.toUpperCase()})</span>`;
-                            pdfGrid.appendChild(divPdf);
+                        reader.onload = e => {
+                            const img = new Image();
+                            img.onload = () => {
+                                // Compression canvas pour éviter le quota LocalStorage
+                                const canvas = document.createElement('canvas');
+                                const MAX_SIZE = 1200; // Résolution max suffisante pour un A4
+                                let w = img.width, h = img.height;
+                                if(w > h && w > MAX_SIZE) { h *= MAX_SIZE/w; w = MAX_SIZE; }
+                                else if(h > MAX_SIZE) { w *= MAX_SIZE/h; h = MAX_SIZE; }
+                                canvas.width = w; canvas.height = h;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0, w, h);
+                                resolve(canvas.toDataURL('image/jpeg', 0.7)); // Qualité 70%
+                            };
+                            img.src = e.target.result;
                         };
                         reader.readAsDataURL(file);
                     });
                 });
+                
+                Promise.all(promises).then(base64Array => {
+                    statePhotos[prefix] = statePhotos[prefix].concat(base64Array);
+                    try {
+                        localStorage.setItem(`recon_${prefix}_photos`, JSON.stringify(statePhotos[prefix]));
+                    } catch(e) {
+                        alert("Le stockage local est plein. Certaines photos n'ont pas pu être mémorisées pour la prochaine visite, mais elles seront bien dans le PDF actuel.");
+                    }
+                    renderPhotos(prefix);
+                });
             };
 
-            setupPhotos('h1');
-            setupPhotos('h2');
+            const renderPhotos = (prefix) => {
+                const formGrid = document.getElementById(`${prefix}_formPhotosPreview`);
+                const pdfGrid = document.getElementById(`out_photos_grid_${prefix}`);
+                const pdfSection = document.getElementById(`pdf-section-photos-${prefix}`);
+                
+                formGrid.innerHTML = '';
+                pdfGrid.innerHTML = '';
 
-            // --- CORRECTION ET GÉNÉRATION DU PDF ---
+                if (statePhotos[prefix].length > 0) {
+                    pdfSection.classList.remove('hidden-step');
+                } else {
+                    pdfSection.classList.add('hidden-step');
+                }
+
+                statePhotos[prefix].forEach((base64Src, index) => {
+                    // Preview Formulaire (Miniatures carrées)
+                    const divForm = document.createElement('div');
+                    divForm.className = 'relative group rounded overflow-hidden border border-gray-200';
+                    divForm.innerHTML = `<img src="${base64Src}" class="w-full h-20 object-cover">`;
+                    formGrid.appendChild(divForm);
+
+                    // Preview PDF (Grandes photos en colonne, max 2 par page garantis via la hauteur)
+                    const divPdf = document.createElement('div');
+                    // class avoid-break empêche la coupure d'une photo en plein milieu
+                    divPdf.className = 'avoid-break flex flex-col items-center bg-gray-50 p-2 border border-gray-200 rounded';
+                    // max-height 120mm assure que 2 photos tiennent parfaitement sur 297mm (avec padding et header)
+                    divPdf.innerHTML = `<img src="${base64Src}" class="max-w-full object-contain rounded" style="max-height: 120mm;"><span class="text-xs text-gray-500 mt-2 font-medium">Annexe ${index + 1} (${prefix.toUpperCase()})</span>`;
+                    pdfGrid.appendChild(divPdf);
+                });
+            };
+
+            document.getElementById('h1_photosInput').addEventListener('change', (e) => {
+                processAndStoreImages(Array.from(e.target.files), 'h1');
+                e.target.value = ''; // Reset input
+            });
+            document.getElementById('h2_photosInput').addEventListener('change', (e) => {
+                processAndStoreImages(Array.from(e.target.files), 'h2');
+                e.target.value = ''; // Reset input
+            });
+
+            // Initial Load
+            loadData();
+
+            // --- GÉNÉRATION DU PDF ---
             document.getElementById('btnWizardGenerate').addEventListener('click', () => {
                 const btnText = document.getElementById('btnText');
                 const originalText = btnText.textContent;
                 btnText.textContent = "Création du PDF...";
                 
-                // Le container ne doit pas être en 'display: none', ce qui est garanti ici 
-                // car le bouton Generate n'est visible que dans l'étape Preview.
                 const element = document.getElementById('pdfContainer');
-                const refValue = document.getElementById('reference').value.trim() || 'SANS-REF';
+                let refValue = document.getElementById('h1_bapteme').value.trim() || document.getElementById('h2_bapteme').value.trim() || 'SANS-REF';
                 
-                // Options robustes pour html2pdf
+                // Options pour html2pdf avec gestion intelligente des classes "page-break" et "avoid-break"
                 const opt = {
-                    margin:       0, // On gère les marges en CSS (.pdf-page)
+                    margin:       0, 
                     filename:     `FICHE-RECO-${refValue.replace(/\s+/g, '-')}.pdf`,
                     image:        { type: 'jpeg', quality: 0.98 },
-                    // useCORS permet de charger les images Base64 sans erreur, scale 2 améliore la netteté
                     html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
-                    // format a4 explicite
-                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                    pagebreak:    { mode: ['css', 'legacy'] } 
                 };
 
-                // Lancement de la génération
                 html2pdf().set(opt).from(element).save().then(() => {
                     btnText.textContent = originalText;
                 }).catch(err => {
@@ -613,5 +701,3 @@
     </script>
 </body>
 </html>
-
-

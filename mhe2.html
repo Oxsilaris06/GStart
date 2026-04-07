@@ -313,10 +313,12 @@
                                     <div class="mt-2"><span class="pdf-label">Signes particuliers:</span> <span class="text-sm font-medium" id="out_cib_signes">-</span></div>
                                 </div>
 
-                                <!-- Photo Target Box -->
-                                <div class="col-span-1 border-2 border-slate-300 rounded p-1 flex flex-col items-center justify-center min-h-[200px] bg-slate-50" id="out_cib_photo_box">
-                                    <span class="text-xs text-slate-400 font-bold uppercase mb-2">Photo Target</span>
-                                    <!-- JS will inject image here -->
+                                <!-- Photo Target Box - Modifié pour robustesse html2canvas -->
+                                <div class="col-span-1 border-2 border-slate-300 rounded p-2 bg-slate-50 text-center" style="min-height: 200px;">
+                                    <span class="text-xs text-slate-400 font-bold uppercase mb-2 block">Photo Target</span>
+                                    <!-- Image persistante, seule la source change, pas de flexbox -->
+                                    <img id="out_cib_photo_img" src="" style="max-width: 100%; max-height: 180px; display: none; margin: 0 auto; object-fit: contain; border-radius: 4px;">
+                                    <span id="out_cib_photo_empty" class="text-slate-300 block mt-12">Aucune image</span>
                                 </div>
                             </div>
 
@@ -647,6 +649,7 @@
                         statePhotos[target] = [];
                         await idb.del(`rm_${target}_photos`);
                         renderPhotos(target);
+                        if(document.getElementById('step-preview').classList.contains('active')) updatePreview();
                     }
                 });
             });
@@ -677,18 +680,18 @@
                 if(cibNom || cibPrenom || statePhotos.cib.length > 0) pageCible.classList.remove('hidden-step');
                 else pageCible.classList.add('hidden-step');
 
-                // Render Photo Target in specific box - Stylisation stricte pour forcer html2canvas à bien la voir
-                const photoBox = document.getElementById('out_cib_photo_box');
+                // Render Photo Target in specific box - Update image SRC cleanly without removing element
+                const photoImg = document.getElementById('out_cib_photo_img');
+                const photoEmpty = document.getElementById('out_cib_photo_empty');
+                
                 if (statePhotos.cib.length > 0) {
-                    photoBox.innerHTML = `
-                        <span class="text-xs text-slate-400 font-bold uppercase mb-2 block text-center w-full">Photo Target</span>
-                        <img src="${statePhotos.cib.src}" style="max-width: 100%; max-height: 200px; display: block; margin: 0 auto; border-radius: 4px;">
-                    `;
+                    photoImg.src = statePhotos.cib.src;
+                    photoImg.style.display = 'block';
+                    photoEmpty.style.display = 'none';
                 } else {
-                    photoBox.innerHTML = `
-                        <span class="text-xs text-slate-400 font-bold uppercase mb-2 block text-center w-full">Photo Target</span>
-                        <span class="text-slate-300">Aucune image</span>
-                    `;
+                    photoImg.src = '';
+                    photoImg.style.display = 'none';
+                    photoEmpty.style.display = 'block';
                 }
 
                 // H1 & H2 Logic
@@ -793,7 +796,7 @@
 
             loadData();
 
-            // --- PDF GEN (CORRIGÉ POUR RÉSOUDRE LE BUG DES IMAGES) ---
+            // --- PDF GEN (CORRIGÉ POUR RÉSOUDRE LE BUG DES IMAGES BASE64 LOURDES) ---
             document.getElementById('btnWizardGenerate').addEventListener('click', async () => {
                 const btnText = document.getElementById('btnText');
                 const originalText = btnText.textContent;
@@ -805,7 +808,7 @@
                 const scrollParent = document.getElementById('step-preview');
                 if (scrollParent) scrollParent.scrollTop = 0;
 
-                // 2. ATTENDRE LE CHARGEMENT COMPLET DE TOUTES LES IMAGES (Base64 lourdes)
+                // 2. ATTENDRE LE CHARGEMENT COMPLET DE TOUTES LES IMAGES
                 const images = element.querySelectorAll('img');
                 const imagePromises = Array.from(images).map(img => {
                     if (img.complete) return Promise.resolve();
@@ -822,11 +825,11 @@
                 const opt = {
                     margin:       0, 
                     filename:     `RECO-${refValue.replace(/\s+/g, '-')}.pdf`,
-                    image:        { type: 'jpeg', quality: 0.98 }, // 0.98 plus stable que 1.0 pour html2pdf
+                    image:        { type: 'jpeg', quality: 0.98 }, 
                     html2canvas:  { 
                         scale: 2, 
                         useCORS: true, 
-                        allowTaint: true, // Crucial pour l'intégration des images issues de IndexedDB/Base64
+                        allowTaint: true, // Autorise expressément les datas Base64 locales (essentiel)
                         scrollY: 0,
                         logging: false
                     },

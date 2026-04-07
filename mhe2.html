@@ -677,17 +677,16 @@
                 if(cibNom || cibPrenom || statePhotos.cib.length > 0) pageCible.classList.remove('hidden-step');
                 else pageCible.classList.add('hidden-step');
 
-                // Render Photo Target in specific box
+                // Render Photo Target in specific box - using robust inline styling for html2canvas
                 const photoBox = document.getElementById('out_cib_photo_box');
                 if (statePhotos.cib.length > 0) {
-                    // UTILISATION D'UN STYLE EN LIGNE (inline-style) AU LIEU DES CLASSES DYNAMIQUES POUR html2canvas
                     photoBox.innerHTML = `
-                        <span class="text-xs text-slate-400 font-bold uppercase mb-2">Photo Target</span>
-                        <img src="${statePhotos.cib.src}" style="max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 4px;">
+                        <span class="text-xs text-slate-400 font-bold uppercase mb-2 block text-center w-full">Photo Target</span>
+                        <img src="${statePhotos.cib.src}" style="max-width: 100%; max-height: 200px; display: block; margin: 0 auto; border-radius: 4px;">
                     `;
                 } else {
                     photoBox.innerHTML = `
-                        <span class="text-xs text-slate-400 font-bold uppercase mb-2">Photo Target</span>
+                        <span class="text-xs text-slate-400 font-bold uppercase mb-2 block text-center w-full">Photo Target</span>
                         <span class="text-slate-300">Aucune image</span>
                     `;
                 }
@@ -707,11 +706,20 @@
                     return new Promise(resolve => {
                         const reader = new FileReader();
                         reader.onload = e => resolve({ src: e.target.result, caption: '' });
-                        reader.readAsDataURL(file);
+                        reader.readAsDataURL(file); // Lecture brute pour qualité max
                     });
                 });
+                
                 const newPhotos = await Promise.all(promises);
-                statePhotos[prefix] = statePhotos[prefix].concat(newPhotos);
+                
+                if (prefix === 'cib') {
+                    // La photo target doit être unique (écrase la précédente)
+                    statePhotos[prefix] = newPhotos.slice(0, 1);
+                } else {
+                    // Les autres photos s'ajoutent
+                    statePhotos[prefix] = statePhotos[prefix].concat(newPhotos);
+                }
+                
                 await idb.set(`rm_${prefix}_photos`, statePhotos[prefix]);
                 renderPhotos(prefix);
             };
@@ -763,7 +771,7 @@
                 if(document.getElementById('step-preview').classList.contains('active')) updatePreview();
             };
 
-            ['cib', 'bat', 'h1', 'h2'].forEach(prefix => {
+            ['bat', 'h1', 'h2'].forEach(prefix => {
                 const input = document.getElementById(`${prefix}_photosInput`);
                 if(input) {
                     input.addEventListener('change', (e) => {
@@ -772,6 +780,16 @@
                     });
                 }
             });
+
+            // Special event listener specifically for target photo to ensure file input clearing properly
+            const cibInput = document.getElementById('cib_photosInput');
+            if(cibInput) {
+                cibInput.addEventListener('change', async (e) => {
+                    statePhotos.cib = []; // Pre-clear
+                    await processImages(Array.from(e.target.files), 'cib');
+                    e.target.value = '';
+                });
+            }
 
             loadData();
 

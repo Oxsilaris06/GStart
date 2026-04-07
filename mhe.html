@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -124,6 +123,31 @@
                         </div>
                     </div>
 
+                    <!-- Section Globale : Environnement -->
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-center mb-4 border-b pb-2">
+                            <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                                <span class="bg-indigo-100 text-indigo-700 p-1 rounded"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg></span>
+                                Environnement Général
+                            </h3>
+                            <button type="button" class="btn-clear text-red-400 hover:text-red-600 text-sm flex items-center gap-1" data-target="env">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg> Nettoyer
+                            </button>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="form-label" for="env_description">Description de l'environnement</label>
+                                <textarea id="env_description" class="form-input resize-y persist" rows="3" placeholder="ex: Rue passante, caméras, éclairage fort, chiens..."></textarea>
+                            </div>
+                            <div>
+                                <label class="form-label">Photos Environnement (Ajout multiple possible)</label>
+                                <input type="file" id="env_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border p-1 rounded">
+                                <!-- Conteneur pour les miniatures et champs d'annotation -->
+                                <div id="env_formPhotosPreview" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4"></div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- TOGGLE H1 / H2 -->
                     <div class="flex gap-2 mt-8 mb-4">
                         <button type="button" id="toggleH1" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded shadow-md transition-colors border border-blue-700">Ouvrant H1 (Principal)</button>
@@ -192,7 +216,7 @@
                             <div class="space-y-4">
                                 <div><label class="form-label">Autres (Points de vigilance...)</label><textarea id="h1_observations" rows="3" class="form-input resize-y persist"></textarea></div>
                                 <div>
-                                    <label class="form-label">Photos H1 (S'ajouteront aux existantes)</label>
+                                    <label class="form-label">Photos H1</label>
                                     <input type="file" id="h1_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border p-1 rounded">
                                     <div id="h1_formPhotosPreview" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3"></div>
                                 </div>
@@ -262,7 +286,7 @@
                             <div class="space-y-4">
                                 <div><label class="form-label">Autres (Points de vigilance...)</label><textarea id="h2_observations" rows="3" class="form-input resize-y persist"></textarea></div>
                                 <div>
-                                    <label class="form-label">Photos H2 (S'ajouteront aux existantes)</label>
+                                    <label class="form-label">Photos H2</label>
                                     <input type="file" id="h2_photosInput" accept="image/*" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border p-1 rounded">
                                     <div id="h2_formPhotosPreview" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3"></div>
                                 </div>
@@ -340,16 +364,32 @@
                         </div>
 
                         <section class="mt-6">
-                            <h2 class="text-sm font-bold uppercase text-white bg-red-700 px-2 py-1 mb-2 rounded-sm inline-block">4. Points de vigilance & Environnement (H1)</h2>
+                            <h2 class="text-sm font-bold uppercase text-white bg-red-700 px-2 py-1 mb-2 rounded-sm inline-block">4. Points de vigilance (H1)</h2>
                             <div class="border-2 border-red-200 bg-red-50 p-3 rounded-md min-h-[60px]"><p class="text-sm text-slate-800 whitespace-pre-wrap font-medium" id="out_h1_observations">Aucune observation.</p></div>
                         </section>
+                    </div>
+
+                    <!-- ================= SECTION ENVIRONNEMENT (Page dédiée AVANT H1 Photos) ================= -->
+                    <div id="pdf-section-environnement" class="hidden-step">
+                        <div class="pdf-page page-break avoid-break">
+                            <div class="border-b-2 border-slate-800 pb-2 mb-6">
+                                <h1 class="text-xl font-black uppercase tracking-tight text-slate-900">Environnement Général</h1>
+                                <p class="text-sm font-semibold text-slate-600 mt-1" id="out_env_bapteme_photo">N/A</p>
+                            </div>
+                            
+                            <div class="mb-6 bg-gray-50 p-3 rounded border border-gray-200">
+                                <span class="block text-xs font-bold text-slate-500 uppercase mb-2">Description du secteur</span>
+                                <p class="text-sm font-medium text-slate-800 whitespace-pre-wrap" id="out_env_description">Aucune description.</p>
+                            </div>
+
+                            <div id="out_photos_grid_env" class="flex flex-col gap-8"></div>
+                        </div>
                     </div>
 
                     <!-- ================= SECTION PHOTOS H1 (Sauts de page gérés par CSS) ================= -->
                     <div id="pdf-section-photos-h1" class="hidden-step">
                         <div class="pdf-page page-break avoid-break">
                             <div class="border-b-2 border-slate-800 pb-2 mb-6"><h1 class="text-xl font-black uppercase tracking-tight text-slate-900">Annexes Photographiques - H1</h1><p class="text-sm font-semibold text-slate-600 mt-1" id="out_h1_bapteme_photo">N/A</p></div>
-                            <!-- Max 2 photos grandes par page via CSS max-height: 120mm et avoid-break -->
                             <div id="out_photos_grid_h1" class="flex flex-col gap-8"></div>
                         </div>
                     </div>
@@ -405,7 +445,7 @@
                         </div>
 
                         <section class="mt-6">
-                            <h2 class="text-sm font-bold uppercase text-white bg-red-700 px-2 py-1 mb-2 rounded-sm inline-block">4. Points de vigilance & Environnement (H2)</h2>
+                            <h2 class="text-sm font-bold uppercase text-white bg-red-700 px-2 py-1 mb-2 rounded-sm inline-block">4. Points de vigilance (H2)</h2>
                             <div class="border-2 border-red-200 bg-red-50 p-3 rounded-md min-h-[60px]"><p class="text-sm text-slate-800 whitespace-pre-wrap font-medium" id="out_h2_observations">Aucune observation.</p></div>
                         </section>
                     </div>
@@ -436,7 +476,7 @@
             const headerTitle = document.getElementById('headerTitle');
 
             btnNext.addEventListener('click', () => {
-                // Validation
+                // Validation minimale
                 if(!document.getElementById('h1_bapteme').value.trim() && !document.getElementById('h2_bapteme').value.trim()) {
                     alert("Veuillez saisir au moins un Baptême ouvrant (H1 ou H2).");
                     document.getElementById('h1_bapteme').focus();
@@ -480,28 +520,81 @@
                 sectionH1.classList.add('hidden-step');
             });
 
-            // --- LOCAL STORAGE & DATA STATE ---
-            // On conserve les photos en mémoire sous forme de tableaux Base64 pour ne pas dépendre du <input file>
-            let statePhotos = { h1: [], h2: [] };
+            // --- INDEXED DB WRAPPER POUR IMAGES (Performant et non-bloquant) ---
+            const idb = {
+                db: null,
+                init: async function() {
+                    if(this.db) return this.db;
+                    return new Promise((resolve, reject) => {
+                        const req = indexedDB.open('ReconFormDB', 1);
+                        req.onupgradeneeded = e => {
+                            if (!e.target.result.objectStoreNames.contains('photos')) {
+                                e.target.result.createObjectStore('photos');
+                            }
+                        };
+                        req.onsuccess = e => { this.db = e.target.result; resolve(this.db); };
+                        req.onerror = e => reject(e.target.error);
+                    });
+                },
+                get: async function(key) {
+                    const db = await this.init();
+                    return new Promise(resolve => {
+                        const req = db.transaction('photos', 'readonly').objectStore('photos').get(key);
+                        req.onsuccess = () => resolve(req.result);
+                        req.onerror = () => resolve(null);
+                    });
+                },
+                set: async function(key, val) {
+                    const db = await this.init();
+                    return new Promise(resolve => {
+                        const req = db.transaction('photos', 'readwrite').objectStore('photos').put(val, key);
+                        req.onsuccess = () => resolve();
+                    });
+                },
+                del: async function(key) {
+                    const db = await this.init();
+                    return new Promise(resolve => {
+                        const req = db.transaction('photos', 'readwrite').objectStore('photos').delete(key);
+                        req.onsuccess = () => resolve();
+                    });
+                }
+            };
 
-            const loadData = () => {
+            // Structure mémoire des photos : { src: string(base64), caption: string }
+            let statePhotos = { env: [], h1: [], h2: [] };
+
+            const loadData = async () => {
+                // 1. Text Data (LocalStorage)
                 document.querySelectorAll('.persist').forEach(el => {
                     const saved = localStorage.getItem(`recon_${el.id}`);
                     if (saved !== null) el.value = saved;
                 });
-                // Initialisation date si vide
                 if(!document.getElementById('date').value) {
                     const now = new Date();
                     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
                     document.getElementById('date').value = now.toISOString().slice(0,16);
                 }
                 
-                // Load photos
-                const savedH1Photos = localStorage.getItem('recon_h1_photos');
-                if(savedH1Photos) statePhotos.h1 = JSON.parse(savedH1Photos);
-                const savedH2Photos = localStorage.getItem('recon_h2_photos');
-                if(savedH2Photos) statePhotos.h2 = JSON.parse(savedH2Photos);
+                // 2. Migration silencieuse (si anciennes photos dans LocalStorage)
+                for (let p of ['env', 'h1', 'h2']) {
+                    const oldStr = localStorage.getItem(`recon_${p}_photos`);
+                    if (oldStr) {
+                        try {
+                            const parsed = JSON.parse(oldStr);
+                            // Mapping au nouveau format {src, caption}
+                            const formatted = parsed.map(item => typeof item === 'string' ? { src: item, caption: '' } : item);
+                            await idb.set(`recon_${p}_photos`, formatted);
+                            localStorage.removeItem(`recon_${p}_photos`);
+                        } catch (e) {}
+                    }
+                }
+
+                // 3. Charger Images depuis IndexedDB
+                statePhotos.env = await idb.get('recon_env_photos') || [];
+                statePhotos.h1 = await idb.get('recon_h1_photos') || [];
+                statePhotos.h2 = await idb.get('recon_h2_photos') || [];
                 
+                renderPhotos('env');
                 renderPhotos('h1');
                 renderPhotos('h2');
                 updatePreview();
@@ -518,18 +611,18 @@
                 updatePreview();
             });
 
-            // Nettoyage spécifique
+            // Nettoyage ciblé (H1, H2, Env)
             document.querySelectorAll('.btn-clear').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const target = e.currentTarget.getAttribute('data-target'); // h1 ou h2
-                    if(confirm(`Voulez-vous vraiment effacer toutes les données et photos de l'ouvrant ${target.toUpperCase()} ?`)) {
+                btn.addEventListener('click', async (e) => {
+                    const target = e.currentTarget.getAttribute('data-target'); // env, h1, h2
+                    if(confirm(`Voulez-vous vraiment effacer toutes les données et photos de la section ${target.toUpperCase()} ?`)) {
                         document.querySelectorAll(`[id^="${target}_"].persist`).forEach(el => {
                             el.value = '';
                             localStorage.removeItem(`recon_${el.id}`);
                         });
                         document.getElementById(`${target}_photosInput`).value = '';
                         statePhotos[target] = [];
-                        localStorage.removeItem(`recon_${target}_photos`);
+                        await idb.del(`recon_${target}_photos`);
                         renderPhotos(target);
                         updatePreview();
                     }
@@ -548,6 +641,20 @@
                     dateStr = d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
                 }
                 document.querySelectorAll('.out_date').forEach(el => el.textContent = dateStr);
+
+                // Setup Environment
+                const envDesc = document.getElementById('env_description').value.trim();
+                document.getElementById('out_env_description').textContent = envDesc || 'Aucune description.';
+                const pdfEnvSection = document.getElementById('pdf-section-environnement');
+                if (envDesc || statePhotos.env.length > 0) {
+                    pdfEnvSection.classList.remove('hidden-step');
+                } else {
+                    pdfEnvSection.classList.add('hidden-step');
+                }
+
+                // Setup H1 & H2
+                const globalBapteme = document.getElementById('h1_bapteme').value.trim() || document.getElementById('h2_bapteme').value.trim() || 'N/A';
+                document.getElementById('out_env_bapteme_photo').textContent = globalBapteme;
 
                 const mapData = (prefix) => {
                     const bapteme = document.getElementById(`${prefix}_bapteme`).value.trim();
@@ -584,87 +691,91 @@
 
                 mapData('h1');
                 const hasH2 = mapData('h2');
-
-                // Affichage conditionnel de la page H2
+                
                 const pageH2 = document.getElementById('pdf-page-h2');
                 if(hasH2) pageH2.classList.remove('hidden-step');
                 else pageH2.classList.add('hidden-step');
             };
 
-            // --- GESTION DES PHOTOS (COMPRESSION & RENDU) ---
-            const processAndStoreImages = (files, prefix) => {
+            // --- GESTION DES PHOTOS (LECTURE DIRECTE SANS COMPRESSION) ---
+            const processAndStoreImages = async (files, prefix) => {
                 const promises = files.map(file => {
                     return new Promise(resolve => {
                         const reader = new FileReader();
-                        reader.onload = e => {
-                            const img = new Image();
-                            img.onload = () => {
-                                // Compression canvas pour éviter le quota LocalStorage
-                                const canvas = document.createElement('canvas');
-                                const MAX_SIZE = 1200; // Résolution max suffisante pour un A4
-                                let w = img.width, h = img.height;
-                                if(w > h && w > MAX_SIZE) { h *= MAX_SIZE/w; w = MAX_SIZE; }
-                                else if(h > MAX_SIZE) { w *= MAX_SIZE/h; h = MAX_SIZE; }
-                                canvas.width = w; canvas.height = h;
-                                const ctx = canvas.getContext('2d');
-                                ctx.drawImage(img, 0, 0, w, h);
-                                resolve(canvas.toDataURL('image/jpeg', 0.7)); // Qualité 70%
-                            };
-                            img.src = e.target.result;
-                        };
-                        reader.readAsDataURL(file);
+                        reader.onload = e => resolve({ src: e.target.result, caption: '' });
+                        reader.readAsDataURL(file); // Lecture brute pour qualité max
                     });
                 });
                 
-                Promise.all(promises).then(base64Array => {
-                    statePhotos[prefix] = statePhotos[prefix].concat(base64Array);
-                    try {
-                        localStorage.setItem(`recon_${prefix}_photos`, JSON.stringify(statePhotos[prefix]));
-                    } catch(e) {
-                        alert("Le stockage local est plein. Certaines photos n'ont pas pu être mémorisées pour la prochaine visite, mais elles seront bien dans le PDF actuel.");
-                    }
-                    renderPhotos(prefix);
-                });
+                const newPhotos = await Promise.all(promises);
+                statePhotos[prefix] = statePhotos[prefix].concat(newPhotos);
+                await idb.set(`recon_${prefix}_photos`, statePhotos[prefix]);
+                renderPhotos(prefix);
+                updatePreview();
             };
 
             const renderPhotos = (prefix) => {
                 const formGrid = document.getElementById(`${prefix}_formPhotosPreview`);
                 const pdfGrid = document.getElementById(`out_photos_grid_${prefix}`);
-                const pdfSection = document.getElementById(`pdf-section-photos-${prefix}`);
+                const pdfSection = document.getElementById(`pdf-section-photos-${prefix}`); // N'existe pas pour env, géré globalement
                 
                 formGrid.innerHTML = '';
                 pdfGrid.innerHTML = '';
 
-                if (statePhotos[prefix].length > 0) {
-                    pdfSection.classList.remove('hidden-step');
-                } else {
-                    pdfSection.classList.add('hidden-step');
+                if (pdfSection) {
+                    if (statePhotos[prefix].length > 0) pdfSection.classList.remove('hidden-step');
+                    else pdfSection.classList.add('hidden-step');
                 }
 
-                statePhotos[prefix].forEach((base64Src, index) => {
-                    // Preview Formulaire (Miniatures carrées)
+                statePhotos[prefix].forEach((photoObj, index) => {
+                    // Preview Formulaire
                     const divForm = document.createElement('div');
-                    divForm.className = 'relative group rounded overflow-hidden border border-gray-200';
-                    divForm.innerHTML = `<img src="${base64Src}" class="w-full h-20 object-cover">`;
+                    divForm.className = 'relative flex flex-col border border-gray-200 rounded p-2 bg-gray-50';
+                    
+                    const img = document.createElement('img');
+                    img.src = photoObj.src;
+                    img.className = 'w-full h-32 object-cover rounded mb-2';
+                    divForm.appendChild(img);
+
+                    // Champ d'annotation (Toujours présent pour Env, optionnel mais utile pour H1/H2)
+                    const captionInput = document.createElement('input');
+                    captionInput.type = 'text';
+                    captionInput.className = 'form-input text-xs w-full py-1';
+                    captionInput.placeholder = prefix === 'env' ? 'Annotation de l\'environnement...' : 'Description de l\'image...';
+                    captionInput.value = photoObj.caption;
+                    captionInput.addEventListener('input', (e) => {
+                        statePhotos[prefix][index].caption = e.target.value;
+                        idb.set(`recon_${prefix}_photos`, statePhotos[prefix]); // Sauvegarde asynchrone
+                        const pdfCaptionEl = document.getElementById(`pdf_caption_${prefix}_${index}`);
+                        if(pdfCaptionEl) pdfCaptionEl.textContent = e.target.value || `Annexe ${prefix.toUpperCase()} ${index + 1}`;
+                    });
+                    divForm.appendChild(captionInput);
+                    
                     formGrid.appendChild(divForm);
 
-                    // Preview PDF (Grandes photos en colonne, max 2 par page garantis via la hauteur)
+                    // Preview PDF
                     const divPdf = document.createElement('div');
-                    // class avoid-break empêche la coupure d'une photo en plein milieu
                     divPdf.className = 'avoid-break flex flex-col items-center bg-gray-50 p-2 border border-gray-200 rounded';
-                    // max-height 120mm assure que 2 photos tiennent parfaitement sur 297mm (avec padding et header)
-                    divPdf.innerHTML = `<img src="${base64Src}" class="max-w-full object-contain rounded" style="max-height: 120mm;"><span class="text-xs text-gray-500 mt-2 font-medium">Annexe ${index + 1} (${prefix.toUpperCase()})</span>`;
+                    divPdf.innerHTML = `
+                        <img src="${photoObj.src}" class="max-w-full object-contain rounded" style="max-height: 110mm;">
+                        <span class="text-sm text-gray-800 mt-2 font-bold text-center" id="pdf_caption_${prefix}_${index}">${photoObj.caption || `Annexe ${prefix.toUpperCase()} ${index + 1}`}</span>
+                    `;
                     pdfGrid.appendChild(divPdf);
                 });
             };
 
+            // Écouteurs de fichiers
+            document.getElementById('env_photosInput').addEventListener('change', (e) => {
+                processAndStoreImages(Array.from(e.target.files), 'env');
+                e.target.value = '';
+            });
             document.getElementById('h1_photosInput').addEventListener('change', (e) => {
                 processAndStoreImages(Array.from(e.target.files), 'h1');
-                e.target.value = ''; // Reset input
+                e.target.value = '';
             });
             document.getElementById('h2_photosInput').addEventListener('change', (e) => {
                 processAndStoreImages(Array.from(e.target.files), 'h2');
-                e.target.value = ''; // Reset input
+                e.target.value = '';
             });
 
             // Initial Load
@@ -679,11 +790,10 @@
                 const element = document.getElementById('pdfContainer');
                 let refValue = document.getElementById('h1_bapteme').value.trim() || document.getElementById('h2_bapteme').value.trim() || 'SANS-REF';
                 
-                // Options pour html2pdf avec gestion intelligente des classes "page-break" et "avoid-break"
                 const opt = {
                     margin:       0, 
                     filename:     `FICHE-RECO-${refValue.replace(/\s+/g, '-')}.pdf`,
-                    image:        { type: 'jpeg', quality: 0.98 },
+                    image:        { type: 'jpeg', quality: 1.0 }, // Qualité maximale
                     html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
                     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
                     pagebreak:    { mode: ['css', 'legacy'] } 

@@ -608,6 +608,10 @@ async function loadFormData() {
             }
         }
         syncAllThumbnails();
+        
+        // Verrouiller l'état en resynchronisant le DOM vers le Store
+        syncDomToStore();
+        
         return true;
 
     } catch (e) {

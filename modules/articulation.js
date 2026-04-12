@@ -676,8 +676,8 @@ function addEffraction(data) {
             </div>
 
             <label>Mission EFFRAC :</label>
-            <textarea class="effrac-mission" rows="4" style="width:100%; margin-bottom: 15px;" oninput="Store.saveToStorage()" placeholder="...">SOUTENIR L'ÉLÉMENT D'INTERVENTION
-L'objectif premier de la cellule est d'effectuer une effraction rapide et sécurisée sur la porte principale façade ALPHA afin de permettre la progression fluide de l'équipe d'assaut. En mesure de se rearticuler sur ordre.</textarea>
+            <textarea class="effrac-mission" rows="4" style="width:100%; margin-bottom: 15px;" oninput="Store.saveToStorage()" placeholder="...">${data?.mission || `SOUTENIR L'ÉLÉMENT D'INTERVENTION
+L'objectif premier de la cellule est d'effectuer une effraction rapide et sécurisée sur la porte principale façade ALPHA afin de permettre la progression fluide de l'équipe d'assaut. En mesure de se rearticuler sur ordre.`}</textarea>
 
             <label>Type de porte :</label>
             <textarea class="effrac-porte" rows="2" style="width:100%" oninput="Store.saveToStorage()" placeholder="Description libre...">${data?.porte || ''}</textarea>

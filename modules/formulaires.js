@@ -469,7 +469,13 @@ async function loadFormData() {
 
         // Charger les métadonnées de base
         Object.keys(data).forEach(key => {
-            if (['dynamic_photos', 'patracdvr_rows', 'patracdvr_unassigned', 'time_events', 'adversaries', 'pdf_background_id'].includes(key)) return;
+            const excludedKeys = [
+                'dynamic_photos', 'patracdvr_rows', 'patracdvr_unassigned', 
+                'time_events', 'adversaries', 'pdf_background_id',
+                'moicp_blocks', 'zmspcp_blocks', 'effraction_blocks', 'options',
+                'rame_vl_order', 'colonne_progression_order', 'ordre_penetration_order'
+            ];
+            if (excludedKeys.includes(key)) return;
             const el = document.getElementById(key);
             if (el) el.value = data[key];
         });

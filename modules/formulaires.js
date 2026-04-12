@@ -299,7 +299,13 @@ function addHypothesis(val = '') {
 }
 
 
+window.isFormLoading = false;
+
 function syncDomToStore() {
+    if (window.isFormLoading) {
+        console.log("Sync skipped: Form is loading...");
+        return;
+    }
     try {
         const data = {};
         document.querySelectorAll('#oi-form input:not([type="file"]), #oi-form textarea, #oi-form select').forEach(field => {
@@ -607,14 +613,14 @@ async function loadFormData() {
                 }
             }
         }
-        syncAllThumbnails();
-        
         // Verrouiller l'état en resynchronisant le DOM vers le Store
+        window.isFormLoading = false;
         syncDomToStore();
         
         return true;
 
     } catch (e) {
+        window.isFormLoading = false;
         console.error("Erreur de chargement:", e);
         // Si une erreur de chargement survient, on initialise quand même le PATRACDVR (vide)
         // pour éviter une page cassée et on initialise le panneau.

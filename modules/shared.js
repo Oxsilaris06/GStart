@@ -9,7 +9,7 @@
  */
 
 const SharedData = {
-    storageKey: 'tactical_oi_data',
+    storageKey: 'gstart_shared_data',
 
     // --- Gestion du Stockage (LocalStorage) ---
     init() {

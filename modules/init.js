@@ -1,5 +1,6 @@
 // ==================== Constants.js ====================
 const LOCAL_STORAGE_KEY = 'tactical_oi_data';
+window.LOCAL_STORAGE_KEY = LOCAL_STORAGE_KEY;
 const INDEXED_DB_NAME = 'OI_GeneratorLiteDB';
 const BACKGROUND_IMAGE_ID = 'pdf_background';
 const BACKGROUND_IMAGE_LIGHT = 'assets/img/fond_oi_light.png';
@@ -147,6 +148,9 @@ const Store = new Proxy(StoreBase, {
         return Reflect.get(target, prop);
     }
 });
+
+// --- INITIALISATION DU STORE ---
+Store.loadFromStorage();
 
 
 // ==================== DBManager.js ====================

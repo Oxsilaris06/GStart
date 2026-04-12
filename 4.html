@@ -2354,10 +2354,10 @@
             <div class="wizard-content">
                 <div class="wizard-step">
                     <h2>1. Situation</h2>
-                    <label for="date_op">Date de l'opération:</label><input type="date" id="date_op">
-                    <label for="situation_generale">1.1 Générale:</label><textarea id="situation_generale"></textarea>
+                    <label for="date_op">Date de l'opération:</label><input type="date" id="date_op" onchange="syncDomToStore()">
+                    <label for="situation_generale">1.1 Générale:</label><textarea id="situation_generale" oninput="syncDomToStore()"></textarea>
                     <label for="situation_particuliere">1.2 Particulière:</label><textarea
-                        id="situation_particuliere"></textarea>
+                        id="situation_particuliere" oninput="syncDomToStore()"></textarea>
                 </div>
 
                 <div class="wizard-step">
@@ -2370,20 +2370,20 @@
 
                 <div class="wizard-step">
                     <h2>3. Environnement</h2>
-                    <label>Ami(e)s (Unités en soutien):</label><input type="text" id="amies">
-                    <label>Terrain / Météo:</label><input type="text" id="terrain_info">
-                    <label>Éclairage:</label><input type="text" id="eclairage">
-                    <label>Lever du soleil (Heure prévisionnelle):</label><input type="time" id="lever_soleil">
-                    <label>Population:</label><input type="text" id="population">
-                    <label>Faune / Animaux:</label><input type="text" id="faune_animaux">
-                    <label>Accès Principal:</label><textarea id="acces_principal" rows="2"></textarea>
-                    <label>Cheminement initial:</label><textarea id="cheminement_initial" rows="2"></textarea>
-                    <label for="cadre_juridique">Cadre juridique:</label><input type="text" id="cadre_juridique">
+                    <label>Ami(e)s (Unités en soutien):</label><input type="text" id="amies" oninput="syncDomToStore()">
+                    <label>Terrain / Météo:</label><input type="text" id="terrain_info" oninput="syncDomToStore()">
+                    <label>Éclairage:</label><input type="text" id="eclairage" oninput="syncDomToStore()">
+                    <label>Lever du soleil (Heure prévisionnelle):</label><input type="time" id="lever_soleil" onchange="syncDomToStore()">
+                    <label>Population:</label><input type="text" id="population" oninput="syncDomToStore()">
+                    <label>Faune / Animaux:</label><input type="text" id="faune_animaux" oninput="syncDomToStore()">
+                    <label>Accès Principal:</label><textarea id="acces_principal" rows="2" oninput="syncDomToStore()"></textarea>
+                    <label>Cheminement initial:</label><textarea id="cheminement_initial" rows="2" oninput="syncDomToStore()"></textarea>
+                    <label for="cadre_juridique">Cadre juridique:</label><input type="text" id="cadre_juridique" oninput="syncDomToStore()">
                 </div>
 
                 <div class="wizard-step">
                     <h2>4. Mission du PSIG</h2>
-                    <textarea id="missions_psig" rows="8">
+                    <textarea id="missions_psig" rows="8" oninput="syncDomToStore()">
 
 INTERPELLER L'OBJECTIF.
 
@@ -2394,11 +2394,11 @@ CONDUITE AU LIEU DE GAV.</textarea>
 
                 <div class="wizard-step">
                     <h2>5. Exécution</h2>
-                    <label for="date_execution">Date d'exécution:</label><input type="date" id="date_execution">
+                    <label for="date_execution">Date d'exécution:</label><input type="date" id="date_execution" onchange="syncDomToStore()">
                     <label for="heure_execution">Heure d'exécution (H):</label><input type="time" id="heure_execution"
-                        value="06:00">
+                        value="06:00" onchange="syncDomToStore()">
                     <label for="action_body_text">Corps de la mission (Exécution):</label>
-                    <textarea id="action_body_text" rows="4">En vue d'appréhender le(s) mis en cause et empêcher la déperdition des preuves,
+                    <textarea id="action_body_text" rows="4" oninput="syncDomToStore()">En vue d'appréhender le(s) mis en cause et empêcher la déperdition des preuves,
 Je veux, le (date) à partir de (heure), pour une action (type d'action) investir le domicile
 présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui-ci.</textarea>
                     <h3>Chronologie</h3>
@@ -2436,7 +2436,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
 
                 <div class="wizard-step">
                     <h2>6. Articulation (MOIPC/ZMSPCP)</h2>
-                    <label for="place_chef">Place du Chef (Générale):</label><input type="text" id="place_chef">
+                    <label for="place_chef">Place du Chef (Générale):</label><input type="text" id="place_chef" oninput="syncDomToStore()">
 
                     <!-- Ordre de la rame VL -->
                     <div class="collapsible-container">
@@ -2801,11 +2801,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 }
 
                 // 7. Initialiser les puces (chips)
-                const formData = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || {};
-                if (typeof initChipContainer === 'function') {
-                    initChipContainer('etat_esprit_container', formData.etat_esprit_list || []);
-                    initChipContainer('volume_adversaire_container', formData.volume_list || []);
-                }
+                // (Note: Les chips sont maintenant initialisées dynamiquement dans addAdversary)
 
                 // 8. Écouteurs globaux (Collapsibles, etc.)
                 document.querySelector('.container').addEventListener('click', (event) => {

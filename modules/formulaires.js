@@ -713,3 +713,135 @@ window.addHypothesis = addHypothesis;
 window.syncDomToStore = syncDomToStore;
 window.loadFormData = loadFormData;
 window.checkCoherence = checkCoherence;
+
+// --- SESSION MANAGEMENT & RESET FUNCTIONS ---
+
+/**
+ * Exporte la session actuelle dans un fichier JSON.
+ */
+window.exportSession = function() {
+    syncDomToStore();
+    const data = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (data) {
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `OI_Session_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } else {
+        alert("Aucune donnée à exporter.");
+    }
+};
+
+/**
+ * Importe une session depuis un fichier JSON.
+ */
+window.importSession = function(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const json = event.target.result;
+            JSON.parse(json); // Validation JSON
+            localStorage.setItem(LOCAL_STORAGE_KEY, json);
+            alert("Session importée avec succès. Rechargement...");
+            location.reload();
+        } catch (err) {
+            alert("Erreur: Fichier de session invalide.");
+            console.error(err);
+        }
+    };
+    reader.readAsText(file);
+};
+
+/**
+ * Réinitialise tous les champs de la page active.
+ */
+window.resetActivePage = async function() {
+    if (!confirm("Réinitialiser uniquement les champs de la page active ?")) return;
+    
+    const activeStep = document.querySelector('.wizard-step.active');
+    if (!activeStep) return;
+
+    // 1. Vider les champs standards
+    activeStep.querySelectorAll('input:not([type="file"]), textarea, select').forEach(el => {
+        if (el.type === 'checkbox' || el.type === 'radio') el.checked = false;
+        else el.value = '';
+    });
+
+    // 2. Supprimer les éléments dynamiques (Adversaires, Blocs, etc.)
+    activeStep.querySelectorAll('.dynamic-list-item, .adversary-block, .moicp-block, .zmspcp-block, .effraction-block, .time-event-row, .hypothesis-item').forEach(el => el.remove());
+    
+    // 3. Désélectionner les puces (chips)
+    activeStep.querySelectorAll('.chip-btn.selected').forEach(el => el.classList.remove('selected'));
+
+    // 4. Supprimer les photos de la zone
+    const images = activeStep.querySelectorAll('.image-preview-item img');
+    for (const img of images) {
+        if (typeof removeImage === 'function') {
+            await removeImage(img.id, img.closest('.image-preview-item'));
+        } else {
+            img.closest('.image-preview-item').remove();
+        }
+    }
+
+    // 5. Cas spécial PATRACDVR
+    if (activeStep.querySelector('#patracdvr_container')) {
+        document.getElementById('patracdvr_container').innerHTML = '';
+        document.getElementById('unassigned_members_container').innerHTML = '';
+        if (window.activeMemberId !== undefined) window.activeMemberId = null;
+        const quickEditPanel = document.getElementById('quickEditPanel');
+        if (quickEditPanel) quickEditPanel.style.display = 'none';
+        
+        // On réinitialise l'affichage par défaut si possible
+        if (typeof initializePatracdvr === 'function') initializePatracdvr({});
+    }
+
+    // Sauvegarde de l'état vidé
+    syncDomToStore();
+    
+    // Rafraîchir l'articulation si on est sur la page concernée
+    if (typeof updateArticulationDisplay === 'function') updateArticulationDisplay();
+    
+    alert("Page réinitialisée.");
+};
+
+/**
+ * Réinitialise l'intégralité du formulaire (Optionnel: garde le PATRACDVR).
+ */
+window.resetAllData = async function(keepPatracdvr = true) {
+    const msg = keepPatracdvr 
+        ? "Attention: Toutes les données et photos seront effacées.\nVoulez-vous conserver la liste du personnel (PATRACDVR) ?"
+        : "Attention: TOUTES les données, y compris le personnel, seront définitivement effacées. Continuer ?";
+        
+    if (!confirm(msg)) return;
+
+    let patracdvrData = {};
+    if (keepPatracdvr) {
+        const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (savedData) {
+            try {
+                const parsed = JSON.parse(savedData);
+                if (parsed.patracdvr_rows) patracdvrData.patracdvr_rows = parsed.patracdvr_rows;
+                if (parsed.patracdvr_unassigned) patracdvrData.patracdvr_unassigned = parsed.patracdvr_unassigned;
+            } catch (e) { console.error("Erreur sauvegarde Patracdvr avant reset:", e); }
+        }
+    }
+
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    localStorage.removeItem('oiWizardStep');
+    
+    if (window.dbManager && typeof dbManager.clearAllImages === 'function') {
+        await dbManager.clearAllImages();
+    }
+
+    if (keepPatracdvr && Object.keys(patracdvrData).length > 0) {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(patracdvrData));
+    }
+
+    location.reload();
+};

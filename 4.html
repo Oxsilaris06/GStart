@@ -109,6 +109,17 @@
             border-width: 0;
         }
 
+        /* Safe Hidden Input for Mobile Upload */
+        .sr-only-input {
+            opacity: 0;
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            pointer-events: none;
+            left: -9999px;
+            visibility: visible; /* Must be visible for some browsers to allow .click() */
+        }
+
         body.light-mode {
             --bg-body: #f4f4f5;
             /* Zinc 100 */
@@ -1123,14 +1134,28 @@
         }
 
         .articulation-block {
-            margin-bottom: 15px;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
+            margin-bottom: 24px;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
             overflow: hidden;
+            background: var(--bg-container);
+            box-shadow: var(--shadow-sm);
         }
 
         .articulation-block .collapsible-content {
-            padding: 15px;
+            padding: clamp(16px, 4vw, 24px);
+        }
+
+        .articulation-block .collapsible-header {
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .articulation-block label {
+            margin-top: 15px;
+            font-size: 0.85em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         /* Membres dans les blocs MOICP/ZMSPCP */
@@ -1834,9 +1859,57 @@
         }
 
 
+
+
         /* ==========================================================================
-   MEDIA QUERIES (Desktop Enhancements & Mobile fixes)
-   ========================================================================== */
+    MEDIA QUERIES (Mobile Masterclass & Desktop Enhancements)
+    ========================================================================== */
+        @media (max-width: 768px) {
+            body {
+                padding-block-end: 180px; /* Extra space for the Dock */
+            }
+
+            /* Prevent auto-zoom on iOS */
+            input, textarea, select {
+                font-size: 16px !important;
+            }
+
+            .container {
+                padding: 16px;
+                border-radius: var(--radius-md);
+            }
+
+            /* Responsive Modals */
+            dialog, .modal-content {
+                width: 95vw !important;
+                max-height: 90vh !important;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .modal-content {
+                padding: 16px !important;
+            }
+
+            .modal-content .effrac-tool-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+            
+            #vehicle_creation_buttons {
+                grid-template-columns: 1fr !important;
+            }
+
+            .patracdvr-vehicle-row {
+                min-width: 100%;
+            }
+
+            /* Articulation Blocks Polish */
+            .articulation-block {
+                margin-bottom: 25px;
+                box-shadow: var(--shadow-sm);
+            }
+        }
+
         @media (min-width: 768px) {
 
             /* Modales Desktop */
@@ -2158,18 +2231,24 @@
 
         .modal-content {
             background-color: var(--bg-container);
-            padding: 24px;
+            padding: clamp(20px, 5vw, 32px);
             border: 1px solid var(--border-color);
             width: 100%;
             max-width: 650px;
-            max-height: 95vh;
-            /* Empêche de dépasser l'écran */
-            overflow-y: auto;
-            /* Permet le scroll interne */
+            max-height: 90vh; /* Revenir à 90vh pour sécurité */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Débordement géré par les enfants si besoin, ou on met auto ici */
             border-radius: var(--radius-lg);
             color: var(--text-primary);
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            box-shadow: var(--shadow-float);
             position: relative;
+        }
+
+        .modal-content > div[style*="overflow-y: auto"], 
+        .modal-content .tools-sections-container {
+            overflow-y: auto;
+            flex: 1;
         }
     </style>
 </head>
@@ -2418,7 +2497,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                             📷 Transport PSIG → PR
                         </button>
                         <input type="file" id="photo_container_transport_pr_input" class="photo-input"
-                            style="display:none" accept="image/*" multiple
+                            class="sr-only-input" accept="image/*" multiple
                             onchange="handleFileChange(this, 'photo_container_transport_pr_preview_container', false)">
 
                         <button type="button" class="add-btn" style="flex: 1; justify-content: center;"
@@ -2426,7 +2505,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                             📷 Transport PR → Domicile/LE
                         </button>
                         <input type="file" id="photo_container_transport_domicile_input" class="photo-input"
-                            style="display:none" accept="image/*" multiple
+                            class="sr-only-input" accept="image/*" multiple
                             onchange="handleFileChange(this, 'photo_container_transport_domicile_preview_container', false)">
                     </div>
                     <div id="photo_container_transport_pr_preview_container" class="image-preview-container"></div>
@@ -2621,7 +2700,7 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                                 <button type="button" class="remove-btn" onclick="removeCustomBackground()">🗑️ Rétablir
                                     Défaut</button>
                             </div>
-                            <input type="file" id="custom_bg_input" class="photo-input" style="display:none"
+                            <input type="file" id="custom_bg_input" class="photo-input sr-only-input"
                                 accept="image/jpeg, image/png, image/jpg" onchange="handleCustomBackgroundChange(this)">
                             <div id="custom_bg_preview_container" class="image-preview-container"
                                 style="margin-top: 10px;"></div>

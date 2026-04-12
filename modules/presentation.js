@@ -1807,10 +1807,7 @@ let touchStartY = 0;
 window.updateAnnotationRotation = updateAnnotationRotation;
 
 
-// --- GLOBAL EXPOSURE ---
-window.syncDomToStore = syncDomToStore;
-window.saveToStorage = syncDomToStore;
-window.saveFormData = syncDomToStore;
+// --- GLOBAL EXPOSURE (Moved to appropriate modules) ---
 window.openPresentationMode = openPresentationMode;
 window.downloadOiPdf = downloadOiPdf;
 
@@ -1958,8 +1955,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 
-    // --- GLOBAL EXPOSURE (à l intérieur du DOMContentLoaded) ---
-    window.syncDomToStore = syncDomToStore;
-    window.saveToStorage = syncDomToStore;
-    window.saveFormData = syncDomToStore;
     window.openPresentationMode = openPresentationMode;
+    window.downloadOiPdf = downloadOiPdf;

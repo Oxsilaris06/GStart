@@ -1,5 +1,4 @@
 // ==================== FormManager.js ====================
-const LOCAL_STORAGE_KEY = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
 
 
 
@@ -730,6 +729,8 @@ window.removeAdversary = removeAdversary;
 window.addAdversary = addAdversary;
 window.addHypothesis = addHypothesis;
 window.syncDomToStore = syncDomToStore;
+window.saveToStorage = syncDomToStore;
+window.saveFormData = syncDomToStore;
 window.loadFormData = loadFormData;
 window.checkCoherence = checkCoherence;
 

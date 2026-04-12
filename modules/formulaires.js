@@ -303,6 +303,17 @@ function addHypothesis(val = '') {
 
 window.isFormLoading = false;
 
+// Export des fonctions au scope global
+window.addDynamicField = addDynamicField;
+window.initChipContainer = initChipContainer;
+window.getChipData = getChipData;
+window.addMeField = addMeField;
+window.addTimeEvent = addTimeEvent;
+window.updateAdvTitle = updateAdvTitle;
+window.addAdversary = addAdversary;
+window.addHypothesis = addHypothesis;
+window.syncDomToStore = syncDomToStore;
+
 function syncDomToStore() {
     if (window.isFormLoading) {
         console.log("Sync skipped: Form is loading...");
@@ -546,6 +557,8 @@ async function loadFormData() {
         if (moicpContainer) moicpContainer.innerHTML = '';
         const zmspcpContainer = document.getElementById('zmspcp_container');
         if (zmspcpContainer) zmspcpContainer.innerHTML = '';
+        const effracContainer = document.getElementById('effraction_container');
+        if (effracContainer) effracContainer.innerHTML = '';
 
         if (data.moicp_blocks && data.moicp_blocks.length > 0) {
             data.moicp_blocks.forEach(blockData => addMoicp(blockData));

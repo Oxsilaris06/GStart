@@ -62,20 +62,19 @@ async function handleFileChange(input, previewContainerId, isSingle) {
                 previewContainer.appendChild(interactiveItem);
 
             } catch (error) {
-                console.error("Erreur lors du stockage de l'image:", error);
-                // Révocation de l'URL si elle a été créée avant l'erreur de stockage
-                if (objectURL && Store.state.objectUrlsCache[previewImgId]) {
-                    URL.revokeObjectURL(objectURL);
-                    delete Store.state.objectUrlsCache[previewImgId];
-                }
-                alert("Une erreur est survenue lors de l'ajout de l'image.");
+                console.error("Erreur lors du stockage de l'image (IndexedDB) - Persistance indisponible:", error);
             }
         }
     }
     syncAllThumbnails();
-    input.value = '';
+    if (input) input.value = '';
     syncDomToStore();
 }
+
+// Export des fonctions au scope global
+window.handleFileChange = handleFileChange;
+window.removeImage = removeImage;
+window.updateCustomBgPreview = updateCustomBgPreview;
 
 async function removeImage(imgId, itemElement) {
     try {

@@ -12,6 +12,15 @@
  * Auto-peuplé avec les membres India du PATRACDVR.
  * @param {Object} data - Données de restauration (optionnel)
  */
+// Export des fonctions au scope global
+window.addMoicp = addMoicp;
+window.addZmspcp = addZmspcp;
+window.addEffraction = addEffraction;
+window.refreshRameVL = refreshRameVL;
+window.refreshColonneProgression = refreshColonneProgression;
+window.refreshOrdrePenetration = refreshOrdrePenetration;
+window.refreshArticulationFromPatracdvr = refreshArticulationFromPatracdvr;
+
 function addMoicp(data) {
     const container = document.getElementById('moicp_container');
     const blockId = data?.id || `moicp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -31,29 +40,29 @@ function addMoicp(data) {
                 <span class="material-symbols-outlined">shield</span>
                 <input type="text" class="block-title-input" value="${data?.title || 'Inter ' + blockIndex}" 
                     style="background: transparent; border: none; border-bottom: 1px solid rgba(59, 130, 246, 0.3); color: var(--accent-blue); font-size: 1.1em; font-weight: bold; padding: 2px 5px; width: 220px;" 
-                    onclick="event.stopPropagation()" oninput="Store.saveToStorage()">
+                    onclick="event.stopPropagation()" oninput="syncDomToStore()">
             </h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-                <button type="button" class="remove-btn" onclick="event.stopPropagation(); this.closest('.moicp-block').remove(); Store.saveToStorage();" 
+                <button type="button" class="remove-btn" onclick="event.stopPropagation(); this.closest('.moicp-block').remove(); syncDomToStore();" 
                     style="background: rgba(59, 130, 246, 0.15); border: none; color: var(--accent-blue); border-radius: 50%; width: 30px; height: 30px; cursor: pointer;" title="Supprimer ce MOICP">❌</button>
                 <span class="material-symbols-outlined">expand_more</span>
             </div>
         </div>
         <div class="collapsible-content">
             <label>Mission (M):</label>
-            <textarea class="moicp-mission" rows="3" oninput="Store.saveToStorage()">${defaultMission}</textarea>
+            <textarea class="moicp-mission" rows="3" oninput="syncDomToStore()">${defaultMission}</textarea>
             
             <label>Objectif (O):</label>
-            <input type="text" class="moicp-objectif" value="${data?.objectif || ''}" oninput="Store.saveToStorage()">
+            <input type="text" class="moicp-objectif" value="${data?.objectif || ''}" oninput="syncDomToStore()">
             
             <label>Itinéraire (I):</label>
-            <textarea class="moicp-itineraire" rows="3" oninput="Store.saveToStorage()">${data?.itineraire || ''}</textarea>
+            <textarea class="moicp-itineraire" rows="3" oninput="syncDomToStore()">${data?.itineraire || ''}</textarea>
             
             <label>Points Particuliers (P):</label>
-            <textarea class="moicp-pp" rows="3" oninput="Store.saveToStorage()">${data?.points_particuliers || ''}</textarea>
+            <textarea class="moicp-pp" rows="3" oninput="syncDomToStore()">${data?.points_particuliers || ''}</textarea>
             
             <label>Conduite à Tenir (C):</label>
-            <textarea class="moicp-cat" rows="5" oninput="Store.saveToStorage()">${defaultCat}</textarea>
+            <textarea class="moicp-cat" rows="5" oninput="syncDomToStore()">${defaultCat}</textarea>
 
             <h4 style="margin-top: 15px; color: var(--accent-blue);">
                 <span class="material-symbols-outlined" style="vertical-align: middle;">group</span> Composition (ordre d'engagement)
@@ -98,7 +107,7 @@ function addMoicp(data) {
         _autoPopulateFromCellule(membersZone, 'india', 'moicp');
     }
 
-    if (!data) Store.saveToStorage();
+    if (!data) syncDomToStore();
 }
 
 /**
@@ -125,32 +134,32 @@ function addZmspcp(data) {
                 <span class="material-symbols-outlined">visibility</span>
                 <input type="text" class="block-title-input" value="${data?.title || 'Appui Observation ' + blockIndex}" 
                     style="background: transparent; border: none; border-bottom: 1px solid rgba(142, 68, 173, 0.3); color: var(--moicp-zmspcp-purple, #8e44ad); font-size: 1.1em; font-weight: bold; padding: 2px 5px; width: 220px;" 
-                    onclick="event.stopPropagation()" oninput="Store.saveToStorage()">
+                    onclick="event.stopPropagation()" oninput="syncDomToStore()">
             </h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-                <button type="button" class="remove-btn" onclick="event.stopPropagation(); this.closest('.zmspcp-block').remove(); Store.saveToStorage();" 
+                <button type="button" class="remove-btn" onclick="event.stopPropagation(); this.closest('.zmspcp-block').remove(); syncDomToStore();" 
                     style="background: rgba(142, 68, 173, 0.15); border: none; color: var(--moicp-zmspcp-purple, #8e44ad); border-radius: 50%; width: 30px; height: 30px; cursor: pointer;" title="Supprimer ce ZMSPCP">❌</button>
                 <span class="material-symbols-outlined">expand_more</span>
             </div>
         </div>
         <div class="collapsible-content">
             <label>Zone d'installation (Z):</label>
-            <textarea class="zmspcp-zone" rows="3" oninput="Store.saveToStorage()">${data?.zone || ''}</textarea>
+            <textarea class="zmspcp-zone" rows="3" oninput="syncDomToStore()">${data?.zone || ''}</textarea>
             
             <label>Mission (M):</label>
-            <textarea class="zmspcp-mission" rows="3" oninput="Store.saveToStorage()">${defaultMission}</textarea>
+            <textarea class="zmspcp-mission" rows="3" oninput="syncDomToStore()">${defaultMission}</textarea>
             
             <label>Secteur de surveillance (S):</label>
-            <textarea class="zmspcp-secteur" rows="3" oninput="Store.saveToStorage()">${data?.secteur || ''}</textarea>
+            <textarea class="zmspcp-secteur" rows="3" oninput="syncDomToStore()">${data?.secteur || ''}</textarea>
             
             <label>Points Particuliers (P):</label>
-            <textarea class="zmspcp-pp" rows="3" oninput="Store.saveToStorage()">${data?.points_particuliers || ''}</textarea>
+            <textarea class="zmspcp-pp" rows="3" oninput="syncDomToStore()">${data?.points_particuliers || ''}</textarea>
             
             <label>Conduite à Tenir (C):</label>
-            <textarea class="zmspcp-cat" rows="5" oninput="Store.saveToStorage()">${defaultCat}</textarea>
+            <textarea class="zmspcp-cat" rows="5" oninput="syncDomToStore()">${defaultCat}</textarea>
 
             <label>Place du Chef (P):</label>
-            <input type="text" class="zmspcp-place-chef" value="${data?.place_chef || ''}" oninput="Store.saveToStorage()">
+            <input type="text" class="zmspcp-place-chef" value="${data?.place_chef || ''}" oninput="syncDomToStore()">
 
             <h4 style="margin-top: 15px; color: var(--moicp-zmspcp-purple, #8e44ad);">
                 <span class="material-symbols-outlined" style="vertical-align: middle;">group</span> Composition (ordre d'engagement)
@@ -192,7 +201,7 @@ function addZmspcp(data) {
         _autoPopulateFromCellule(membersZone, 'ao', 'zmspcp');
     }
 
-    if (!data) Store.saveToStorage();
+    if (!data) syncDomToStore();
 }
 
 // ============================================================
@@ -271,7 +280,7 @@ function _addArticulationMemberChip(zone, trigramme, type) {
     chip.innerHTML = `
         <span class="art-member-trigramme">${trigramme}</span>
         ${subtitle ? `<span class="art-member-detail">${subtitle}</span>` : ''}
-        <button type="button" class="art-member-remove" onclick="this.parentElement.remove(); Store.saveToStorage();" title="Retirer">×</button>
+        <button type="button" class="art-member-remove" onclick="this.parentElement.remove(); syncDomToStore();" title="Retirer">×</button>
     `;
 
     // Drag events pour réordonner
@@ -655,10 +664,10 @@ function addEffraction(data) {
                 <span class="material-symbols-outlined">hardware</span>
                 <input type="text" class="block-title-input" value="${data?.title || 'Effraction ' + blockIndex}" 
                     style="background: transparent; border: none; border-bottom: 1px solid rgba(212, 175, 55, 0.3); color: var(--effraction-gold); font-size: 1.1em; font-weight: bold; padding: 2px 5px; width: 220px;" 
-                    onclick="event.stopPropagation()" oninput="Store.saveToStorage()">
+                    onclick="event.stopPropagation()" oninput="syncDomToStore()">
             </h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-                <button type="button" class="remove-btn" onclick="event.stopPropagation(); this.closest('.effraction-block').remove(); Store.saveToStorage();" 
+                <button type="button" class="remove-btn" onclick="event.stopPropagation(); this.closest('.effraction-block').remove(); syncDomToStore();" 
                     style="background: rgba(212, 175, 55, 0.15); border: none; color: var(--effraction-gold); border-radius: 50%; width: 30px; height: 30px; cursor: pointer;" title="Supprimer">❌</button>
                 <span class="material-symbols-outlined">expand_more</span>
             </div>
@@ -676,53 +685,53 @@ function addEffraction(data) {
             </div>
 
             <label>Mission EFFRAC :</label>
-            <textarea class="effrac-mission" rows="4" style="width:100%; margin-bottom: 15px;" oninput="Store.saveToStorage()" placeholder="...">${data?.mission || `SOUTENIR L'ÉLÉMENT D'INTERVENTION
+            <textarea class="effrac-mission" rows="4" style="width:100%; margin-bottom: 15px;" oninput="syncDomToStore()" placeholder="...">${data?.mission || `SOUTENIR L'ÉLÉMENT D'INTERVENTION
 L'objectif premier de la cellule est d'effectuer une effraction rapide et sécurisée sur la porte principale façade ALPHA afin de permettre la progression fluide de l'équipe d'assaut. En mesure de se rearticuler sur ordre.`}</textarea>
 
             <label>Type de porte :</label>
-            <textarea class="effrac-porte" rows="2" style="width:100%" oninput="Store.saveToStorage()" placeholder="Description libre...">${data?.porte || ''}</textarea>
+            <textarea class="effrac-porte" rows="2" style="width:100%" oninput="syncDomToStore()" placeholder="Description libre...">${data?.porte || ''}</textarea>
             
             <label>Structure & Dormant :</label>
-            <textarea class="effrac-structure" rows="2" style="width:100%" oninput="Store.saveToStorage()" placeholder="Ex: Isolation par l'exterieur recouvert de crépi...">${data?.structure || ''}</textarea>
+            <textarea class="effrac-structure" rows="2" style="width:100%" oninput="syncDomToStore()" placeholder="Ex: Isolation par l'exterieur recouvert de crépi...">${data?.structure || ''}</textarea>
             
             <label>Serrurerie :</label>
-            <textarea class="effrac-serrurerie" rows="2" style="width:100%" oninput="Store.saveToStorage()" placeholder="Ex: PVC, 1 point de fermeture...">${data?.serrurerie || ''}</textarea>
+            <textarea class="effrac-serrurerie" rows="2" style="width:100%" oninput="syncDomToStore()" placeholder="Ex: PVC, 1 point de fermeture...">${data?.serrurerie || ''}</textarea>
 
             <label>Environnement immédiat :</label>
-            <textarea class="effrac-environnement" rows="2" style="width:100%" oninput="Store.saveToStorage()" placeholder="Ex: Petite marche en brique...">${data?.environnement || ''}</textarea>
+            <textarea class="effrac-environnement" rows="2" style="width:100%" oninput="syncDomToStore()" placeholder="Ex: Petite marche en brique...">${data?.environnement || ''}</textarea>
             
             <div class="effrac-measurements-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 10px;">
                 <div>
                     <label style="font-size: 0.8em; color: var(--effraction-gold);">Bâti à Bâti (cm)</label>
-                    <input type="text" class="effrac-bati-bati" value="${data?.bati_a_bati || ''}" oninput="Store.saveToStorage()" placeholder="0">
+                    <input type="text" class="effrac-bati-bati" value="${data?.bati_a_bati || ''}" oninput="syncDomToStore()" placeholder="0">
                 </div>
                 <div>
                     <label style="font-size: 0.8em; color: var(--effraction-gold);">Dormant à Dormant (cm)</label>
-                    <input type="text" class="effrac-dormant-dormant" value="${data?.dormant_a_dormant || ''}" oninput="Store.saveToStorage()" placeholder="0">
+                    <input type="text" class="effrac-dormant-dormant" value="${data?.dormant_a_dormant || ''}" oninput="syncDomToStore()" placeholder="0">
                 </div>
                 <div>
                     <label style="font-size: 0.8em; color: var(--effraction-gold);">Profondeur linteaux (cm)</label>
-                    <input type="text" class="effrac-prof-linteaux" value="${data?.prof_linteaux || ''}" oninput="Store.saveToStorage()" placeholder="0">
+                    <input type="text" class="effrac-prof-linteaux" value="${data?.prof_linteaux || ''}" oninput="syncDomToStore()" placeholder="0">
                 </div>
                 <div>
                     <label style="font-size: 0.8em; color: var(--effraction-gold);">Profondeur Bâti (cm)</label>
-                    <input type="text" class="effrac-prof-bati" value="${data?.prof_bati || ''}" oninput="Store.saveToStorage()" placeholder="0">
+                    <input type="text" class="effrac-prof-bati" value="${data?.prof_bati || ''}" oninput="syncDomToStore()" placeholder="0">
                 </div>
                 <div>
                     <label style="font-size: 0.8em; color: var(--effraction-gold);">Hauteur de porte (cm)</label>
-                    <input type="text" class="effrac-h-porte" value="${data?.h_porte || ''}" oninput="Store.saveToStorage()" placeholder="0">
+                    <input type="text" class="effrac-h-porte" value="${data?.h_porte || ''}" oninput="syncDomToStore()" placeholder="0">
                 </div>
                 <div>
                     <label style="font-size: 0.8em; color: var(--text-muted);">Hauteur marche (opt.)</label>
-                    <input type="text" class="effrac-h-marche" value="${data?.h_marche || ''}" oninput="Store.saveToStorage()" placeholder="0">
+                    <input type="text" class="effrac-h-marche" value="${data?.h_marche || ''}" oninput="syncDomToStore()" placeholder="0">
                 </div>
                 <div>
                     <label style="font-size: 0.8em; color: var(--text-muted);">Prof. marche (opt.)</label>
-                    <input type="text" class="effrac-prof-marche" value="${data?.prof_marche || ''}" oninput="Store.saveToStorage()" placeholder="0">
+                    <input type="text" class="effrac-prof-marche" value="${data?.prof_marche || ''}" oninput="syncDomToStore()" placeholder="0">
                 </div>
                 <div>
                     <label style="font-size: 0.8em; color: var(--text-muted);">Prof. moulure (opt.)</label>
-                    <input type="text" class="effrac-prof-moulure" value="${data?.prof_moulure || ''}" oninput="Store.saveToStorage()" placeholder="0">
+                    <input type="text" class="effrac-prof-moulure" value="${data?.prof_moulure || ''}" oninput="syncDomToStore()" placeholder="0">
                 </div>
             </div>
 
@@ -767,7 +776,7 @@ L'objectif premier de la cellule est d'effectuer une effraction rapide et sécur
         div.querySelector('.effrac-mission').value = data.mission;
     }
 
-    if (!data) Store.saveToStorage();
+    if (!data) syncDomToStore();
 }
 
 window.addEffractionHypothesis = function (blockId, data = null) {
@@ -788,30 +797,30 @@ window.addEffractionHypothesis = function (blockId, data = null) {
 
     div.innerHTML = `
         <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 10px;">
-            <input type="text" class="effrac-hyp-title" value="${data?.title || 'Hypothèse ' + (list.children.length + 1)}" placeholder="Titre..." style="font-weight: bold; background: transparent; border: none; border-bottom: 1px solid var(--border-color); color: var(--text-primary); font-size: 1.1em; width: 60%;" oninput="Store.saveToStorage()">
-            <button type="button" class="remove-btn" onclick="this.closest('.effrac-hypothesis-item').remove(); Store.saveToStorage();" style="padding: 5px;">❌</button>
+            <input type="text" class="effrac-hyp-title" value="${data?.title || 'Hypothèse ' + (list.children.length + 1)}" placeholder="Titre..." style="font-weight: bold; background: transparent; border: none; border-bottom: 1px solid var(--border-color); color: var(--text-primary); font-size: 1.1em; width: 60%;" oninput="syncDomToStore()">
+            <button type="button" class="remove-btn" onclick="this.closest('.effrac-hypothesis-item').remove(); syncDomToStore();" style="padding: 5px;">❌</button>
         </div>
         
         <label style="font-size: 0.85em;">Description Initiale:</label>
-        <textarea class="effrac-hyp-desc" rows="2" style="width:100%; margin-bottom: 10px;" oninput="Store.saveToStorage()">${data?.desc || ''}</textarea>
+        <textarea class="effrac-hyp-desc" rows="2" style="width:100%; margin-bottom: 10px;" oninput="syncDomToStore()">${data?.desc || ''}</textarea>
         
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px;">
             <div>
                 <label style="font-size: 0.85em; color: var(--accent-blue);">Phase Effraction:</label>
-                <textarea class="effrac-hyp-effrac text-muted" rows="3" style="width:100%" oninput="Store.saveToStorage()">${data?.effrac || ''}</textarea>
+                <textarea class="effrac-hyp-effrac text-muted" rows="3" style="width:100%" oninput="syncDomToStore()">${data?.effrac || ''}</textarea>
             </div>
             <div>
                 <label style="font-size: 0.85em; color: var(--accent-blue);">Phase Dégagement:</label>
-                <textarea class="effrac-hyp-degag text-muted" rows="3" style="width:100%" oninput="Store.saveToStorage()">${data?.degag || ''}</textarea>
+                <textarea class="effrac-hyp-degag text-muted" rows="3" style="width:100%" oninput="syncDomToStore()">${data?.degag || ''}</textarea>
             </div>
             <div>
                 <label style="font-size: 0.85em; color: var(--accent-blue);">Phase Assaut:</label>
-                <textarea class="effrac-hyp-assaut text-muted" rows="3" style="width:100%" oninput="Store.saveToStorage()">${data?.assaut || ''}</textarea>
+                <textarea class="effrac-hyp-assaut text-muted" rows="3" style="width:100%" oninput="syncDomToStore()">${data?.assaut || ''}</textarea>
             </div>
         </div>
     `;
     list.appendChild(div);
-    if (!data) Store.saveToStorage();
+    if (!data) syncDomToStore();
 }
 
 /**

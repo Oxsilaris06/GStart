@@ -160,8 +160,8 @@ Store.loadFromStorage();
 // ==================== DBManager.js ====================
 
 const dbManager = {
-    dbName: 'OI_GeneratorDB',
-    storeName: 'compressedImages',
+    dbName: 'OI_GeneratorLiteDB',
+    storeName: 'images',
     db: null,
 
     init() {

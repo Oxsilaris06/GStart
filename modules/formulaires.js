@@ -746,9 +746,18 @@ window.importSession = function(file) {
     reader.onload = (event) => {
         try {
             const json = event.target.result;
-            JSON.parse(json); // Validation JSON
+            const data = JSON.parse(json); // Validation JSON
+            
+            // On s'assure que c'est bien un objet de données tactiques
+            if (typeof data !== 'object' || Array.isArray(data)) {
+                throw new Error("Format de données invalide");
+            }
+
             localStorage.setItem(LOCAL_STORAGE_KEY, json);
-            alert("Session importée avec succès. Rechargement...");
+            alert("Session importée avec succès. Rechargement du formulaire...");
+            
+            // Le rechargement est la méthode la plus sûre pour reconstruire tout le DOM
+            // proprement à partir du nouvel état localStorage.
             location.reload();
         } catch (err) {
             alert("Erreur: Fichier de session invalide.");

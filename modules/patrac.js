@@ -655,6 +655,7 @@ window.addManualVehicle = addManualVehicle;
 window.addManualMember = addManualMember;
 window.addPatracdvrRow = addPatracdvrRow;
 window.addPatracdvrMember = addPatracdvrMember;
+window.initializePatracdvr = initializePatracdvr;
 window.updateMemberButtonVisuals = updateMemberButtonVisuals;
 window.populateQuickEditPanel = populateQuickEditPanel;
 window.saveQuickEditChanges = saveQuickEditChanges;

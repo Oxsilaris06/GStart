@@ -2803,16 +2803,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 // 7. Initialiser les puces (chips)
                 // (Note: Les chips sont maintenant initialisées dynamiquement dans addAdversary)
 
-                // 8. Écouteurs globaux (Collapsibles, etc.)
-                document.querySelector('.container').addEventListener('click', (event) => {
-                    const header = event.target.closest('.collapsible-header');
-                    if (header) {
-                        const container = header.parentElement;
-                        if (container && container.classList.contains('collapsible-container')) {
-                            container.classList.toggle('open');
-                        }
-                    }
-                });
+                // Note: Les écouteurs de collapsibles sont gérés dans modules/presentation.js
 
                 if (typeof initializeDragDropListeners === 'function') initializeDragDropListeners();
 

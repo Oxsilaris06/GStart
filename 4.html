@@ -2720,6 +2720,111 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
     <script src="modules/dessin.js"></script>
     <script src="modules/shared.js"></script>
     <script src="modules/presentation.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // 1. Initialiser IndexedDB
+                if (window.dbManager) await dbManager.init();
+                
+                // 2. Charger les données
+                if (typeof loadFormData === 'function') await loadFormData();
+                
+                // 3. Initialiser le thème
+                const isDarkMode = localStorage.getItem('theme') === 'dark' || !localStorage.getItem('theme');
+                if (!isDarkMode) { document.body.classList.replace('dark-mode', 'light-mode'); }
+                const darkModeIcon = document.getElementById('darkModeIcon');
+                if (darkModeIcon) darkModeIcon.textContent = isDarkMode ? 'nightlight' : 'clear_day';
+
+                // 4. Initialiser le dock
+                const dockToggleBtn = document.getElementById('dockToggleBtn');
+                const dock = document.getElementById('dockMenu');
+                if (dockToggleBtn && dock) {
+                    dockToggleBtn.addEventListener('click', () => {
+                        dock.classList.toggle('collapsed');
+                        const isCollapsed = dock.classList.contains('collapsed');
+                        localStorage.setItem('dockCollapsed', isCollapsed);
+                        const icon = dockToggleBtn.querySelector('.material-symbols-outlined');
+                        if (icon) icon.textContent = isCollapsed ? 'expand_less' : 'expand_more';
+                    });
+                    
+                    if (localStorage.getItem('dockCollapsed') === 'true') {
+                        dock.classList.add('collapsed');
+                        const icon = dockToggleBtn.querySelector('.material-symbols-outlined');
+                        if (icon) icon.textContent = 'expand_less';
+                    }
+                }
+
+                // 5. Plein écran & Thème
+                const fullscreenToggleBtn = document.getElementById('fullscreenToggle');
+                if (fullscreenToggleBtn && typeof toggleFullscreen === 'function') {
+                    fullscreenToggleBtn.addEventListener('click', toggleFullscreen);
+                }
+                const darkModeToggleBtn = document.getElementById('darkModeToggle');
+                if (darkModeToggleBtn && typeof handleThemeToggle === 'function') {
+                    darkModeToggleBtn.addEventListener('click', handleThemeToggle);
+                }
+
+                // 6. Gestion du Reset / Import / Export
+                const resetMenuBtn = document.getElementById('resetMenuBtn');
+                const resetOptionsModal = document.getElementById('resetOptionsModal');
+                const cancelResetBtn = document.getElementById('cancelResetBtn');
+                const resetAllBtn = document.getElementById('resetAllBtn');
+                const resetPageBtn = document.getElementById('resetPageBtn');
+
+                if (resetMenuBtn && resetOptionsModal) {
+                    resetMenuBtn.addEventListener('click', () => resetOptionsModal.showModal ? resetOptionsModal.showModal() : (resetOptionsModal.style.display = 'block'));
+                }
+                if (cancelResetBtn && resetOptionsModal) {
+                    cancelResetBtn.addEventListener('click', () => resetOptionsModal.close ? resetOptionsModal.close() : (resetOptionsModal.style.display = 'none'));
+                }
+                if (resetAllBtn && typeof resetAllData === 'function') {
+                    resetAllBtn.addEventListener('click', () => resetAllData(true));
+                }
+                if (resetPageBtn && typeof resetActivePage === 'function') {
+                    resetPageBtn.addEventListener('click', resetActivePage);
+                }
+
+                const exportSessionBtn = document.getElementById('exportSessionBtn');
+                if (exportSessionBtn && typeof exportSession === 'function') {
+                    exportSessionBtn.addEventListener('click', exportSession);
+                }
+
+                const importSessionBtn = document.getElementById('importSessionBtn');
+                const sessionFileInput = document.getElementById('sessionFileInput');
+                if (importSessionBtn && sessionFileInput) {
+                    importSessionBtn.addEventListener('click', () => sessionFileInput.click());
+                    sessionFileInput.addEventListener('change', (e) => {
+                        if (typeof importSession === 'function') importSession(e.target.files[0]);
+                        e.target.value = '';
+                    });
+                }
+
+                // 7. Initialiser les puces (chips)
+                const formData = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || {};
+                if (typeof initChipContainer === 'function') {
+                    initChipContainer('etat_esprit_container', formData.etat_esprit_list || []);
+                    initChipContainer('volume_adversaire_container', formData.volume_list || []);
+                }
+
+                // 8. Écouteurs globaux (Collapsibles, etc.)
+                document.querySelector('.container').addEventListener('click', (event) => {
+                    const header = event.target.closest('.collapsible-header');
+                    if (header) {
+                        const container = header.parentElement;
+                        if (container && container.classList.contains('collapsible-container')) {
+                            container.classList.toggle('open');
+                        }
+                    }
+                });
+
+                if (typeof initializeDragDropListeners === 'function') initializeDragDropListeners();
+
+            } catch (err) {
+                console.error("Erreur d'initialisation 1.html:", err);
+            }
+        });
+    </script>
     <!-- MODAL OUTILS EFFRACTION -->
     <div id="effractionToolsModal" class="modal">
         <div class="modal-content">

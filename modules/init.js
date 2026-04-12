@@ -120,17 +120,21 @@ const StoreBase = {
 
     saveToStorage() {
         try {
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(this.state.formData));
+            const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
+            localStorage.setItem(key, JSON.stringify(this.state.formData));
         } catch (e) {
             console.error("LocalStorage Error:", e);
         }
     },
 
     loadFromStorage() {
-        const data = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
+        const data = localStorage.getItem(key);
         if (data) {
             try {
+                // On peuple directement pour éviter le Proxy set() récursif lors de l'init
                 this.state.formData = JSON.parse(data);
+                console.log('✅ Store initialisé depuis le stockage');
             } catch (e) {
                 console.error('Invalid JSON in localStorage', e);
             }

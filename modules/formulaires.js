@@ -1,4 +1,5 @@
 // ==================== FormManager.js ====================
+const LOCAL_STORAGE_KEY = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
 
 
 
@@ -443,7 +444,7 @@ function syncDomToStore() {
 
         // Persister dans Store et localStorage
         Store.state.formData = data;
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(window.LOCAL_STORAGE_KEY || 'tactical_oi_data', JSON.stringify(data));
 
     } catch (e) {
         console.error("Erreur de sauvegarde:", e);
@@ -453,7 +454,8 @@ function syncDomToStore() {
 async function loadFormData() {
     cleanupObjectUrls(); // S'assurer que les anciennes URLs sont révoquées avant de charger de nouvelles données
     // Utilisation de la clé isolée
-    const dataString = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
+    const dataString = localStorage.getItem(key);
     if (!dataString) {
         // Si aucune donnée dans localStorage, on initialise le panneau d'édition rapide 
         // avec les valeurs par défaut JS, et on retourne false
@@ -632,7 +634,8 @@ async function loadFormData() {
 
 function checkCoherence() {
     // Utilisation de la clé isolée
-    const dataString = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
+    const dataString = localStorage.getItem(key);
     Store.state.formData = JSON.parse(dataString || '{}');
     const getVal = (id) => Store.state.formData[id] || '';
     const alerts = [];
@@ -769,7 +772,8 @@ window.importSession = function(file) {
                 throw new Error("Format de données invalide");
             }
 
-            localStorage.setItem(LOCAL_STORAGE_KEY, json);
+            const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
+            localStorage.setItem(key, json);
             alert("Session importée avec succès. Rechargement du formulaire...");
             
             // Le rechargement est la méthode la plus sûre pour reconstruire tout le DOM
@@ -847,7 +851,8 @@ window.resetAllData = async function(keepPatracdvr = true) {
 
     let patracdvrData = {};
     if (keepPatracdvr) {
-        const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
+        const savedData = localStorage.getItem(key);
         if (savedData) {
             try {
                 const parsed = JSON.parse(savedData);
@@ -857,7 +862,8 @@ window.resetAllData = async function(keepPatracdvr = true) {
         }
     }
 
-    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
+    localStorage.removeItem(key);
     localStorage.removeItem('oiWizardStep');
     
     if (window.dbManager && typeof dbManager.clearAllImages === 'function') {
@@ -865,7 +871,8 @@ window.resetAllData = async function(keepPatracdvr = true) {
     }
 
     if (keepPatracdvr && Object.keys(patracdvrData).length > 0) {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(patracdvrData));
+        const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
+        localStorage.setItem(key, JSON.stringify(patracdvrData));
     }
 
     location.reload();

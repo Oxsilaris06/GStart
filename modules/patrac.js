@@ -254,6 +254,7 @@ function updateMemberButtonVisuals(btn) {
 }
 
 function updateArticulationDisplay() {
+    if (window.isFormLoading) return;
     // Compatibility wrapper — la logique a été déplacée dans articulation.js
     if (typeof refreshArticulationFromPatracdvr === 'function') {
         refreshArticulationFromPatracdvr();

@@ -619,6 +619,7 @@ function _updateOrderPositions(container) {
  * les ordres et les compositions. Proactif : rafraîchit les 3 listes d'ordres.
  */
 function refreshArticulationFromPatracdvr() {
+    if (window.isFormLoading) return;
     console.log("Synchronisation Articulation depuis PATRACDVR...");
 
     // 1. Rame VL

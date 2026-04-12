@@ -464,7 +464,9 @@ function syncDomToStore() {
 }
 
 async function loadFormData() {
-    cleanupObjectUrls(); // S'assurer que les anciennes URLs sont révoquées avant de charger de nouvelles données
+    window.isFormLoading = true;
+    try {
+        cleanupObjectUrls(); // S'assurer que les anciennes URLs sont révoquées avant de charger de nouvelles données
     // Utilisation de la clé isolée
     const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
     const dataString = localStorage.getItem(key);
@@ -476,8 +478,7 @@ async function loadFormData() {
         return false;
     }
 
-    try {
-        const data = JSON.parse(dataString);
+    const data = JSON.parse(dataString);
 
         // Chargement des options de configuration
         if (data.options) {
@@ -629,20 +630,19 @@ async function loadFormData() {
                 }
             }
         }
-        // Verrouiller l'état en resynchronisant le DOM vers le Store
-        window.isFormLoading = false;
-        syncDomToStore();
-
         return true;
 
     } catch (e) {
-        window.isFormLoading = false;
         console.error("Erreur de chargement:", e);
-        // Si une erreur de chargement survient, on initialise quand même le PATRACDVR (vide)
-        // pour éviter une page cassée et on initialise le panneau.
-        initializePatracdvr({});
-        setupQuickEditPanel();
+        if (typeof initializePatracdvr === 'function') initializePatracdvr({});
+        if (typeof setupQuickEditPanel === 'function') setupQuickEditPanel();
         return false;
+    } finally {
+        window.isFormLoading = false;
+        // Final sync once everything is in DOM
+        if (typeof updateArticulationDisplay === 'function') updateArticulationDisplay();
+        if (typeof syncAllThumbnails === 'function') syncAllThumbnails();
+        syncDomToStore();
     }
 }
 

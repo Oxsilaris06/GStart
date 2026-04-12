@@ -178,8 +178,10 @@ function addAdversary(data = null) {
     div.innerHTML = `
         <div class="collapsible-header">
             <h3 class="adv-title">${title}</h3>
-            <div style="display: flex; gap: 10px; align-items: center;" onclick="event.stopPropagation()">
-                <button type="button" class="remove-btn" onclick="removeAdversary('${id}')" title="Supprimer cet adversaire">❌</button>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <div onclick="event.stopPropagation()">
+                    <button type="button" class="remove-btn" onclick="removeAdversary('${id}')" title="Supprimer cet adversaire">❌</button>
+                </div>
                 <span class="material-symbols-outlined">expand_more</span>
             </div>
         </div>
@@ -477,7 +479,7 @@ async function loadFormData() {
         // Charger les métadonnées de base
         Object.keys(data).forEach(key => {
             const excludedKeys = [
-                'dynamic_photos', 'patracdvr_rows', 'patracdvr_unassigned', 
+                'dynamic_photos', 'patracdvr_rows', 'patracdvr_unassigned',
                 'time_events', 'adversaries', 'pdf_background_id',
                 'moicp_blocks', 'zmspcp_blocks', 'effraction_blocks', 'options',
                 'rame_vl_order', 'colonne_progression_order', 'ordre_penetration_order'
@@ -617,7 +619,7 @@ async function loadFormData() {
         // Verrouiller l'état en resynchronisant le DOM vers le Store
         window.isFormLoading = false;
         syncDomToStore();
-        
+
         return true;
 
     } catch (e) {
@@ -739,7 +741,7 @@ window.checkCoherence = checkCoherence;
 /**
  * Exporte la session actuelle dans un fichier JSON.
  */
-window.exportSession = function() {
+window.exportSession = function () {
     syncDomToStore();
     const data = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (data) {
@@ -760,14 +762,14 @@ window.exportSession = function() {
 /**
  * Importe une session depuis un fichier JSON.
  */
-window.importSession = function(file) {
+window.importSession = function (file) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
         try {
             const json = event.target.result;
             const data = JSON.parse(json); // Validation JSON
-            
+
             // On s'assure que c'est bien un objet de données tactiques
             if (typeof data !== 'object' || Array.isArray(data)) {
                 throw new Error("Format de données invalide");
@@ -776,7 +778,7 @@ window.importSession = function(file) {
             const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
             localStorage.setItem(key, json);
             alert("Session importée avec succès. Rechargement du formulaire...");
-            
+
             // Le rechargement est la méthode la plus sûre pour reconstruire tout le DOM
             // proprement à partir du nouvel état localStorage.
             location.reload();
@@ -791,9 +793,9 @@ window.importSession = function(file) {
 /**
  * Réinitialise tous les champs de la page active.
  */
-window.resetActivePage = async function() {
+window.resetActivePage = async function () {
     if (!confirm("Réinitialiser uniquement les champs de la page active ?")) return;
-    
+
     const activeStep = document.querySelector('.wizard-step.active');
     if (!activeStep) return;
 
@@ -805,7 +807,7 @@ window.resetActivePage = async function() {
 
     // 2. Supprimer les éléments dynamiques (Adversaires, Blocs, etc.)
     activeStep.querySelectorAll('.dynamic-list-item, .adversary-block, .moicp-block, .zmspcp-block, .effraction-block, .time-event-row, .hypothesis-item').forEach(el => el.remove());
-    
+
     // 3. Désélectionner les puces (chips)
     activeStep.querySelectorAll('.chip-btn.selected').forEach(el => el.classList.remove('selected'));
 
@@ -826,28 +828,28 @@ window.resetActivePage = async function() {
         if (window.activeMemberId !== undefined) window.activeMemberId = null;
         const quickEditPanel = document.getElementById('quickEditPanel');
         if (quickEditPanel) quickEditPanel.style.display = 'none';
-        
+
         // On réinitialise l'affichage par défaut si possible
         if (typeof initializePatracdvr === 'function') initializePatracdvr({});
     }
 
     // Sauvegarde de l'état vidé
     syncDomToStore();
-    
+
     // Rafraîchir l'articulation si on est sur la page concernée
     if (typeof updateArticulationDisplay === 'function') updateArticulationDisplay();
-    
+
     alert("Page réinitialisée.");
 };
 
 /**
  * Réinitialise l'intégralité du formulaire (Optionnel: garde le PATRACDVR).
  */
-window.resetAllData = async function(keepPatracdvr = true) {
-    const msg = keepPatracdvr 
+window.resetAllData = async function (keepPatracdvr = true) {
+    const msg = keepPatracdvr
         ? "Attention: Toutes les données et photos seront effacées.\nVoulez-vous conserver la liste du personnel (PATRACDVR) ?"
         : "Attention: TOUTES les données, y compris le personnel, seront définitivement effacées. Continuer ?";
-        
+
     if (!confirm(msg)) return;
 
     let patracdvrData = {};
@@ -866,7 +868,7 @@ window.resetAllData = async function(keepPatracdvr = true) {
     const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
     localStorage.removeItem(key);
     localStorage.removeItem('oiWizardStep');
-    
+
     if (window.dbManager && typeof dbManager.clearAllImages === 'function') {
         await dbManager.clearAllImages();
     }

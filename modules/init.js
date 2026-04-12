@@ -80,15 +80,15 @@ function createDeepProxy(target, notifyCallback) {
     return new Proxy(target, {
         get(obj, prop) {
             const val = Reflect.get(obj, prop);
-            
+
             // On ne proxyfie PAS les types binaires (Blob, ArrayBuffer, TypedArrays)
             // car cela corrompt l'accès aux données internes pour pdf-lib et URL.createObjectURL
             if (val !== null && typeof val === 'object') {
-                const isBinary = (val instanceof Blob) || 
-                                 (val instanceof ArrayBuffer) || 
-                                 (ArrayBuffer.isView(val)) ||
-                                 (val instanceof File);
-                
+                const isBinary = (val instanceof Blob) ||
+                    (val instanceof ArrayBuffer) ||
+                    (ArrayBuffer.isView(val)) ||
+                    (val instanceof File);
+
                 if (!isBinary) {
                     return createDeepProxy(val, notifyCallback);
                 }
@@ -280,7 +280,7 @@ window.saveFormData = window.saveToStorage;
 // --- Vérification de disponibilité du stockage local ---
 (function checkStorageAvailability() {
     let storageAvailable = false;
-    
+
     // Test localStorage
     try {
         const testKey = '__storage_test__';
@@ -293,7 +293,7 @@ window.saveFormData = window.saveToStorage;
         console.warn('ℹ️ En mode file://, le navigateur peut bloquer localStorage pour des raisons de sécurité.');
         console.warn('💡 Solution: Utilisez un serveur HTTP local (ex: python3 -m http.server 8000)');
     }
-    
+
     // Test IndexedDB
     try {
         const testDb = indexedDB.open('test_db', 1);
@@ -308,7 +308,7 @@ window.saveFormData = window.saveToStorage;
     } catch (e) {
         console.warn('⚠️ IndexedDB non disponible');
     }
-    
+
     if (!storageAvailable) {
         console.warn('\n🔴 ATTENTION: Le stockage local est bloqué en mode file://');
         console.warn('ℹ️ Les données ne seront PAS conservées entre les rechargements de page.');

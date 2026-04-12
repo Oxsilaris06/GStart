@@ -71,11 +71,11 @@ function addMoicp(data) {
                 <span class="material-symbols-outlined" style="vertical-align: middle;">route</span> Photos Itinéraire
             </h4>
             <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
-                <button type="button" class="add-btn" style="flex:1; justify-content: center;" onclick="document.getElementById('input_itin_ext_${blockId}').click()">📷 Extérieur</button>
-                <input type="file" id="input_itin_ext_${blockId}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_itin_ext_${blockId}', false)">
+                <button type="button" class="add-btn" style="flex:1; justify-content: center; min-height: 44px;" onclick="document.getElementById('input_itin_ext_${blockId}').click()">📷 Extérieur</button>
+                <input type="file" id="input_itin_ext_${blockId}" class="sr-only-input" accept="image/*" multiple onchange="handleFileChange(this, 'photo_itin_ext_${blockId}', false)">
                 
-                <button type="button" class="add-btn" style="flex:1; justify-content: center;" onclick="document.getElementById('input_itin_int_${blockId}').click()">📷 Intérieur</button>
-                <input type="file" id="input_itin_int_${blockId}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_itin_int_${blockId}', false)">
+                <button type="button" class="add-btn" style="flex:1; justify-content: center; min-height: 44px;" onclick="document.getElementById('input_itin_int_${blockId}').click()">📷 Intérieur</button>
+                <input type="file" id="input_itin_int_${blockId}" class="sr-only-input" accept="image/*" multiple onchange="handleFileChange(this, 'photo_itin_int_${blockId}', false)">
             </div>
             <div id="photo_itin_ext_${blockId}" class="image-preview-container photo-display-area" style="margin-bottom:10px;"></div>
             <div id="photo_itin_int_${blockId}" class="image-preview-container photo-display-area"></div>
@@ -740,7 +740,7 @@ L'objectif premier de la cellule est d'effectuer une effraction rapide et sécur
                 Ajoutez des photos et précisez les outils pour chacune.
             </div>
             <button type="button" class="add-btn" style="width:100%; justify-content: center;" onclick="document.getElementById('input_effrac_${blockId}').click()">➕ Ajouter Photo(s)</button>
-            <input type="file" id="input_effrac_${blockId}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_effrac_${blockId}', false)">
+            <input type="file" id="input_effrac_${blockId}" class="sr-only-input" accept="image/*" multiple onchange="handleFileChange(this, 'photo_effrac_${blockId}', false)">
             <div id="photo_effrac_${blockId}" class="image-preview-container photo-display-area" style="margin-top:10px;"></div>
         </div>
     `;

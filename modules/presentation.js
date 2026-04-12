@@ -1883,6 +1883,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (dockToggleBtn && dock) {
         dockToggleBtn.addEventListener('click', toggleDock);
+        dockToggleBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent double trigger with click on some devices
+            toggleDock();
+        }, { passive: false });
         if (localStorage.getItem('dockCollapsed') === 'true') {
             dock.classList.add('collapsed');
             const icon = document.querySelector('#dockToggleBtn .material-symbols-outlined');

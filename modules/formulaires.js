@@ -191,17 +191,17 @@ function addAdversary(data = null) {
             <label for="input_main_${id}">Photo principale (Aperçu):</label>
             <div id="photo_main_${id}" class="image-preview-container single-photo photo-display-area" data-is-single="true" style="margin-bottom: 5px;"></div>
             <button type="button" class="add-btn" style="width:100%; margin-bottom: 15px;" onclick="document.getElementById('input_main_${id}').click()">📷 Ajouter Photo Principale</button>
-            <input type="file" id="input_main_${id}" name="input_main_${id}" hidden accept="image/*" onchange="handleFileChange(this, 'photo_main_${id}', true)">
+            <input type="file" id="input_main_${id}" name="input_main_${id}" class="sr-only-input" accept="image/*" onchange="handleFileChange(this, 'photo_main_${id}', true)">
             
             <label for="input_extra_${id}">Photos supplémentaires (Aperçu):</label>
             <div id="photo_extra_${id}" class="image-preview-container extra-photos photo-display-area" style="margin-bottom: 5px;"></div>
             <button type="button" class="add-btn" style="width:100%; margin-bottom: 15px;" onclick="document.getElementById('input_extra_${id}').click()">📷 Ajouter Photos Supplémentaires</button>
-            <input type="file" id="input_extra_${id}" name="input_extra_${id}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_extra_${id}', false)">
+            <input type="file" id="input_extra_${id}" name="input_extra_${id}" class="sr-only-input" accept="image/*" multiple onchange="handleFileChange(this, 'photo_extra_${id}', false)">
             
             <h3 style="margin-top: 10px; color: var(--danger-red); font-size: 1.1em;">📷 Renforts Potentiels</h3>
             <div id="photo_renforts_${id}" class="image-preview-container photo-display-area" style="margin-bottom: 5px;"></div>
             <button type="button" class="add-btn" style="width:100%; justify-content: center; margin-bottom: 20px;" onclick="document.getElementById('input_renforts_${id}').click()">➕ Ajouter Photo(s) Renforts</button>
-            <input type="file" id="input_renforts_${id}" hidden accept="image/*" multiple onchange="handleFileChange(this, 'photo_renforts_${id}', false)">
+            <input type="file" id="input_renforts_${id}" class="sr-only-input" accept="image/*" multiple onchange="handleFileChange(this, 'photo_renforts_${id}', false)">
 
             <hr style="border: 0; border-top: 1px solid var(--border-light); margin: 15px 0;">
 

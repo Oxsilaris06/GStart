@@ -195,6 +195,18 @@ async function openAnnotationModal(previewImgId) {
         // Migration: ajouter couleur si manquante
         Store.state.annotations.forEach(a => { if (!a.color) a.color = '#c0392b'; });
 
+        // Ajuster tailles par défaut pour mobile
+        const isMobile = window.innerWidth <= 768;
+        const strokeInput = document.getElementById('stroke_width_edit');
+        const textInput = document.getElementById('text_size_edit');
+        if (isMobile) {
+            if (strokeInput) strokeInput.value = 3;
+            if (textInput) textInput.value = 24;
+        } else {
+            if (strokeInput) strokeInput.value = 5;
+            if (textInput) textInput.value = 30;
+        }
+
         setActiveTool('move');
         redrawCanvas();
         annotationModal.dataset.targetPreviewId = previewImgId;

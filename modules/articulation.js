@@ -835,6 +835,8 @@ function openEffractionToolsModal(imgId) {
     if (!img) return;
 
     const modal = document.getElementById('effractionToolsModal');
+    if (!modal) return;
+
     const tools = JSON.parse(img.dataset.tools || '[]');
     const otherTools = img.dataset.otherTools || '';
 
@@ -848,7 +850,8 @@ function openEffractionToolsModal(imgId) {
     const otherToolsInput = document.getElementById('effrac_other_tools');
     if (otherToolsInput) otherToolsInput.value = otherTools;
 
-    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    modal.showModal();
 }
 
 function saveEffractionTools() {
@@ -863,7 +866,8 @@ function saveEffractionTools() {
     img.dataset.tools = JSON.stringify(selectedTools);
     img.dataset.otherTools = otherToolsInput ? otherToolsInput.value : '';
 
-    modal.style.display = 'none';
+    modal.close();
+    document.body.classList.remove('modal-open');
     syncDomToStore();
 }
 

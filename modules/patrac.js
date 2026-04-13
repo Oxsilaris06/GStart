@@ -1,7 +1,5 @@
 // ==================== Patracdvr.js ====================
 
-
-
 // Redundant declarations removed (now in init.js)
 
 // Helper: Get live DOM references to PATRACDVR containers
@@ -10,6 +8,8 @@ function getPatracdvrContainer() { return document.getElementById('patracdvr_con
 
 // Helper used by FormManager
 // getMemberConfig -> memberConfig is global
+
+let modalTempData = {};
 
 function renameVehicle(element) {
     const currentName = element.textContent;
@@ -333,41 +333,34 @@ function setupQuickEditPanel() {
 }
 
 function handleMemberSelection(event) {
-    // Utiliser closest pour s'assurer que l'on obtient le bouton, même si l'on clique sur un span enfant
     const clickedButton = event.target.closest('.patracdvr-member-btn');
     if (!clickedButton) return;
 
-    // Empêcher la propagation pour ne pas déclencher d'autres écouteurs
     if (event && typeof event.stopPropagation === 'function') {
         event.stopPropagation();
     }
 
     if (activeMemberId === clickedButton.id) {
-        // Désélectionner
         clickedButton.classList.remove('member-active');
         activeMemberId = null;
         document.getElementById('quickEditPanel').style.display = 'none';
         return;
     }
 
-    // Désélectionner l'ancien membre actif
     if (activeMemberId) {
         const oldActive = document.getElementById(activeMemberId);
         if (oldActive) oldActive.classList.remove('member-active');
     }
 
-    // Sélectionner le nouveau membre actif
     activeMemberId = clickedButton.id;
     clickedButton.classList.add('member-active');
 
-    // Afficher le panneau d'édition approprié (modal sur mobile, panneau sur desktop)
     if (window.innerWidth < 768) {
         openQuickEditModal(activeMemberId);
     } else {
         populateQuickEditPanel(activeMemberId);
         document.getElementById('quickEditPanel').style.display = 'flex';
     }
-    // CONFORMITÉ: Sauvegarde après sélection/désélection d'un membre (son état actif change)
     syncDomToStore();
 }
 
@@ -379,7 +372,6 @@ function populateQuickEditPanel(memberId) {
     document.getElementById('selectedMemberTrigramme').textContent = trigrammeDisplay;
     document.getElementById('quick_edit_trigramme_input').value = trigrammeDisplay;
 
-    // NOUVEAU: Remplir le champ DIR
     document.getElementById('quick_edit_dir_input').value = member.dataset.dir || '';
 
     document.querySelectorAll('#quickEditPanel .quick-edit-btn').forEach(btn => {
@@ -387,7 +379,6 @@ function populateQuickEditPanel(memberId) {
         const value = btn.dataset.value;
         const memberValue = member.dataset[attribute];
 
-        // NOUVEAU: Logique de sélection visuelle pour multi-select vs single
         if (multiSelectAttributes.includes(attribute)) {
             const currentValues = memberValue ? memberValue.split(', ') : [];
             btn.classList.toggle('selected', currentValues.includes(value));
@@ -405,94 +396,153 @@ function openQuickEditModal(memberId) {
 
     if (!member) return;
 
-    title.textContent = `Édition Rapide: ${member.dataset.trigramme || 'N/A'}`;
+    // Bloquer le scroll du fond
+    document.body.classList.add('modal-open');
+
+    // Initialiser les données temporaires à partir du membre
+    modalTempData = { ...member.dataset };
+    const originalTrigramme = modalTempData.trigramme || 'N/A';
+    title.textContent = `Édition: ${originalTrigramme}`;
     content.innerHTML = '';
 
-    // --- Ajouter le champ de trigramme en haut de la modale ---
+    // --- 1. Champ Trigramme ---
     const trigrammeDiv = document.createElement('div');
     trigrammeDiv.className = 'quick-edit-category';
     trigrammeDiv.innerHTML = `
-                <h5>Trigramme</h5>
-                <input type="text" id="modal_quick_edit_trigramme_input" placeholder="Nouveau trigramme" 
-                       value="${member.dataset.trigramme || 'N/A'}" 
-                       style="padding: 8px; margin-bottom: 0; min-height: 38px; font-size: 1em;">
-            `;
+        <h5>Trigramme</h5>
+        <input type="text" id="modal_quick_edit_trigramme_input" placeholder="ABC" 
+               value="${originalTrigramme}" 
+               style="padding: 12px; font-size: 1.1em; width:100%; box-sizing:border-box; background: var(--bg-interactive); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 8px;">
+    `;
     content.appendChild(trigrammeDiv);
 
-    // NOUVEAU: Ajouter le champ DIR
+    // --- 2. Champ DIR Radio ---
     const dirDiv = document.createElement('div');
     dirDiv.className = 'quick-edit-category';
     dirDiv.innerHTML = `
-                <h5>DIR (Radio)</h5>
-                <input type="text" id="modal_quick_edit_dir_input" placeholder="N° Dossier Radio" 
-                       value="${member.dataset.dir || ''}" 
-                       style="padding: 8px; margin-bottom: 0; min-height: 38px; font-size: 1em;">
-            `;
+        <h5>DIR (Canal Radio)</h5>
+        <input type="text" id="modal_quick_edit_dir_input" placeholder="Ex: 42" 
+               value="${modalTempData.dir || ''}" 
+               style="padding: 12px; font-size: 1.1em; width:100%; box-sizing:border-box; background: var(--bg-interactive); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 8px;">
+    `;
     content.appendChild(dirDiv);
 
-    // Écouteur pour la mise à jour immédiate du trigramme (dans la modale uniquement)
-    document.getElementById('modal_quick_edit_trigramme_input').addEventListener('input', (e) => {
-        member.dataset.trigramme = e.target.value.toUpperCase();
-        title.textContent = `Édition Rapide: ${member.dataset.trigramme || 'N/A'}`;
-        syncDomToStore();
-    });
+    // Écouteurs pour les données temporaires
+    setTimeout(() => {
+        const tInput = document.getElementById('modal_quick_edit_trigramme_input');
+        const dInput = document.getElementById('modal_quick_edit_dir_input');
+        
+        if (tInput) tInput.addEventListener('input', (e) => {
+            modalTempData.trigramme = e.target.value.toUpperCase();
+            title.textContent = `Édition: ${modalTempData.trigramme}`;
+        });
+        if (dInput) dInput.addEventListener('input', (e) => {
+            modalTempData.dir = e.target.value;
+        });
+    }, 10);
 
-    // Écouteur pour la mise à jour immédiate du DIR (dans la modale uniquement)
-    document.getElementById('modal_quick_edit_dir_input').addEventListener('input', (e) => {
-        member.dataset.dir = e.target.value;
-        syncDomToStore();
-    });
-
-    // --- Ajouter les options d'édition ---
-    setupQuickEditPanel(); // S'assurer que le panneau est mis à jour
-
-    // Copier les boutons du panneau dans la modale
+    // --- 3. Options d'édition (boutons) ---
+    setupQuickEditPanel(); 
     const quickEditPanelContent = document.querySelector('#quickEditPanel .quick-edit-content');
-    content.appendChild(quickEditPanelContent.cloneNode(true));
+    const contentClone = quickEditPanelContent.cloneNode(true);
+    content.appendChild(contentClone);
 
-    // Mettre à jour l'état de sélection
+    // Mettre à jour l'état visuel des boutons clonés et ajouter les écouteurs
     const modalButtons = content.querySelectorAll('.quick-edit-btn');
     modalButtons.forEach(btn => {
-        const attribute = btn.dataset.attribute;
-        const value = btn.dataset.value;
-        const memberValue = member.dataset[attribute];
+        const attr = btn.dataset.attribute;
+        const val = btn.dataset.value;
+        const currentVal = modalTempData[attr];
 
-        if (multiSelectAttributes.includes(attribute)) {
-            const currentValues = memberValue ? memberValue.split(', ') : [];
-            btn.classList.toggle('selected', currentValues.includes(value));
+        if (multiSelectAttributes.includes(attr)) {
+            const vals = currentVal ? currentVal.split(', ') : [];
+            btn.classList.toggle('selected', vals.includes(val));
         } else {
-            btn.classList.toggle('selected', memberValue === value);
+            btn.classList.toggle('selected', currentVal === val);
         }
+
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const attribute = btn.dataset.attribute;
+            const value = btn.dataset.value;
+
+            if (multiSelectAttributes.includes(attribute)) {
+                let currentValues = modalTempData[attribute] ? modalTempData[attribute].split(', ') : [];
+                if (value === 'Sans') {
+                    currentValues = ['Sans'];
+                } else {
+                    if (currentValues.includes('Sans')) currentValues = [];
+                    if (currentValues.includes(value)) {
+                        currentValues = currentValues.filter(v => v !== value);
+                    } else {
+                        currentValues.push(value);
+                    }
+                }
+                if (currentValues.length === 0) currentValues = ['Sans'];
+                modalTempData[attribute] = currentValues.join(', ');
+                
+                btn.classList.toggle('selected', currentValues.includes(value));
+                const group = btn.parentElement;
+                if (value !== 'Sans') {
+                    const sansBtn = Array.from(group.children).find(b => b.dataset.value === 'Sans');
+                    if (sansBtn) sansBtn.classList.remove('selected');
+                } else {
+                    Array.from(group.children).forEach(b => { if (b !== btn) b.classList.remove('selected'); });
+                }
+            } else {
+                modalTempData[attribute] = value;
+                const group = btn.parentElement;
+                group.querySelectorAll('.quick-edit-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+            }
+        });
     });
 
     modal.showModal();
+}
+
+function saveQuickEditModalChanges() {
+    const member = document.getElementById(activeMemberId);
+    if (!member) return;
+
+    Object.keys(modalTempData).forEach(key => {
+        member.dataset[key] = modalTempData[key];
+    });
+
+    updateMemberButtonVisuals(member);
+    closeQuickEditModal();
+
+    syncDomToStore();
+    updateArticulationDisplay();
+}
+
+function closeQuickEditModal() {
+    const modal = document.getElementById('quickEditModal');
+    if (modal) modal.close();
+    document.body.classList.remove('modal-open');
+    if (activeMemberId) {
+        const oldActive = document.getElementById(activeMemberId);
+        if (oldActive) oldActive.classList.remove('member-active');
+        activeMemberId = null;
+    }
 }
 
 function saveQuickEditChanges() {
     const member = document.getElementById(activeMemberId);
     if (!member) return;
 
-    // Mise à jour du trigramme
     const newTrigramme = document.getElementById('quick_edit_trigramme_input').value.toUpperCase();
     member.dataset.trigramme = newTrigramme;
     document.getElementById('selectedMemberTrigramme').textContent = newTrigramme;
 
-    // NOUVEAU: Mise à jour DIR
     member.dataset.dir = document.getElementById('quick_edit_dir_input').value;
 
-    // Les boutons sont mis à jour dynamiquement via le click handler
-
     updateMemberButtonVisuals(member);
-    // CONFORMITÉ: Sauvegarde après modification du panneau
     syncDomToStore();
     updateArticulationDisplay();
     populateQuickEditPanel(activeMemberId);
 }
 
-/**
- * Écouteurs PATRAC / édition rapide (alignés sur 4.html) — absents du DOMContentLoaded modulaire.
- */
-let patracQuickEditUiInitialized = false;
 function initPatracQuickEditUi() {
     if (patracQuickEditUiInitialized) return;
     patracQuickEditUiInitialized = true;
@@ -578,77 +628,21 @@ function initPatracQuickEditUi() {
     }
 
     const quickEditModal = document.getElementById('quickEditModal');
-    const quickModalClose = document.getElementById('quick_modal_closeBtn');
-    if (quickEditModal && quickModalClose) {
-        quickModalClose.addEventListener('click', () => {
-            quickEditModal.close();
-            if (activeMemberId) {
-                const oldActive = document.getElementById(activeMemberId);
-                if (oldActive) oldActive.classList.remove('member-active');
-                activeMemberId = null;
-            }
-        });
+    const cancelBtn = document.getElementById('quick_modal_cancelBtn');
+    const saveBtnModal = document.getElementById('quick_modal_saveBtn');
 
-        quickEditModal.addEventListener('click', (event) => {
-            const target = event.target.closest('.quick-edit-btn');
-            if (!target || !activeMemberId) return;
+    if (quickEditModal && cancelBtn && saveBtnModal) {
+        cancelBtn.addEventListener('click', closeQuickEditModal);
+        saveBtnModal.addEventListener('click', saveQuickEditModalChanges);
 
-            const activeMember = document.getElementById(activeMemberId);
-            if (!activeMember) return;
-
-            const attribute = target.dataset.attribute;
-            const value = target.dataset.value;
-
-            if (multiSelectAttributes.includes(attribute)) {
-                let currentValues = activeMember.dataset[attribute] ? activeMember.dataset[attribute].split(', ') : [];
-                if (value === 'Sans') {
-                    currentValues = ['Sans'];
-                } else {
-                    if (currentValues.includes('Sans')) currentValues = [];
-                    if (currentValues.includes(value)) {
-                        currentValues = currentValues.filter(v => v !== value);
-                    } else {
-                        currentValues.push(value);
-                    }
-                }
-                if (currentValues.length === 0) currentValues = ['Sans'];
-                activeMember.dataset[attribute] = currentValues.join(', ');
-
-                target.classList.toggle('selected', currentValues.includes(value));
-                if (value !== 'Sans') {
-                    const group = target.parentElement;
-                    const sansBtn = Array.from(group.children).find(b => b.textContent === 'Sans');
-                    if (sansBtn) sansBtn.classList.remove('selected');
-                } else {
-                    const group = target.parentElement;
-                    Array.from(group.children).forEach(b => { if (b !== target) b.classList.remove('selected'); });
-                }
-            } else {
-                activeMember.dataset[attribute] = value;
-                if (attribute === 'cellule' && value === 'Sans') {
-                    activeMember.dataset.fonction = 'Sans';
-                }
-                if (attribute === 'fonction' && value !== 'Sans' && activeMember.dataset.cellule === 'Sans') {
-                    activeMember.dataset.cellule = 'India 1';
-                }
-                const group = target.closest('.quick-edit-options');
-                if (group) {
-                    group.querySelectorAll('.quick-edit-btn').forEach(btn => btn.classList.remove('selected'));
-                }
-                target.classList.add('selected');
-            }
-
-            updateMemberButtonVisuals(activeMember);
-            if (typeof syncDomToStore === 'function') {
-                syncDomToStore();
-                updateArticulationDisplay();
-            }
+        quickEditModal.addEventListener('click', (e) => {
+            if (e.target === quickEditModal) closeQuickEditModal();
         });
     }
 }
 
+let patracQuickEditUiInitialized = false;
 window.initPatracQuickEditUi = initPatracQuickEditUi;
-
 
 // --- GLOBAL EXPOSURE ---
 window.renameVehicle = renameVehicle;

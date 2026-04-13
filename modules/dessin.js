@@ -1,5 +1,6 @@
-
-// Globals (annotationModal, canvas, ctx, currentAnnotationColor, etc.) are now provided by init.js
+// --- Annotation / Drawing Globals ---
+let longPressTimer = null;
+const LONG_PRESS_DURATION = 500; // ms
 
 function setContextualTools(selection) {
     const contextualTools = document.getElementById('contextual_tools');
@@ -129,7 +130,17 @@ function setActiveTool(toolId) {
     if (toolButton) toolButton.classList.add('active');
     const toolControls = document.getElementById(`controls_${toolId}`);
     if (toolControls) toolControls.classList.add('active');
+    
+    // Gestion du curseur et du touch-action
     canvas.style.cursor = toolId === 'move' ? 'grab' : 'crosshair';
+    
+    // Sur mobile, l'outil 'move' autorise le zoom/pan natif
+    if (window.innerWidth <= 768) {
+        canvas.style.touchAction = toolId === 'move' ? 'manipulation' : 'none';
+    } else {
+        canvas.style.touchAction = 'none';
+    }
+
     selectedAnnotation = null;
     setContextualTools(null);
 
@@ -197,14 +208,27 @@ async function openAnnotationModal(previewImgId) {
 
         // Ajuster tailles par défaut pour mobile
         const isMobile = window.innerWidth <= 768;
-        const strokeInput = document.getElementById('stroke_width_edit');
-        const textInput = document.getElementById('text_size_edit');
         if (isMobile) {
+            const strokeInput = document.getElementById('stroke_width_edit');
+            const textInput = document.getElementById('text_size_edit');
             if (strokeInput) strokeInput.value = 3;
             if (textInput) textInput.value = 24;
-        } else {
-            if (strokeInput) strokeInput.value = 5;
-            if (textInput) textInput.value = 30;
+
+            // FIT-TO-SCREEN INITIAL (Mobile only)
+            const container = document.querySelector('.annotation-canvas-container');
+            if (container) {
+                const availableH = container.clientHeight || (window.innerHeight * 0.6);
+                const availableW = container.clientWidth || window.innerWidth;
+                
+                // Calculer le scale pour que l'image entre dans le 60vh sans dépasser
+                const scaleH = availableH / canvas.height;
+                const scaleW = availableW / canvas.width;
+                const fitScale = Math.min(scaleH, scaleW, 1.0); // Pas plus de 100% au départ
+                
+                // On applique le scale via CSS pour permettre le pinch-zoom natif ultérieur
+                canvas.style.width = (canvas.width * fitScale) + 'px';
+                canvas.style.height = (canvas.height * fitScale) + 'px';
+            }
         }
 
         setActiveTool('move');
@@ -445,12 +469,33 @@ function drawArrow(fromx, fromy, tox, toy, lineWidth, color) {
 }
 
 function handleDrawStart(e) {
-    e.preventDefault();
+    // Multi-touch sur mobile : on laisse le navigateur gérer le zoom natif
+    if (e.touches && e.touches.length > 1) {
+        cancelLongPress();
+        return;
+    }
+
     const pos = getEventPos(canvas, e);
     startX = pos.x;
     startY = pos.y;
 
+    // Détection d'appui long pour éditer une annotation existante (comportement d'app de retouche)
+    if (e.touches && e.touches.length === 1) {
+        const hit = getAnnotationAtPosition(pos.x, pos.y);
+        if (hit) {
+            longPressTimer = setTimeout(() => {
+                if (navigator.vibrate) navigator.vibrate(50);
+                setActiveTool('move');
+                selectedAnnotation = hit;
+                isMovingAnnotation = true;
+                setContextualTools(selectedAnnotation);
+                redrawCanvas();
+            }, LONG_PRESS_DURATION);
+        }
+    }
+
     if (currentTool === 'move') {
+        e.preventDefault();
         selectedAnnotation = getAnnotationAtPosition(pos.x, pos.y);
         setContextualTools(selectedAnnotation);
         if (selectedAnnotation) {
@@ -459,7 +504,7 @@ function handleDrawStart(e) {
             redrawCanvas();
         }
     } else if (currentTool === 'text') {
-        // NOUVEAU: Outil Texte Click
+        e.preventDefault();
         const text = prompt("Texte à insérer :");
         if (text) {
             const sizeInput = document.getElementById('text_size_tool');
@@ -476,6 +521,7 @@ function handleDrawStart(e) {
             redrawCanvas();
         }
     } else if (currentTool === 'member') {
+        e.preventDefault();
         populateMemberCanvasModal(startX, startY);
     } else {
         isDrawing = true;
@@ -494,9 +540,19 @@ function handleDrawStart(e) {
 }
 
 function handleDrawMove(e) {
-    e.preventDefault();
-    if (!isDrawing && !isMovingAnnotation) return;
+    if (e.touches && e.touches.length > 1) return; // Zoom natif en cours
+
     const pos = getEventPos(canvas, e);
+    
+    // Si on bouge trop, on annule l'appui long
+    if (longPressTimer && (Math.abs(pos.x - startX) > 10 || Math.abs(pos.y - startY) > 10)) {
+        cancelLongPress();
+    }
+
+    if (!isDrawing && !isMovingAnnotation) return;
+    
+    // On bloque le scroll natif SEULEMENT si on est en train de dessiner ou bouger une annotation
+    e.preventDefault(); 
 
     if (isMovingAnnotation && selectedAnnotation) {
         const deltaX = pos.x - startX;
@@ -525,7 +581,9 @@ function handleDrawMove(e) {
 }
 
 function handleDrawEnd(e) {
-    e.preventDefault();
+    cancelLongPress();
+    if (e.touches && e.touches.length > 0) return; // Toujours un doigt posé
+
     document.body.style.overflow = '';
     if (isMovingAnnotation) {
         isMovingAnnotation = false;
@@ -572,6 +630,13 @@ function handleDrawEnd(e) {
         setContextualTools(selectedAnnotation);
         redrawCanvas();
         persistAnnotationsToPreview();
+    }
+}
+
+function cancelLongPress() {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
     }
 }
 

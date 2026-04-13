@@ -122,6 +122,7 @@ function updateAnnotationRotation() {
         saveToStorage();
     }
 }
+window.updateAnnotationRotation = updateAnnotationRotation;
 
 function setActiveTool(toolId) {
     currentTool = toolId;
@@ -235,9 +236,13 @@ async function openAnnotationModal(previewImgId) {
         redrawCanvas();
         annotationModal.dataset.targetPreviewId = previewImgId;
         try {
+            document.body.classList.add('modal-open');
             annotationModal.showModal();
         } catch (e) {
-            if (!annotationModal.open) annotationModal.showModal();
+            if (!annotationModal.open) {
+                document.body.classList.add('modal-open');
+                annotationModal.showModal();
+            }
         }
     };
 
@@ -588,7 +593,9 @@ function handleDrawEnd(e) {
     if (isMovingAnnotation) {
         isMovingAnnotation = false;
         // CONFORMITÉ: Sauvegarde après déplacement/modification d'une annotation
-        document.getElementById(annotationModal.dataset.targetPreviewId).dataset.annotations = JSON.stringify(Store.state.annotations);
+        const targetId = annotationModal.dataset.targetPreviewId;
+        const targetPreview = document.getElementById(targetId);
+        if (targetPreview) targetPreview.dataset.annotations = JSON.stringify(Store.state.annotations);
         saveToStorage();
         redrawCanvas();
     } else if (isDrawing) {
@@ -611,18 +618,15 @@ function handleDrawEnd(e) {
             final.thickness = thickness;
             if (Math.abs(final.startX - final.endX) < 5 && Math.abs(final.startY - final.endY) < 5) return;
         } else if (final.type === 'location') {
-            // Utiliser le point de départ comme centre (x/y)
             final.x = final.startX;
             final.y = final.startY;
-            // Le rayon est la distance entre start et end
             final.radius = Math.sqrt(Math.pow(final.endX - final.startX, 2) + Math.pow(final.endY - final.startY, 2));
-            final.text = document.getElementById('circle_text').value || 'Zone';
-            final.opacity = document.getElementById('circle_opacity').value;
+            final.text = document.getElementById('circle_text')?.value || 'Zone';
+            final.opacity = document.getElementById('circle_opacity')?.value || 0.5;
             final.color = currentAnnotationColor;
             if (final.radius < 5) return;
         }
 
-        // Ne pas ajouter si c'était juste un clic sans mouvement pour les formes
         if (final.type !== 'text') Store.state.annotations.push(final);
 
         currentAnnotation = null;
@@ -630,6 +634,17 @@ function handleDrawEnd(e) {
         setContextualTools(selectedAnnotation);
         redrawCanvas();
         persistAnnotationsToPreview();
+    }
+}
+
+async function closeAnnotationModal() {
+    if (annotationModal) {
+        document.body.classList.remove('modal-open');
+        if (typeof annotationModal.close === 'function') annotationModal.close();
+        else annotationModal.style.display = 'none';
+        
+        persistAnnotationsToPreview();
+        if (typeof cleanupObjectUrls === 'function') cleanupObjectUrls();
     }
 }
 
@@ -888,14 +903,12 @@ function initAnnotationWorkspace() {
 
     const annCancel = document.getElementById('annotation_cancel');
     if (annCancel) {
-        annCancel.addEventListener('click', () => {
-            if (typeof annotationModal.close === 'function') annotationModal.close();
-        });
+        annCancel.addEventListener('click', closeAnnotationModal);
     }
 
     const annSave = document.getElementById('annotation_save');
     if (annSave) {
-        annSave.addEventListener('click', () => {
+        annSave.addEventListener('click', async () => {
             const targetId = annotationModal.dataset.targetPreviewId;
             const previewImg = targetId ? document.getElementById(targetId) : null;
             if (previewImg) {
@@ -904,20 +917,20 @@ function initAnnotationWorkspace() {
                     selectedAnnotation = null;
                     setContextualTools(null);
                     redrawCanvas();
-                    canvas.toBlob((blob) => {
-                        if (!blob) return;
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve));
+                    if (blob) {
                         const newUrl = URL.createObjectURL(blob);
                         if (previewImg.src.startsWith('blob:') && previewImg.src !== Store.state.objectUrlsCache[targetId]) {
                             URL.revokeObjectURL(previewImg.src);
                         }
                         previewImg.src = newUrl;
-                    });
+                    }
                 } else if (Store.state.objectUrlsCache[targetId]) {
                     previewImg.src = Store.state.objectUrlsCache[targetId];
                 }
             }
             if (typeof saveToStorage === 'function') saveToStorage();
-            if (typeof annotationModal.close === 'function') annotationModal.close();
+            await closeAnnotationModal();
         });
     }
 

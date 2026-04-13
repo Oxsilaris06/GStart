@@ -1,4 +1,8 @@
 // ==================== DragDrop.js ====================
+let touchDragItem = null;
+let touchDragClone = null;
+let touchStartX = 0;
+let touchStartY = 0;
 
 function persistAfterDrag() {
     if (typeof syncDomToStore === 'function') syncDomToStore();
@@ -352,5 +356,6 @@ function initDocumentDragTransfer() {
     });
 }
 
+window.initializeDragDropListeners = initializeDragDropListeners;
 window.initDocumentDragTransfer = initDocumentDragTransfer;
 

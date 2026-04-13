@@ -17,6 +17,7 @@ function cleanupObjectUrls() {
     }
     Store.state.objectUrlsCache = {};
 }
+window.cleanupObjectUrls = cleanupObjectUrls;
 
 function getEventPos(canvas, evt) {
     const rect = canvas.getBoundingClientRect();

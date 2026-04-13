@@ -31,8 +31,8 @@ function addMoicp(data) {
     div.className = `articulation-block moicp-block collapsible-container ${stateClass}`;
     div.dataset.blockId = blockId;
 
-    const defaultCat = data?.cat || `- Si décelé, dynamiser jusqu'au domicile.\n- Si présence tierce personne lors de la progression, contrôler.\n- Si fuite, CR direction fuite + interpellation.\n- Si rébellion, usage du strict niveau de force nécessaire.\n- Si retranchement, CR + réarticulation pour fixer l'adversaire.`;
-    const defaultMission = data?.mission || 'RECONNAÎTRE LE DOMICILE EN VUE D\'APPRÉHENDER L\'OBJECTIF';
+    const defaultCat = data?.cat || DEFAULTS.cat.moicp;
+    const defaultMission = data?.mission || DEFAULTS.missions.moicp;
 
     div.innerHTML = `
         <div class="collapsible-header" style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); border-left: 4px solid var(--accent-blue); border-radius: var(--radius-md) var(--radius-md) 0 0;">
@@ -125,8 +125,8 @@ function addZmspcp(data) {
     div.className = `articulation-block zmspcp-block collapsible-container ${stateClass}`;
     div.dataset.blockId = blockId;
 
-    const defaultCat = data?.cat || `- Compte rendu de mise en place.\n- Renseigner régulièrement.\n- Si décelé, CR.\n- Si fuite, CR direction fuite + interpellation si rapport de force favorable.\n- Si rébellion, usage du strict minimum de force nécessaire.\n- Si retranchement, CR + réarticulation pour fixer l'adversaire.`;
-    const defaultMission = data?.mission || 'BOUCLER - SURVEILLER - INTERDIRE TOUTE FUITE';
+    const defaultCat = data?.cat || DEFAULTS.cat.zmspcp;
+    const defaultMission = data?.mission || DEFAULTS.missions.zmspcp;
 
     div.innerHTML = `
         <div class="collapsible-header" style="background: rgba(142, 68, 173, 0.1); color: var(--moicp-zmspcp-purple, #8e44ad); border-left: 4px solid var(--moicp-zmspcp-purple, #8e44ad); border-radius: var(--radius-md) var(--radius-md) 0 0;">
@@ -215,45 +215,53 @@ function addZmspcp(data) {
  * @param {string} type - 'moicp' ou 'zmspcp'
  */
 function _autoPopulateFromCellule(zone, cellulePrefix, type) {
-    if (!zone) return;
-    zone.innerHTML = ''; // FIX: Clear before populating
-    const allMembers = document.querySelectorAll('.patracdvr-member-btn');
-    const naturalSort = (a, b) => {
-        const cellA = a.dataset.cellule || '';
-        const cellB = b.dataset.cellule || '';
-        return cellA.localeCompare(cellB, undefined, { numeric: true, sensitivity: 'base' });
-    };
+    if (!zone || !Store.state.formData.patracdvr_rows) return;
+    zone.innerHTML = '';
+    
+    const allMembers = [];
+    // Récupérer depuis les lignes (véhicules)
+    Store.state.formData.patracdvr_rows.forEach(row => {
+        row.members.forEach(m => allMembers.push(m));
+    });
+    // Récupérer depuis les non-assignés
+    if (Store.state.formData.patracdvr_unassigned) {
+        Store.state.formData.patracdvr_unassigned.forEach(m => allMembers.push(m));
+    }
 
-    const sorted = Array.from(allMembers)
-        .filter(btn => {
-            const cellule = (btn.dataset.cellule || '').toLowerCase();
+    const sorted = allMembers
+        .filter(m => {
+            const cellule = (m.cellule || '').toLowerCase();
             return cellule.startsWith(cellulePrefix) && cellule !== 'sans';
         })
-        .sort(naturalSort);
+        .sort((a, b) => (a.cellule || '').localeCompare(b.cellule || '', undefined, { numeric: true, sensitivity: 'base' }));
 
-    sorted.forEach(btn => {
-        _addArticulationMemberChip(zone, btn.dataset.trigramme, type);
+    sorted.forEach(m => {
+        _addArticulationMemberChip(zone, m.trigramme, type);
     });
 }
 
 function _autoPopulateEffraction(zone) {
-    if (!zone) return;
-    zone.innerHTML = ''; // FIX: Clear before populating
-    const allMembers = document.querySelectorAll('.patracdvr-member-btn');
-    const sorted = Array.from(allMembers)
-        .filter(btn => {
-            const cellule = (btn.dataset.cellule || '').toLowerCase();
-            const fonction = (btn.dataset.fonction || '').toLowerCase();
+    if (!zone || !Store.state.formData.patracdvr_rows) return;
+    zone.innerHTML = '';
+    
+    const allMembers = [];
+    Store.state.formData.patracdvr_rows.forEach(row => {
+        row.members.forEach(m => allMembers.push(m));
+    });
+    if (Store.state.formData.patracdvr_unassigned) {
+        Store.state.formData.patracdvr_unassigned.forEach(m => allMembers.push(m));
+    }
+
+    const sorted = allMembers
+        .filter(m => {
+            const cellule = (m.cellule || '').toLowerCase();
+            const fonction = (m.fonction || '').toLowerCase();
             return (cellule.includes('effrac') || fonction.includes('effrac')) && cellule !== 'sans';
         })
-        .sort((a, b) => {
-            const cellA = a.dataset.cellule || '';
-            const cellB = b.dataset.cellule || '';
-            return cellA.localeCompare(cellB, undefined, { numeric: true, sensitivity: 'base' });
-        });
+        .sort((a, b) => (a.cellule || '').localeCompare(b.cellule || '', undefined, { numeric: true, sensitivity: 'base' }));
 
-    sorted.forEach(btn => {
-        _addArticulationMemberChip(zone, btn.dataset.trigramme, 'effraction');
+    sorted.forEach(m => {
+        _addArticulationMemberChip(zone, m.trigramme, 'effraction');
     });
 }
 
@@ -624,22 +632,39 @@ function refreshArticulationFromPatracdvr() {
 
     // 1. Rame VL
     const currentRame = Array.from(document.querySelectorAll('#rame_vl_container .rame-vl-chip')).map(c => c.dataset.vehicleName);
-    // On passe null si le conteneur était vide pour forcer le repeuplement complet
     refreshRameVL(currentRame.length > 0 ? currentRame : null);
 
-    // 2. Colonne de progression
-    const currentColonne = Array.from(document.querySelectorAll('#colonne_progression_container .order-chip')).map(c => c.dataset.trigramme);
-    refreshColonneProgression(currentColonne.length > 0 ? currentColonne : null);
+    // 2. Colonne de progression (via Store)
+    const currentColonneCount = document.querySelectorAll('#colonne_progression_container .order-chip').length;
+    refreshColonneProgression(currentColonneCount > 0 ? null : null); // null force le refresh intelligent
 
     // 3. Ordre de pénétration
-    const currentPenetration = Array.from(document.querySelectorAll('#ordre_penetration_container .order-chip')).map(c => c.dataset.trigramme);
-    refreshOrdrePenetration(currentPenetration.length > 0 ? currentPenetration : null);
+    const currentPenetrationCount = document.querySelectorAll('#ordre_penetration_container .order-chip').length;
+    refreshOrdrePenetration(currentPenetrationCount > 0 ? null : null);
 
     // 4. Mise à jour des compositions dans les blocs MOICP/ZMSPCP
     document.querySelectorAll('.moicp-members').forEach(zone => _autoPopulateFromCellule(zone, 'india', 'moicp'));
     document.querySelectorAll('.zmspcp-members').forEach(zone => _autoPopulateFromCellule(zone, 'ao', 'zmspcp'));
-    document.querySelectorAll('.effraction-members').forEach(zone => _autoPopulateFromCellule(zone, 'effrac', 'effrac'));
+    document.querySelectorAll('.effraction-members').forEach(zone => _autoPopulateEffraction(zone));
 }
+
+// --- RÉACTIVITÉ ---
+let lastPatracData = "";
+Store.subscribe((state) => {
+    if (window.isFormLoading) return;
+    
+    // On ne surveille que les changements structurels du PATRACDVR
+    const currentPatracData = JSON.stringify({
+        rows: state.formData.patracdvr_rows,
+        unassigned: state.formData.patracdvr_unassigned
+    });
+
+    if (currentPatracData !== lastPatracData) {
+        lastPatracData = currentPatracData;
+        console.log("Mise à jour réactive de l'articulation...");
+        refreshArticulationFromPatracdvr();
+    }
+});
 
 // ============================================================
 // CELLULE EFFRACTION
@@ -686,8 +711,7 @@ function addEffraction(data) {
             </div>
 
             <label>Mission EFFRAC :</label>
-            <textarea class="effrac-mission" rows="4" style="width:100%; margin-bottom: 15px;" oninput="syncDomToStore()" placeholder="...">${data?.mission || `SOUTENIR L'ÉLÉMENT D'INTERVENTION
-L'objectif premier de la cellule est d'effectuer une effraction rapide et sécurisée sur la porte principale façade ALPHA afin de permettre la progression fluide de l'équipe d'assaut. En mesure de se rearticuler sur ordre.`}</textarea>
+            <textarea class="effrac-mission" rows="4" style="width:100%; margin-bottom: 15px;" oninput="syncDomToStore()" placeholder="...">${data?.mission || DEFAULTS.missions.effraction}</textarea>
 
             <label>Type de porte :</label>
             <textarea class="effrac-porte" rows="2" style="width:100%" oninput="syncDomToStore()" placeholder="Description libre...">${data?.porte || ''}</textarea>

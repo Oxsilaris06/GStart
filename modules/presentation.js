@@ -1,6 +1,22 @@
-// --- GLOBAL EXPOSURE ---
 window.openPresentationMode = openPresentationMode;
 window.downloadOiPdf = downloadOiPdf;
+
+/**
+ * Nettoie le texte pour éviter que pdf-lib ne plante avec des caractères non-WinAnsi
+ */
+function sanitizePdfText(text) {
+    if (!text) return '';
+    return text.toString()
+        .replace(/[\u2192\u2794\u279C\u21D2]/g, '->') // Flèches Unicode -> "->"
+        .replace(/[\u2022\u2023\u2043\u2219]/g, '-') // Liste à puces -> "-"
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '') // Caractères de contrôle
+        .replace(/[\u2018\u2019]/g, "'") // Quotes simples alternatives
+        .replace(/[\u201C\u201D]/g, '"') // Quotes doubles alternatives
+        .replace(/[\u2013\u2014]/g, '-') // Tirets longs et cadratins
+        .replace(/\u2026/g, '...') // Points de suspension
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, "") // Décomposition des accents
+        .replace(/[^\x00-\xFF]/g, '?'); // Tout ce qui dépasse l'ASCII étendu -> "?"
+}
 
 function openPresentationMode() {
     const presentationContent = document.getElementById('presentation-content');
@@ -159,7 +175,7 @@ async function buildPresentationHtml() {
         if (mainImageMeta) {
             const imageBlob = await dbManager.getItem(mainImageMeta.id);
             if (imageBlob) {
-                        let finalImageBlob = imageBlob;
+                let finalImageBlob = imageBlob;
                 const annotations = JSON.parse(mainImageMeta.annotations || '[]');
                 if (annotations.length > 0) {
                     finalImageBlob = await createAnnotatedImageBlob(imageBlob, annotations).catch(e => imageBlob);
@@ -474,7 +490,7 @@ async function downloadOiPdf() {
     try {
         const result = await buildPdf();
         if (!result) {
-            alert("La génération a échoué. Vérifiez vos données.");
+            toast("La génération a échoué. Vérifiez vos données.", "error");
             return;
         }
         const { pdfBytes } = result;
@@ -499,7 +515,7 @@ async function downloadOiPdf() {
         URL.revokeObjectURL(url);
     } catch (error) {
         console.error("Erreur critique lors de la génération du PDF:", error);
-        alert("Une erreur critique est survenue lors de la génération du PDF. Consultez la console (F12).");
+        toast("Erreur critique lors de la génération du PDF. Les images sont peut-être trop lourdes.", "error");
     } finally {
         btn.textContent = originalText; btn.disabled = false;
     }
@@ -554,13 +570,14 @@ async function buildPdf() {
 
 
     let quality = 0.9;
-
     let totalImageSize = 0;
+    let iterations = 0;
 
     if (allImagesMeta.length > 0) {
         console.log("Début de la compression dynamique...");
-        // Réduire la qualité jusqu'à 0.5 si la taille dépasse 2.5MB
+        // Réduire la qualité jusqu'à 0.4 si la taille dépasse 2.5MB
         do {
+            iterations++;
             totalImageSize = 0;
             const compressionPromises = allImagesMeta.map(async (imgMeta) => {
                 let compressedBuffer = null;
@@ -602,13 +619,10 @@ async function buildPdf() {
 
             console.log(`Qualité: ${quality.toFixed(1)}, Taille totale des images: ${(totalImageSize / 1024 / 1024).toFixed(2)}MB`);
 
-            if (totalImageSize + TEXT_OVERHEAD_ESTIMATE < PDF_TARGET_SIZE_BYTES) {
-                break;
+            if (totalImageSize > PDF_TARGET_SIZE_BYTES + TEXT_OVERHEAD_ESTIMATE) {
+                quality -= 0.15;
             }
-
-            quality -= 0.1;
-
-        } while (quality >= 0.5);
+        } while (totalImageSize > PDF_TARGET_SIZE_BYTES + TEXT_OVERHEAD_ESTIMATE && quality >= 0.3 && iterations < 4);
 
         if (totalImageSize + TEXT_OVERHEAD_ESTIMATE > PDF_TARGET_SIZE_BYTES) {
             console.warn(`Avertissement: Le PDF généré pourrait dépasser 2.5Mo. La taille des images compressées est de ${(totalImageSize / 1024 / 1024).toFixed(2)}MB.`);
@@ -624,7 +638,38 @@ async function buildPdf() {
         currentPage: null, y: 0, pageWidth: 0, pageHeight: 0, margin: 40,
         pageNumber: 0,
         // CORRECTION: La couleur de fond est basée sur le thème
-        colors: isDarkMode ? { background: rgb(30 / 255, 30 / 255, 30 / 255), text: rgb(1, 1, 1), accent: rgb(91 / 255, 155 / 255, 213 / 255), danger: rgb(192 / 255, 57 / 255, 43 / 255) } : { background: rgb(1, 1, 1), text: rgb(0, 0, 0), accent: rgb(0, 51 / 255, 160 / 255, 255), danger: rgb(192 / 255, 57 / 255, 43 / 255) }
+        colors: isDarkMode ? {
+            background: rgb(30 / 255, 30 / 255, 30 / 255),
+            text: rgb(1, 1, 1),
+            accent: rgb(91 / 255, 155 / 255, 213 / 255),
+            moicp: rgb(52 / 255, 152 / 255, 219 / 255), // Bleu
+            zmspcp: rgb(46 / 255, 204 / 255, 113 / 255), // Vert
+            effrac: rgb(241 / 255, 196 / 255, 15 / 255), // Jaune
+            danger: rgb(231 / 255, 76 / 255, 60 / 255)  // Rouge
+        } : {
+            background: rgb(1, 1, 1),
+            text: rgb(0, 0, 0),
+            accent: rgb(0, 51 / 255, 160 / 255),
+            moicp: rgb(41 / 255, 128 / 255, 185 / 255), // Bleu plus sombre
+            zmspcp: rgb(39 / 255, 174 / 255, 96 / 255), // Vert plus sombre
+            effrac: rgb(212 / 255, 175 / 255, 55 / 255), // Jaune/Or
+            danger: rgb(192 / 255, 57 / 255, 43 / 255)  // Rouge
+        },
+        currentSection: ""
+    };
+
+    /** Helper pour le formatage naturel de la date */
+    const formatDateNatural = (dateStr) => {
+        if (!dateStr) return "Date inconnue";
+        try {
+            const date = new Date(dateStr);
+            return new Intl.DateTimeFormat('fr-FR', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            }).format(date).replace(/^\w/, (c) => c.toUpperCase());
+        } catch (e) { return dateStr; }
     };
     let backgroundImage = null;
 
@@ -640,14 +685,13 @@ async function buildPdf() {
 
     const addNewPage = (isFinalPage = false) => {
         context.currentPage = context.pdfDoc.addPage([PageSizes.A4[1], PageSizes.A4[0]]);
-        context.pageNumber++; // Incrémente le compteur de page
+        context.pageNumber++;
         const { width, height } = context.currentPage.getSize();
         context.pageWidth = width; context.pageHeight = height; context.y = height - context.margin;
 
-        // CORRECTION FOND BLANC: Dessine un fond plein sur toutes les pages pour éviter les bandes blanches
+        // Fond
         context.currentPage.drawRectangle({ x: 0, y: 0, width, height, color: context.colors.background });
 
-        // CORRECTION IMAGE: Dessine le filigrane uniquement sur la première page et si c'est la page finale
         if (backgroundImage && (context.pageNumber === 1 || isFinalPage)) {
             const scaled = backgroundImage.scaleToFit(width, height);
             context.currentPage.drawImage(backgroundImage, {
@@ -655,8 +699,43 @@ async function buildPdf() {
                 y: (height - scaled.height) / 2,
                 width: scaled.width,
                 height: scaled.height,
-                // CONSIGNE: Opacité fixée à 1.0
                 opacity: 1.0
+            });
+        }
+
+        // --- FOOTER DISCRET ---
+        if (!isFinalPage && context.pageNumber > 1) {
+            const footerText = `Page ${context.pageNumber}`;
+            const footerSize = 8;
+            const footerW = helveticaFont.widthOfTextAtSize(footerText, footerSize);
+            context.currentPage.drawText(footerText, {
+                x: width - context.margin - footerW,
+                y: 20,
+                font: helveticaFont,
+                size: footerSize,
+                color: context.colors.text,
+                opacity: 0.5
+            });
+        }
+
+        // --- HEADER DISCRET (Sauf première page) ---
+        if (context.pageNumber > 1 && context.currentSection) {
+            const headerText = `Ordre Initial — ${context.currentSection}`;
+            const headerSize = 8;
+            context.currentPage.drawText(sanitizeText(headerText), {
+                x: context.margin,
+                y: height - 25,
+                font: helveticaBoldFont,
+                size: headerSize,
+                color: context.colors.accent,
+                opacity: 0.6
+            });
+            context.currentPage.drawLine({
+                start: { x: context.margin, y: height - 28 },
+                end: { x: width - context.margin, y: height - 28 },
+                thickness: 0.5,
+                color: context.colors.accent,
+                opacity: 0.3
             });
         }
     };
@@ -667,25 +746,115 @@ async function buildPdf() {
             return true;
         }
     };
-    
+
     /**
      * Nettoie le texte pour éviter l'erreur "WinAnsi cannot encode" dans pdf-lib.
      * Remplace les flèches Unicode par des équivalents standards et supprime les caractères exotiques.
      */
-    const sanitizeText = (text) => {
-        if (!text) return '';
-        return String(text)
-            .replace(/→/g, '->')
-            .replace(/–/g, '-') // en dash
-            .replace(/—/g, '-') // em dash
-            .replace(/[\u2018\u2019]/g, "'") // smart quotes
-            .replace(/[\u201C\u201D]/g, '"') // smart doubles
-            // Nettoyage final pour ne garder que le WinAnsi printable (approximatif)
-            .replace(/[^\x00-\x7F\xA0-\xFF]/g, '?'); 
+    /**
+     * Nettoie le texte pour éviter que pdf-lib ne plante avec des caractères non-WinAnsi
+     */
+    const sanitizeText = (text) => sanitizePdfText(text);
+
+    const drawCoverPage = async () => {
+        addNewPage(); // Première page
+        const { width, height } = context.currentPage.getSize();
+        const isDarkMode = document.body.classList.contains('dark-mode');
+        const firstAdv = (Store.state.formData.adversaries?.[0]?.nom_adversaire || 'OPÉRATION').toUpperCase();
+        const dateFormatted = formatDateNatural(getVal('date_op'));
+        const redacteur = getVal('redacteur') || 'N/A';
+
+        // 1. Photo Principale (Custom ou J.png/N.png)
+        let primaryPhoto = null;
+        try {
+            if (Store.state.formData.photo_principale) {
+                const photoData = await window.dbManager.getItem(Store.state.formData.photo_principale);
+                if (photoData) primaryPhoto = await embedPdfImageFromBytes(pdfDoc, photoData);
+            }
+            if (!primaryPhoto) {
+                const response = await fetch(isDarkMode ? 'N.png' : 'J.png');
+                if (response.ok) primaryPhoto = await embedPdfImageFromBytes(pdfDoc, await response.arrayBuffer());
+            }
+        } catch (e) { console.warn("Photo garde error:", e); }
+
+        if (primaryPhoto) {
+            const photoDims = primaryPhoto.scale(1.0);
+            const scale = Math.min((width * 0.7) / photoDims.width, (height * 0.45) / photoDims.height, 1.0);
+            context.currentPage.drawImage(primaryPhoto, {
+                x: (width - photoDims.width * scale) / 2, y: (height - photoDims.height * scale) / 2,
+                width: photoDims.width * scale, height: photoDims.height * scale
+            });
+        }
+
+        // 2. Textes
+        const drawCentered = (text, y, size, font, color = context.colors.text) => {
+            const w = font.widthOfTextAtSize(text, size);
+            context.currentPage.drawText(text, { x: (width - w) / 2, y, font, size, color });
+        };
+
+        drawCentered("ORDRE INITIAL", height * 0.85, 50, helveticaBoldFont, context.colors.accent);
+        drawCentered(`OBJECTIF : ${firstAdv}`, height * 0.78, 22, helveticaBoldFont);
+        drawCentered(dateFormatted, height * 0.2, 16, helveticaFont);
+
+        const redText = `Rédacteur : ${redacteur}`;
+        const redW = helveticaFont.widthOfTextAtSize(redText, 10);
+        context.currentPage.drawText(redText, { x: width - context.margin - redW, y: context.margin, font: helveticaFont, size: 10, color: context.colors.text, opacity: 0.7 });
     };
 
-    const drawTitle = (text) => { checkY(30); context.currentPage.drawText(sanitizeText(text), { x: context.margin, y: context.y, font: helveticaBoldFont, size: 18, color: context.colors.accent }); context.y -= 30; };
-    const drawSubTitle = (text) => { if (checkY(25)) { context.y -= 10; } context.currentPage.drawText(sanitizeText(text), { x: context.margin, y: context.y, font: helveticaBoldFont, size: 14, color: context.colors.accent }); context.y -= 25; };
+    const drawSectionHeader = (text, color = context.colors.accent) => {
+        checkY(50);
+        const headerH = 30;
+        const rectY = context.y - headerH;
+
+        // Bandeau de fond (très léger ou subtil selon le thème)
+        context.currentPage.drawRectangle({
+            x: context.margin,
+            y: rectY,
+            width: context.pageWidth - context.margin * 2,
+            height: headerH,
+            color: color,
+            opacity: 0.15
+        });
+
+        // Ligne de bordure gauche épaisse
+        context.currentPage.drawLine({
+            start: { x: context.margin, y: rectY },
+            end: { x: context.margin, y: rectY + headerH },
+            thickness: 4,
+            color: color
+        });
+
+        context.currentPage.drawText(sanitizeText(text), {
+            x: context.margin + 10,
+            y: rectY + (headerH - 18) / 2 + 2,
+            font: helveticaBoldFont,
+            size: 18,
+            color: color
+        });
+
+        context.y = rectY - 15;
+        context.currentSection = text; // Mise à jour pour le header auto
+    };
+
+    const drawTitle = (text) => drawSectionHeader(text);
+    const drawSubTitle = (text, color = context.colors.accent) => {
+        if (checkY(25)) { context.y -= 10; }
+        context.currentPage.drawText(sanitizeText(text), {
+            x: context.margin,
+            y: context.y,
+            font: helveticaBoldFont,
+            size: 14,
+            color: color
+        });
+        context.currentPage.drawLine({
+            start: { x: context.margin, y: context.y - 4 },
+            end: { x: context.margin + 100, y: context.y - 4 },
+            thickness: 1.5,
+            color: color,
+            opacity: 0.5
+        });
+        context.y -= 30;
+    };
     const wrapText = (text, font, size, maxWidth) => {
         const clean = sanitizeText(text);
         const words = String(clean || '').replace(/\n/g, ' \n ').split(' ');
@@ -722,7 +891,7 @@ async function buildPdf() {
         const drawRow = (rowData, isHeader) => {
             const font = isHeader ? helveticaBoldFont : helveticaFont;
             const size = isHeader ? headerFontSize : contentFontSize;
-            const lineHeight = size + 2; // Synchronisé pour éviter les dépassements
+            const lineHeight = size + 2;
             const cellContents = rowData.map((text, i) =>
                 wrapText(String(text ?? ''), font, size, columnWidths[i] - 2 * rowPadding));
             const maxLines = Math.max(...cellContents.map(l => l.length));
@@ -731,8 +900,17 @@ async function buildPdf() {
             if (currentY - rowHeight < context.margin) {
                 addNewPage();
                 currentY = context.y;
-                // Ne pas appeler drawRow(headers, true) récursivement s'il l'on dessine déjà un en-tête !
                 if (!isHeader) drawRow(headers, true);
+            }
+
+            // BANDES ALTERNÉES (ZEBRA)
+            if (!isHeader && (rows.indexOf(rowData) % 2 === 1)) {
+                context.currentPage.drawRectangle({
+                    x: startX, y: currentY - rowHeight,
+                    width: availW, height: rowHeight,
+                    color: context.colors.text,
+                    opacity: 0.05
+                });
             }
 
             currentY -= rowHeight;
@@ -741,12 +919,12 @@ async function buildPdf() {
                 context.currentPage.drawRectangle({
                     x: currentX, y: currentY,
                     width: columnWidths[i], height: rowHeight,
-                    borderColor: context.colors.accent, borderWidth: 0.5
+                    borderColor: context.colors.accent, borderWidth: 0.5,
+                    opacity: 0.3
                 });
                 cellContents[i].forEach((line, li) => {
-                    context.currentPage.drawText(line, {
+                    context.currentPage.drawText(sanitizeText(line), {
                         x: currentX + rowPadding,
-                        // Positionnement vertical précis pour éviter le chevauchement
                         y: currentY + rowHeight - rowPadding - (li + 1) * lineHeight + 2,
                         font, size, color: context.colors.text
                     });
@@ -805,7 +983,7 @@ async function buildPdf() {
                     const { width: pageW, height: pageH } = context.currentPage.getSize();
                     const availableW = isSingleLayout ? (pageW - context.margin * 2) : (pageW - context.margin * 3.5) / 2;
                     // On vise environ 90% de la hauteur disponible
-                    const availableH = (pageH - context.margin * 2 - 80) * 0.95; 
+                    const availableH = (pageH - context.margin * 2 - 80) * 0.95;
 
                     const scaled = image.scaleToFit(availableW, availableH);
                     const x = isSingleLayout
@@ -916,12 +1094,11 @@ async function buildPdf() {
      * Tableau récapitulatif + première photo en grand (paysage A4), puces outils pour l’effraction.
      * N’appelle pas addNewPage : le parent doit positionner le curseur sur une page dédiée.
      */
-    async function drawTableWithHeroPhoto({ blockTitle, compositionLine, rows, heroMeta, showEffracTools }) {
-        const goldColor = rgb(212 / 255, 175 / 255, 55 / 255);
+    async function drawTableWithHeroPhoto({ blockTitle, compositionLine, rows, heroMeta, showEffracTools, sectorColor = context.colors.accent }) {
         const pageW = context.pageWidth;
         const m = context.margin;
 
-        drawSubTitle(blockTitle);
+        drawSubTitle(blockTitle, sectorColor);
         if (compositionLine) {
             drawWrappedText(compositionLine, { size: 10, font: helveticaBoldFont });
         }
@@ -945,21 +1122,22 @@ async function buildPdf() {
             const maxPhotoH = Math.max(140, bandTop - bandBottom - (showEffracTools ? 42 : 12));
             const scaled = embedded.scaleToFit(maxPhotoW, maxPhotoH);
             const imgX = photoColX + (photoColW - scaled.width) / 2;
-            const imgY = bandTop - 24 - scaled.height; // Position sous le label, lui-même sous le top
+            const imgY = bandTop - 24 - scaled.height;
 
             context.currentPage.drawRectangle({
                 x: photoColX + 2,
-                y: bandTop - (scaled.height + (showEffracTools ? 40 : 24)), // Top aligné avec le tableau
+                y: bandTop - (scaled.height + (showEffracTools ? 40 : 24)),
                 width: photoColW - 4,
                 height: scaled.height + (showEffracTools ? 40 : 24),
-                borderColor: showEffracTools ? goldColor : context.colors.accent,
-                borderWidth: 1.2
+                borderColor: sectorColor,
+                borderWidth: 1.2,
+                opacity: 0.8
             });
             const lbl = showEffracTools ? 'Photo porte (principale)' : 'Photo (vue principale)';
             const lw = helveticaFont.widthOfTextAtSize(lbl, 9);
             context.currentPage.drawText(lbl, {
                 x: photoColX + (photoColW - lw) / 2,
-                y: bandTop - 18, // Placé juste sous le trait haut du rectangle
+                y: bandTop - 18,
                 font: helveticaFont,
                 size: 9,
                 color: context.colors.text
@@ -1011,7 +1189,7 @@ async function buildPdf() {
         const lineHeight = fontSize + 4;
         if (checkY(lineHeight)) { context.y -= 10; }
 
-                let currentX = context.margin + 15;
+        let currentX = context.margin + 15;
         const cellStyle = { font: helveticaBoldFont, color: context.colors.danger, size: fontSize };
         const trigrammeStyle = { font: helveticaBoldFont, color: context.colors.text, size: fontSize };
         const separatorStyle = { font: helveticaFont, color: context.colors.text, size: fontSize };
@@ -1037,7 +1215,7 @@ async function buildPdf() {
                     currentX = context.margin + 15;
                     if (checkY(lineHeight)) { context.y -= 10; }
                 }
-                context.currentPage.drawText(part.text, { x: currentX, y: context.y, ...part.style });
+                context.currentPage.drawText(sanitizeText(part.text), { x: currentX, y: context.y, ...part.style });
                 currentX += partWidth;
             }
         });
@@ -1050,13 +1228,11 @@ async function buildPdf() {
         addNewPage();
         drawSubTitle(`ADVERSAIRE (OBJECTIF ${index + 1}): ${advName}`);
 
-        // Zone utile
         const pageW = context.pageWidth;
         const margin = context.margin;
         const gutter = 14;
         const topY = context.y;
 
-        // Photo principale
         const mainPhotoId = `photo_main_${adv.id}`;
         const mainImageMeta = (Store.state.formData.dynamic_photos || {})[mainPhotoId]?.[0] || null;
         const embeddedPhoto = mainImageMeta ? await embedPdfImageFromMeta(mainImageMeta) : null;
@@ -1065,7 +1241,6 @@ async function buildPdf() {
         const photoColX = embeddedPhoto ? pageW - margin - photoColW : pageW - margin;
         const tableAvailW = embeddedPhoto ? Math.max(200, photoColX - margin - gutter) : (pageW - margin * 2);
 
-        // Données
         const meText = (adv.me_list || []).map((me, i) => `ME${i + 1}: ${me}`).join(' | ');
         const adversaireRows = [
             ['Nom/Prénom', advName],
@@ -1084,18 +1259,16 @@ async function buildPdf() {
             ['Moyens Employés', dashShow(meText)],
         ].filter(row => row[1] && row[1] !== '—' && row[1] !== ' à ');
 
-        // Dessin Tableau
         context.y = topY;
         drawTable(['Information', 'Détail'], adversaireRows, [1, 2], margin, tableAvailW);
         const tableBottomY = context.y;
 
-        // Dessin Photo (Side-by-side)
         if (embeddedPhoto) {
             const tableUsedH = topY - tableBottomY;
-            const frameH = Math.max(180, tableUsedH); // Au moins 180 pour une belle photo
+            const frameH = Math.max(180, tableUsedH);
             const frameY = topY - frameH;
             const scaled = embeddedPhoto.scaleToFit(photoColW - 12, frameH - 25);
-            
+
             context.currentPage.drawRectangle({
                 x: photoColX, y: frameY, width: photoColW, height: frameH,
                 borderColor: context.colors.accent, borderWidth: 1.2
@@ -1111,15 +1284,12 @@ async function buildPdf() {
                 x: photoColX + (photoColW - lblW) / 2, y: frameY + 5,
                 font: helveticaFont, size: 9, color: context.colors.text
             });
-            
+
             context.y = Math.min(tableBottomY, frameY) - 10;
         } else {
             context.y = tableBottomY - 10;
         }
 
-        context.y = tableBottomY - 10;
-
-        // Consolider les photos supplémentaires et les photos renforts
         const extraPhotos = (Store.state.formData.dynamic_photos || {})[`photo_extra_${adv.id}`] || [];
         const renfortPhotos = (Store.state.formData.dynamic_photos || {})[`photo_renforts_${adv.id}`] || [];
 
@@ -1131,59 +1301,43 @@ async function buildPdf() {
         if (mergedAdvPhotos.length > 0) {
             await drawGroupedImages(mergedAdvPhotos, 'Photos Adversaire');
         }
-        checkY(50);
     };
 
 
     const pdfCreationLogic = async () => {
-        // Initialisation de la première page (qui doit avoir le fond)
-        addNewPage();
+        // --- PAGE DE GARDE ---
+        await drawCoverPage();
+        addNewPage(); // Forcer le début du contenu sur une nouvelle page pour éviter le chevauchement
 
-        // CONSIGNE: Titre en haut à gauche
-        const mainTitle = "OI";
-        context.currentPage.drawText(mainTitle, {
-            x: context.margin,
-            y: context.pageHeight - context.margin,
-            font: helveticaBoldFont,
-            size: 24,
-            color: context.colors.accent
-        });
+        // --- SECTION 1 : SITUATION ---
+        drawSectionHeader("1. SITUATION");
+        drawSubTitle("1.1 Situation Générale");
+        drawWrappedText(getVal('situation_generale'), { size: 12 });
+        drawSubTitle("1.2 Situation Particulière");
+        drawWrappedText(getVal('situation_particuliere'), { size: 12 });
 
-        // CONSIGNE: Date en haut à droite
-        const dateTitle = `DU ${getVal('date_op') || '(DATE)'}`;
-        const dateTitleWidth = helveticaBoldFont.widthOfTextAtSize(dateTitle, 18);
-        context.currentPage.drawText(dateTitle, {
-            x: context.pageWidth - context.margin - dateTitleWidth,
-            y: context.pageHeight - context.margin - (24 - 18) * 0.5, // Aligner verticalement avec le titre
-            font: helveticaBoldFont,
-            size: 18,
-            color: context.colors.text
-        });
-
-        context.y = context.pageHeight - context.margin - 40; // Démarrer le contenu sous le titre
-
-        addNewPage(); // Page 2
-        drawTitle("1. SITUATION");
-        drawSubTitle("1.1 Situation Générale"); drawWrappedText(getVal('situation_generale'), { size: 14 });
-        drawSubTitle("1.2 Situation Particulière"); drawWrappedText(getVal('situation_particuliere'), { size: 14 });
-
-        // Section 2. Adversaires (Le titre a été supprimé précédemment, on retire maintenant le saut de page)
+        // --- SECTION 2 : ADVERSAIRES ---
         if (Store.state.formData.adversaries && Store.state.formData.adversaries.length > 0) {
+            // Le titre de section sera géré au début du premier bloc adversaire
             for (let i = 0; i < Store.state.formData.adversaries.length; i++) {
+                if (i === 0) context.currentSection = "2. ADVERSAIRES";
                 await drawAdversaryBlock(Store.state.formData.adversaries[i], i);
             }
         } else {
-            drawWrappedText("Aucun adversaire renseigné.", { size: 14, color: context.colors.danger });
+            addNewPage();
+            drawSectionHeader("2. ADVERSAIRES");
+            drawWrappedText("Aucun adversaire renseigné.", { size: 12, color: context.colors.danger });
         }
 
-
+        // --- SECTION 3 : ENVIRONNEMENT ---
         addNewPage();
-        const envTitleY = context.y;
-        drawTitle("3. ENVIRONNEMENT");
-        drawSubTitle("Ami(e)s (soutien)"); drawWrappedText(getVal('amies'), { size: 14 });
-        drawSubTitle("Terrain / Météo"); drawWrappedText(getVal('terrain_info'), { size: 14 });
-        drawSubTitle("Population"); drawWrappedText(getVal('population'), { size: 14 });
-        drawSubTitle("Cadre juridique"); drawWrappedText(getVal('cadre_juridique'), { size: 14 });
+        drawSectionHeader("3. ENVIRONNEMENT");
+        drawSubTitle("3.1 Ami(e)s (soutien)");
+        drawWrappedText(getVal('amies'), { size: 12 });
+        drawSubTitle("3.2 Terrain / Météo / Population");
+        drawWrappedText(`Terrain: ${dashShow(getVal('terrain_info'))}\nPopulation: ${dashShow(getVal('population'))}`, { size: 12 });
+        drawSubTitle("3.3 Cadre juridique");
+        drawWrappedText(getVal('cadre_juridique'), { size: 12 });
 
         // Photos Transport (Globales)
         const transportPhotos = [
@@ -1194,36 +1348,74 @@ async function buildPdf() {
             await drawGroupedImages(transportPhotos, 'Transport');
         }
 
-
+        // --- SECTION 4 : MISSION ---
         addNewPage();
-        drawTitle("4. MISSION");
-        drawWrappedText(getVal('missions_psig'), { font: helveticaBoldFont, size: 30, color: context.colors.danger, x: context.margin });
+        drawSectionHeader("4. MISSION DU PSIG", context.colors.danger);
+        const missions = (getVal('missions_psig') || '').split('\n').filter(m => m.trim() !== '');
+        if (missions.length > 0) {
+            const headerPadding = 60;
+            const footerPadding = context.margin + 20;
+            const usableYStart = context.y - headerPadding;
+            const usableYEnd = footerPadding;
+            const usableHeight = usableYStart - usableYEnd;
 
+            // Ajustement dynamique de la police
+            let fontSize = 28;
+            if (missions.length > 4) fontSize = 24;
+            if (missions.length > 6) fontSize = 20;
+            if (missions.length > 8) fontSize = 16;
+            
+            const lineSpacing = Math.min(usableHeight / missions.length, fontSize * 2.5);
+            const totalH = missions.length * lineSpacing;
+            
+            // Centrage vertical
+            let currentY = usableYStart - (usableHeight - totalH) / 2;
+            
+            missions.forEach(mission => {
+                const text = mission.trim().toUpperCase();
+                let currentFontSize = fontSize;
+                let w = helveticaBoldFont.widthOfTextAtSize(text, currentFontSize);
+                
+                // Sécurité largeur
+                const maxW = context.pageWidth - context.margin * 2;
+                if (w > maxW) {
+                    currentFontSize = Math.floor(currentFontSize * (maxW / w));
+                    w = helveticaBoldFont.widthOfTextAtSize(text, currentFontSize);
+                }
+
+                context.currentPage.drawText(sanitizeText(text), {
+                    x: (context.pageWidth - w) / 2,
+                    y: currentY,
+                    font: helveticaBoldFont,
+                    size: currentFontSize,
+                    color: context.colors.danger
+                });
+                currentY -= lineSpacing;
+            });
+        }
+
+        // --- SECTION 5 : EXÉCUTION ---
         addNewPage();
-        drawTitle("5. EXÉCUTION");
-        drawWrappedText(getVal('action_body_text'), { size: 16, x: context.margin });
-
-        drawSubTitle("Chronologie des temps");
+        drawSectionHeader("5. EXÉCUTION");
+        drawSubTitle("5.1 Chronologie des temps");
         const chronoHeaders = ["Type", "Heure", "Description"];
         const chronoRows = (Store.state.formData.time_events || []).map(e => [e.type || 'N/A', e.hour || 'N/A', e.description || 'N/A']);
         drawTable(chronoHeaders, chronoRows, [1, 1.5, 7], context.margin);
-        drawSubTitle("Hypothèses");
+
+        drawSubTitle("5.2 Hypothèses");
         if (Store.state.formData.hypotheses && Store.state.formData.hypotheses.length > 0) {
             const hypothesesList = Store.state.formData.hypotheses.filter(h => h.trim() !== '').map(h => `- ${h}`).join('\n');
             if (hypothesesList) {
-                drawWrappedText(hypothesesList, { size: 14, font: helveticaBoldFont, color: context.colors.text });
+                drawWrappedText(hypothesesList, { size: 12, font: helveticaBoldFont });
             } else {
-                drawWrappedText("Aucune hypothèse.", { size: 14, color: context.colors.text });
+                drawWrappedText("Aucune hypothèse.", { size: 11 });
             }
         }
 
-        // --- NOUVEAU: Baptême Terrain (Tous) - Entre Section 5 et 6 ---
+        // 5.3 Baptême Terrain
         const baptemePhotosGroup = [];
-        // 1. Ajouter la photo globale
         const globalB = (Store.state.formData.dynamic_photos || {})['photo_container_bapteme_terrain_preview_container'] || [];
         globalB.forEach(p => baptemePhotosGroup.push({ ...p, customTitle: 'Baptême terrain (Général)' }));
-
-        // 2. Ajouter les photos des blocs ZMSPCP
         if (Store.state.formData.zmspcp_blocks) {
             Store.state.formData.zmspcp_blocks.forEach((block, idx) => {
                 const title = block.title || `ZMSPCP ${idx + 1}`;
@@ -1231,45 +1423,29 @@ async function buildPdf() {
                 blockB.forEach(p => baptemePhotosGroup.push({ ...p, customTitle: `${title} - Baptême Terrain` }));
             });
         }
-
         if (baptemePhotosGroup.length > 0) {
-            addNewPage();
-            drawTitle("BAPTÊME TERRAIN");
-            await drawGroupedImages(baptemePhotosGroup, 'Baptême Terrain', {
-                forceSingle: true,
-                startOnCurrentPage: true
-            });
+            drawSubTitle("5.3 Baptême Terrain");
+            await drawGroupedImages(baptemePhotosGroup, 'Baptême Terrain', { forceSingle: true, startOnCurrentPage: true });
         }
 
+        // --- SECTION 6 : ARTICULATION (MOICP / ZMSPCP) ---
         addNewPage();
-        drawTitle("6. ARTICULATION");
-        drawWrappedText(`Place du Chef (Générale): ${getVal('place_chef')}`, { size: 14, x: context.margin });
-
-        // --- SECTION 6: ARTICULATION (MOICP + ZMSPCP groupés) ---
-        addNewPage();
-        drawTitle("6. ARTICULATION");
-        drawWrappedText(`Place du Chef (Générale): ${dashShow(getVal('place_chef'))}`, { size: 14, x: context.margin });
+        drawSectionHeader("6. ARTICULATION");
+        drawSubTitle("6.1 Place du Chef (Générale)");
+        drawWrappedText(dashShow(getVal('place_chef')), { size: 12 });
 
         const moicpBlocks = Store.state.formData.moicp_blocks || [];
         const zmspcpBlocks = Store.state.formData.zmspcp_blocks || [];
         const maxSteps = Math.max(moicpBlocks.length, zmspcpBlocks.length);
 
         for (let i = 0; i < maxSteps; i++) {
-            // Pour la première paire, on essaie de rester sur la page 6 si possible.
-            // Pour les paires suivantes (i > 0), on force une nouvelle page.
-            if (i > 0) {
-                addNewPage();
-            } else {
-                // Si i=0, on vérifie juste s'il reste assez de place pour AU MOINS un bloc (approx 200 units)
-                if (context.y < context.margin + 200) addNewPage();
-            }
+            if (i > 0) addNewPage();
+            else if (context.y < context.margin + 200) addNewPage();
 
-            // --- MOICP (i) ---
+            // MOICP (India / Inter) -> BLEU
             if (i < moicpBlocks.length) {
                 const block = moicpBlocks[i];
                 const title = block.title || `Inter ${i + 1}`;
-                if (checkY(180)) { /* Page ajoutée si place insuffisante */ }
-                
                 const moicpRows = [
                     ['Mission (M)', dashShow(block.mission)],
                     ['Objectif (O)', dashShow(block.objectif)],
@@ -1277,36 +1453,22 @@ async function buildPdf() {
                     ['Points particuliers (P)', dashShow(block.points_particuliers)],
                     ['Conduite à tenir (C)', dashShow(block.cat)]
                 ];
-                const comp = (block.members && block.members.length)
-                    ? `Composition (engagement) : ${block.members.join(',  ')}`
-                    : null;
-                const ext = (Store.state.formData.dynamic_photos || {})[`photo_itin_ext_${block.id}`] || [];
-                const intr = (Store.state.formData.dynamic_photos || {})[`photo_itin_int_${block.id}`] || [];
-                const ordered = [...ext, ...intr];
-                const hero = ordered[0] || null;
+                const comp = (block.members && block.members.length) ? `Composition : ${block.members.join(', ')}` : null;
+                const hero = ((Store.state.formData.dynamic_photos || {})[`photo_itin_ext_${block.id}`] || [])[0] || null;
 
                 await drawTableWithHeroPhoto({
-                    blockTitle: title,
+                    blockTitle: `6.2.${i + 1} MOICP : ${title}`,
                     compositionLine: comp,
                     rows: moicpRows,
                     heroMeta: hero,
-                    showEffracTools: false
+                    sectorColor: context.colors.moicp
                 });
-
-                const rest = ordered.slice(1).map((p, idx) => ({
-                    ...p, customTitle: p.customTitle || `${title} — photo ${idx + 2}`
-                }));
-                if (rest.length > 0) {
-                    await drawGroupedImages(rest, 'MOICP — photos complémentaires', { startOnCurrentPage: true });
-                }
             }
 
-            // --- ZMSPCP (i) ---
+            // ZMSPCP (Appui / AO) -> VERT
             if (i < zmspcpBlocks.length) {
                 const block = zmspcpBlocks[i];
                 const title = block.title || `Appui ${i + 1}`;
-                if (checkY(180)) { /* Page ajoutée */ }
-
                 const zmspcpRows = [
                     ['Zone (Z)', dashShow(block.zone)],
                     ['Mission (M)', dashShow(block.mission)],
@@ -1315,375 +1477,85 @@ async function buildPdf() {
                     ['Conduite à tenir (C)', dashShow(block.cat)],
                     ['Place du Chef (P)', dashShow(block.place_chef)]
                 ];
-                const comp = (block.members && block.members.length)
-                    ? `Composition (engagement) : ${block.members.join(',  ')}`
-                    : null;
-                const bapt = (Store.state.formData.dynamic_photos || {})[`photo_bapteme_${block.id}`] || [];
-                const empl = (Store.state.formData.dynamic_photos || {})[`photo_empl_ao_${block.id}`] || [];
-                const ordered = [...bapt, ...empl];
-                const hero = ordered[0] || null;
+                const comp = (block.members && block.members.length) ? `Composition : ${block.members.join(', ')}` : null;
+                const hero = ((Store.state.formData.dynamic_photos || {})[`photo_empl_ao_${block.id}`] || [])[0] || null;
 
                 await drawTableWithHeroPhoto({
-                    blockTitle: title,
+                    blockTitle: `6.3.${i + 1} ZMSPCP : ${title}`,
                     compositionLine: comp,
                     rows: zmspcpRows,
                     heroMeta: hero,
-                    showEffracTools: false
+                    sectorColor: context.colors.zmspcp
                 });
-
-                const rest = ordered.slice(1).map((p, idx) => ({
-                    ...p, customTitle: p.customTitle || `${title} — photo ${idx + 2}`
-                }));
-                if (rest.length > 0) {
-                    await drawGroupedImages(rest, 'ZMSPCP — photos complémentaires', { startOnCurrentPage: true });
-                }
             }
         }
-        
-        // --- SECTION 7: CELLULE EFFRACTION : tableau exhaustif porte + 1re photo + puces outils, puis hypothèses et autres vues ---
+
+        // --- SECTION 7 : CELLULE EFFRACTION (JAUNE) ---
         if (Store.state.formData.effraction_blocks && Store.state.formData.effraction_blocks.length > 0) {
+            addNewPage();
+            drawSectionHeader("7. CELLULE EFFRACTION", context.colors.effrac);
             for (let i = 0; i < Store.state.formData.effraction_blocks.length; i++) {
                 const block = Store.state.formData.effraction_blocks[i];
-                const title = block.title || `Effraction ${i + 1}`;
-                
-                // --- Page d'accueil du Bloc Effraction (Tableau + Hero Photo) ---
-                addNewPage();
-                if (i === 0) {
-                    drawTitle("7. CELLULE EFFRACTION");
-                }
-                const fmtDim = (v) => (v !== undefined && v !== null && String(v).trim() !== '') ? `${String(v).trim()} cm` : '—';
+                const fmtDim = (v) => (v ? `${v} cm` : '—');
                 const effracRows = [
-                    ['Mission', dashShow(block.mission)],
-                    ['Type porte', dashShow(block.porte)],
-                    ['Structure & dormant', dashShow(block.structure)],
-                    ['Serrurerie', dashShow(block.serrurerie)],
-                    ['Environnement immédiat', dashShow(block.environnement)],
-                    ['Bâti à bâti', fmtDim(block.bati_a_bati)],
-                    ['Dormant à dormant', fmtDim(block.dormant_a_dormant)],
-                    ['Profondeur linteaux', fmtDim(block.prof_linteaux)],
-                    ['Profondeur bâti', fmtDim(block.prof_bati)],
-                    ['Hauteur porte', fmtDim(block.h_porte)],
-                    ['Hauteur marche', fmtDim(block.h_marche)],
-                    ['Profondeur marche', fmtDim(block.prof_marche)],
-                    ['Profondeur moulure', fmtDim(block.prof_moulure)]
+                    ['Mission', dashShow(block.mission)], ['Type porte', dashShow(block.porte)], ['Structure', dashShow(block.structure)],
+                    ['Serrurerie', dashShow(block.serrurerie)], ['Bâti à bâti', fmtDim(block.bati_a_bati)], ['Hauteur porte', fmtDim(block.h_porte)]
                 ];
-                const comp = (block.members && block.members.length)
-                    ? `Composition : ${block.members.join(',  ')}`
-                    : null;
-                const effracPhotosRaw = ((Store.state.formData.dynamic_photos || {})[`photo_effrac_${block.id}`] || []);
-                const heroMeta = effracPhotosRaw[0] || null;
+                const heroMeta = ((Store.state.formData.dynamic_photos || {})[`photo_effrac_${block.id}`] || [])[0] || null;
                 await drawTableWithHeroPhoto({
-                    blockTitle: `${title} — synthèse porte`,
-                    compositionLine: comp,
+                    blockTitle: `7.1.${i + 1} Effraction : ${block.title || 'Porte'}`,
+                    compositionLine: (block.members && block.members.length) ? `Composition : ${block.members.join(', ')}` : null,
                     rows: effracRows,
                     heroMeta,
-                    showEffracTools: true
+                    showEffracTools: true,
+                    sectorColor: context.colors.effrac
                 });
-
-                // --- Page(s) pour les Vues Complémentaires (Photos 2+) ---
-                const extraPhotos = effracPhotosRaw.slice(1).map((p) => {
-                    let toolsStr = '';
-                    try { toolsStr = p.tools ? JSON.parse(p.tools).join(', ') : ''; } catch (e) { toolsStr = ''; }
-                    return { ...p, isEffrac: true, customTitle: `${title} — détail (${toolsStr || 'sans outil'})` };
-                });
-                if (extraPhotos.length > 0) {
-                    await drawGroupedImages(extraPhotos, 'Effraction — vues complémentaires', { startOnCurrentPage: false });
-                }
-
-                // --- Page dédiée pour les Hypothèses ---
-                const margin = context.margin;
-                const pageW = context.pageWidth;
-                const goldColor = rgb(212 / 255, 175 / 255, 55 / 255);
 
                 if (block.hypotheses && block.hypotheses.length > 0) {
-                    addNewPage();
-                    drawSubTitle(`Hypothèses d'effraction`);
-                    for (let hIdx = 0; hIdx < block.hypotheses.length; hIdx++) {
-                        const hyp = block.hypotheses[hIdx];
-                        checkY(100); // Ajoute une page si besoin (déjà géré par la fonction)
-
-                        drawWrappedText(`${hyp.title || 'Hypothèse ' + (hIdx + 1)}: ${hyp.desc || ''}`, { size: 10, font: helveticaBoldFont, color: context.colors.danger });
-
-                        const phases = [
-                            { title: 'Effraction', text: hyp.effrac || '' },
-                            { title: 'Dégagement', text: hyp.degag || '' },
-                            { title: 'Assaut', text: hyp.assaut || '' }
-                        ];
-
-                        const cellW = (pageW - 2 * margin - 20) / 3;
-                        const cellH = 60;
-
-                        let currentPhaseY = context.y;
-
-                        phases.forEach((ph, pIdx) => {
-                            const cX = margin + pIdx * (cellW + 10);
-
-                            context.currentPage.drawRectangle({
-                                x: cX, y: currentPhaseY - cellH, width: cellW, height: cellH,
-                                borderColor: goldColor, borderWidth: 1, color: goldColor // Fond OR
-                            });
-                            context.currentPage.drawText(ph.title, {
-                                x: cX + 5, y: currentPhaseY - 14, font: helveticaBoldFont, size: 10, color: rgb(0, 0, 0) // Texte NOIR
-                            });
-
-                            const words = (ph.text || '').split(' ');
-                            let line = '';
-                            let txtY = currentPhaseY - 26;
-                            for (let wi = 0; wi < words.length; wi++) {
-                                const testLine = line + words[wi] + ' ';
-                                const testW = helveticaFont.widthOfTextAtSize(testLine, 8);
-                                if (testW > cellW - 10 && wi > 0) {
-                                    if (txtY >= currentPhaseY - cellH + 5) {
-                                        context.currentPage.drawText(line, { x: cX + 5, y: txtY, font: helveticaFont, size: 8, color: rgb(0, 0, 0) });
-                                        txtY -= 10;
-                                    }
-                                    line = words[wi] + ' ';
-                                } else {
-                                    line = testLine;
-                                }
-                            }
-                            if (txtY >= currentPhaseY - cellH + 5) {
-                                context.currentPage.drawText(line, { x: cX + 5, y: txtY, font: helveticaFont, size: 8, color: rgb(0, 0, 0) });
-                            }
-
-                            if (pIdx < 2) {
-                                const arrowX = cX + cellW;
-                                const arrowY = currentPhaseY - cellH / 2;
-                                context.currentPage.drawLine({
-                                    start: { x: arrowX, y: arrowY }, end: { x: arrowX + 10, y: arrowY },
-                                    thickness: 2, color: goldColor
-                                });
-                                context.currentPage.drawLine({
-                                    start: { x: arrowX + 7, y: arrowY - 3 }, end: { x: arrowX + 10, y: arrowY },
-                                    thickness: 2, color: goldColor
-                                });
-                                context.currentPage.drawLine({
-                                    start: { x: arrowX + 7, y: arrowY + 3 }, end: { x: arrowX + 10, y: arrowY },
-                                    thickness: 2, color: goldColor
-                                });
-                            }
-                        });
-                        context.y = currentPhaseY - cellH - 15;
-                    }
+                    drawSubTitle("Hypothèses d'effraction", context.colors.effrac);
+                    block.hypotheses.forEach((hyp, hIdx) => {
+                        drawWrappedText(`${hyp.title || 'H' + (hIdx + 1)}: ${hyp.desc || ''}`, { size: 10, font: helveticaBoldFont, color: context.colors.danger });
+                    });
                 }
-
-                // Le bloc Hypothèses est fini, on passe à la suite ou aux extraPhotos si elles existaient (déjà fait au-dessus)
             }
         }
 
-        // ── PAGE DÉDIÉE : Ordres (Rame VL / Colonne / Pénétration) ──────────────────
-        const hasRame = Store.state.formData.rame_vl_order && Store.state.formData.rame_vl_order.length > 0;
-        const hasColonne = Store.state.formData.colonne_progression_order && Store.state.formData.colonne_progression_order.length > 0;
-        const hasPenetration = Store.state.formData.ordre_penetration_order && Store.state.formData.ordre_penetration_order.length > 0;
-
-        if (hasRame || hasColonne || hasPenetration) {
-            addNewPage();
-
-            // ── Titre de page ────────────────────────────────────────────────────────
-            drawTitle("ORDRES — Rame VL / Colonne de Progression / Pénétration");
-
-            // Paramètres généraux de la page
-            const pageW = context.pageWidth;
-            const pageH = context.pageHeight;
-            const margin = context.margin;
-
-            // Colonnes actives
-            const diagrams = [];
-            if (hasRame) diagrams.push({ label: "RAME VL", items: Store.state.formData.rame_vl_order, color: context.colors.accent });
-            if (hasColonne) diagrams.push({ label: "COLONNE PROGRESSION", items: Store.state.formData.colonne_progression_order, color: context.colors.accent });
-            if (hasPenetration) diagrams.push({ label: "PÉNÉTRATION", items: Store.state.formData.ordre_penetration_order, color: context.colors.danger });
-
-            const nCols = diagrams.length;
-            const colGap = 20;
-
-            // Zone desenable (sous le titre, marge basse)
-            const drawZoneTop = context.y;           // y courant après le titre
-            const drawZoneBottom = margin + 10;
-            const drawZoneHeight = drawZoneTop - drawZoneBottom;
-
-            // Largeur de chaque colonne de diagramme
-            const totalColW = (pageW - 2 * margin - colGap * (nCols - 1)) / nCols;
-
-            // Style des boîtes
-            const boxH = 26;
-            const boxRadius = 4;
-            const arrowH = 14;
-            const labelFontSize = 11;
-            const itemFontSize = 10;
-            const posNumW = 20; // largeur du numéro de position
-
-            diagrams.forEach((diag, colIdx) => {
-                const nItems = diag.items.length;
-
-                // Calcul de l'espace disponible par item (boite + flèche), sauf dernière flèche
-                // totalHeight = nItems * boxH + (nItems-1) * arrowH
-                // On scale si ça dépasse
-                const naturalTotalH = nItems * boxH + Math.max(0, nItems - 1) * arrowH;
-                const scale = naturalTotalH > drawZoneHeight ? drawZoneHeight / naturalTotalH : 1;
-                const scaledBoxH = boxH * scale;
-                const scaledArrowH = arrowH * scale;
-                const scaledLabelFont = Math.floor(labelFontSize * scale);
-                const scaledItemFont = Math.floor(itemFontSize * scale);
-
-                // Calcul de la colonne X
-                const colX = margin + colIdx * (totalColW + colGap);
-
-                // En-tête de colonne (nom du diagramme)
-                const headerY = drawZoneTop;
-                const headerFontSz = 11;
-                const headerText = diag.label;
-                const headerW = helveticaBoldFont.widthOfTextAtSize(headerText, headerFontSz);
-                const headerX = colX + (totalColW - headerW) / 2;
-                context.currentPage.drawText(headerText, {
-                    x: headerX, y: headerY - 14,
-                    font: helveticaBoldFont, size: headerFontSz,
-                    color: diag.color
-                });
-
-                // Trait sous l'en-tête
-                context.currentPage.drawLine({
-                    start: { x: colX, y: headerY - 18 },
-                    end: { x: colX + totalColW, y: headerY - 18 },
-                    color: diag.color, thickness: 1
-                });
-
-                        // Début des boîtes (sous l'en-tête)
-                        let curY = headerY - 28;
-
-                diag.items.forEach((item, itemIdx) => {
-                    const isLast = itemIdx === nItems - 1;
-
-                    // Boite
-                    const boxY = curY - scaledBoxH;
-                    context.currentPage.drawRectangle({
-                        x: colX, y: boxY,
-                        width: totalColW, height: scaledBoxH,
-                        color: context.colors.background,
-                        borderColor: diag.color, borderWidth: 1
-                    });
-
-                    // Numéro de position (cercle à gauche)
-                    const posNumFontSz = Math.max(6, scaledItemFont - 1);
-                    const circleR = Math.min(8, scaledBoxH / 3);
-                    const circleX = colX + circleR + 4;
-                    const circleY = boxY + scaledBoxH / 2;
-                    context.currentPage.drawCircle({
-                        x: circleX, y: circleY, size: circleR,
-                        color: diag.color
-                    });
-                    // Numéro dans le cercle
-                    const posLabel = String(itemIdx + 1);
-                    const posLW = helveticaBoldFont.widthOfTextAtSize(posLabel, posNumFontSz);
-                    context.currentPage.drawText(posLabel, {
-                        x: circleX - posLW / 2, y: circleY - posNumFontSz / 3,
-                        font: helveticaBoldFont, size: posNumFontSz,
-                        color: context.colors.background
-                    });
-
-                    // Texte du membre / VL (après le cercle)
-                    const textX = colX + circleR * 2 + 8;
-                    const maxTextW = totalColW - (circleR * 2 + 12);
-                    const displayedItem = scaledItemFont >= 7
-                        ? item
-                        : item.length > 12 ? item.substring(0, 12) + '…' : item;
-                    const itemW = helveticaBoldFont.widthOfTextAtSize(displayedItem, scaledItemFont);
-                    context.currentPage.drawText(displayedItem, {
-                        x: textX, y: boxY + (scaledBoxH - scaledItemFont) / 2,
-                        font: helveticaBoldFont,
-                        size: Math.max(6, scaledItemFont),
-                        color: context.colors.text
-                    });
-
-                    curY = boxY; // descend sous la boîte
-
-                    // Flèche vers la boîte suivante
-                    if (!isLast) {
-                        const arrowMidX = colX + totalColW / 2;
-                        const arrowTopY = curY;
-                        const arrowBotY = curY - scaledArrowH;
-
-                        context.currentPage.drawLine({
-                            start: { x: arrowMidX, y: arrowTopY - 4 },
-                            end: { x: arrowMidX, y: arrowBotY },
-                            color: diag.color, thickness: 1.5
-                        });
-                        // Tête de flèche (triangle) pointant vers le haut
-                        const aw = 5 * scale;
-                        context.currentPage.drawLine({
-                            start: { x: arrowMidX - aw, y: arrowTopY - 5 },
-                            end: { x: arrowMidX, y: arrowTopY },
-                            color: diag.color, thickness: 1.5
-                        });
-                        context.currentPage.drawLine({
-                            start: { x: arrowMidX + aw, y: arrowTopY - 5 },
-                            end: { x: arrowMidX, y: arrowTopY },
-                            color: diag.color, thickness: 1.5
-                        });
-
-                        curY = arrowBotY;
-                    }
-                });
-            });
-
-            // Le contexte y n'est plus utilisé sur cette page — laisser en bas
-            context.y = drawZoneBottom;
-        }
-
-
-
+        // --- SECTION 8 : PATRACDVR (ZEBRA COMPACT) ---
         addNewPage();
-        drawTitle("7. PATRACDVR");
-        // NOUVEAU: Ajout de colonne DIR dans le tableau
+        drawSectionHeader("8. PATRACDVR");
         const patracHeaders = ["Pax", "Fonction", "Cellule", "DIR", "Princ.", "Sec.", "A.F.I.", "Gren.", "Équip.", "Tenue", "GPB"];
         for (const row of (Store.state.formData.patracdvr_rows || [])) {
             if (row.vehicle && row.members && row.members.length > 0) {
                 drawSubTitle(`Véhicule: ${row.vehicle}`);
                 const patracRows = row.members.filter(m => m.trigramme).map(m => [
-                    m.trigramme,
-                    m.fonction,
-                    m.cellule,
-                    m.dir || '',
-                    m.principales,
-                    m.secondaires,
-                    m.afis,
-                    m.grenades,
+                    m.trigramme, m.fonction, m.cellule, m.dir || '', m.principales, m.secondaires, m.afis, m.grenades,
                     `${m.equipement}, ${m.equipement2}`.replace('Sans, Sans', 'Sans').replace(', Sans', ''),
-                    m.tenue,
-                    m.gpb
+                    m.tenue, m.gpb
                 ]);
-                if (patracRows.length > 0) {
-                    drawTable(patracHeaders, patracRows, [1.5, 2, 1.5, 1.2, 1.8, 1.5, 1.5, 1.5, 2, 1.5, 1.5], context.margin);
-                }
+                drawTable(patracHeaders, patracRows, [1.5, 2, 1.5, 1.2, 1.8, 1.5, 1.5, 1.5, 2, 1.5, 1.5], context.margin);
             }
         }
 
+        // --- SECTION 9 : CONDUITES À TENIR ---
         addNewPage();
-        drawTitle("9. Conduites à tenir");
-        drawSubTitle("Générales"); drawWrappedText(getVal('cat_generales'), { x: context.margin, font: helveticaBoldFont });
-        const noGoText = getVal('no_go');
-        if (noGoText) {
-            drawSubTitle("NO GO");
-            drawWrappedText(noGoText, { x: context.margin, font: helveticaBoldFont, size: 14.4, color: context.colors.danger });
+        drawSectionHeader("9. CONDUITES À TENIR", context.colors.danger);
+        drawSubTitle("9.1 Générales"); drawWrappedText(getVal('cat_generales'), { font: helveticaBoldFont });
+        if (getVal('no_go')) {
+            drawSubTitle("9.2 NO GO", context.colors.danger);
+            drawWrappedText(getVal('no_go'), { font: helveticaBoldFont, size: 14, color: context.colors.danger });
         }
-        drawSubTitle("Liaison"); drawWrappedText(getVal('cat_liaison'), { x: context.margin, font: helveticaBoldFont });
+        drawSubTitle("9.3 Liaison"); drawWrappedText(getVal('cat_liaison'), { font: helveticaBoldFont });
 
-
-        // Ajoute la page finale AVEC le fond
+        // --- PAGE FINALE ---
         addNewPage(true);
-
-        // CONSIGNE: Le texte "Avez vous des questions?" est centré dans le premier quart supérieur de la diapo.
-        const finalText = "Avez vous des questions?";
-        const finalTextWidth = helveticaBoldFont.widthOfTextAtSize(finalText, 48);
-
-        // Y: Le premier quart est de context.pageHeight à context.pageHeight * 0.75.
-        // Centré sur le point Y = (Max Y + Min Y) / 2 = (height + (height * 0.75)) / 2 = height * 0.875
-        const targetY = context.pageHeight * 0.75; // Ajustement visuel dans le premier quart
-
+        const finalText = "AVEZ VOUS DES QUESTIONS ?";
+        const finalTextSize = 40;
+        const finalTextWidth = helveticaBoldFont.widthOfTextAtSize(finalText, finalTextSize);
         context.currentPage.drawText(finalText, {
-            x: context.pageWidth / 2 - finalTextWidth / 2,
-            y: targetY,
+            x: (context.pageWidth - finalTextWidth) / 2,
+            y: context.pageHeight * 0.75,
             font: helveticaBoldFont,
-            size: 48,
+            size: finalTextSize,
             color: context.colors.accent
         });
     };
@@ -1691,276 +1563,8 @@ async function buildPdf() {
     await pdfCreationLogic();
     const pdfBytes = await pdfDoc.save();
     return { pdfBytes, formData: Store.state.formData };
-}
+};
 
-// ==================== app.js ====================
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-        // Configuration des membres par défaut (pour initialisation si localStorage vide)
-
-// Globals are already declared in init.js or assigned in DOMContentLoaded
-
-// displayMap is defined in MediaManager.js
-
-
-
-
-// Event listeners will be initialized in DOMContentLoaded
-
-
-
-
-
-
-
-// --- Gestion du Fond Personnalisé ---
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// NOUVEAU: Fonction pour renommer un véhicule
-
-
-
-
-
-
-
-
-// ----------------------------------------------------------------------
-// 1. VARIABLE GLOBALE POUR LE DRAG MOBILE
-// ----------------------------------------------------------------------
-let touchDragItem = null;
-let touchDragClone = null;
-let touchStartX = 0;
-let touchStartY = 0;
-
-// ----------------------------------------------------------------------
-// 2. GESTIONNAIRES D'ÉVÉNEMENTS TACTILES (MOBILE)
-// ----------------------------------------------------------------------
-
-// quickEditMapping is already declared globally in init.js
-
-// NOUVEAU: Liste des attributs supportant la multi-sélection
-// multiSelectAttributes is already declared globally in init.js
-
-
-
-
-
-
-
-
-
-
-
-/**
- * Logique de suppression lors du drop sur la corbeille.
- */
-
-
-/**
- * Sauvegarde les métadonnées du formulaire dans localStorage.
- */
-
-
-/**
- * Charge les données du formulaire depuis localStorage et les images depuis IndexedDB.
- */
-
-
-// CORRECTION: Retrait de l'appel à setupQuickEditPanel ici
-
-
-
-
-// Suppression de let draggedItem = null; pour utiliser l'objet DataTransfer
-
-
-
-
-
-window.updateAnnotationRotation = updateAnnotationRotation;
-
-
-// --- GLOBAL EXPOSURE (Moved to appropriate modules) ---
 window.openPresentationMode = openPresentationMode;
 window.downloadOiPdf = downloadOiPdf;
-
-document.addEventListener('DOMContentLoaded', async () => {
-    // ALWAYS start at Step 0 per user requirement
-    Store.state.currentStep = 0;
-
-    // Initialize global DOM references
-    steps = Array.from(document.querySelectorAll(".wizard-step"));
-    progressSteps = Array.from(document.querySelectorAll(".wizard-progress-step"));
-    prevBtn = document.getElementById('prevBtn');
-    nextBtn = document.getElementById('nextBtn');
-    previewBtn = document.getElementById('previewBtn');
-    
-    patracdvrContainer = document.getElementById('patracdvr_container');
-    unassignedContainer = document.getElementById('unassigned_members_container');
-    resetPatracdvrBtn = document.getElementById('resetPatracdvrBtn');
-    presentationModal = document.getElementById('presentationModal');
-    downloadPdfBtn = document.getElementById('downloadPdfBtn');
-    coherenceAlertsContainer = document.getElementById('coherence_alerts_container');
-    recapFinalisation = document.getElementById('recap_finalisation');
-
-    // Drawing context
-    annotationModal = document.getElementById('annotationModal');
-    canvas = document.getElementById('annotationCanvas');
-    if (canvas) ctx = canvas.getContext('2d');
-    rotationInput = document.getElementById('rotation_input');
-    if (typeof initAnnotationWorkspace === 'function') {
-        initAnnotationWorkspace();
-    }
-
-    // Attach Step navigation listeners
-    if (prevBtn) prevBtn.addEventListener('click', () => changeStep(-1));
-    if (nextBtn) nextBtn.addEventListener('click', () => changeStep(1));
-    // DB Init
-    try {
-        if (dbManager && typeof dbManager.init === 'function') {
-            await dbManager.init();
-        }
-    } catch (e) {
-        console.error("DB Init failed:", e);
-    }
-    
-    await loadFormData();
-    initializeDragDropListeners();
-    if (typeof initDocumentDragTransfer === 'function') initDocumentDragTransfer();
-    if (typeof initPatracQuickEditUi === 'function') initPatracQuickEditUi();
-
-    // Initialisation du thème
-    const isDarkMode = localStorage.getItem('theme') === 'dark' || !localStorage.getItem('theme');
-    if (!isDarkMode) { document.body.classList.replace('dark-mode', 'light-mode'); }
-    if (document.getElementById('darkModeIcon')) {
-        document.getElementById('darkModeIcon').textContent = isDarkMode ? 'nightlight' : 'clear_day';
-    }
-
-    // Dock initialization
-    const fullscreenToggleBtn = document.getElementById('fullscreenToggle');
-    const darkModeToggleBtn = document.getElementById('darkModeToggle');
-    const dockToggleBtn = document.getElementById('dockToggleBtn');
-    const dock = document.getElementById('dockMenu');
-
-    if (fullscreenToggleBtn) {
-        fullscreenToggleBtn.addEventListener('click', toggleFullscreen);
-        document.addEventListener('fullscreenchange', updateFullscreenIcon);
-        document.addEventListener('webkitfullscreenchange', updateFullscreenIcon);
-        document.addEventListener('mozfullscreenchange', updateFullscreenIcon);
-        document.addEventListener('msfullscreenchange', updateFullscreenIcon);
-        updateFullscreenIcon();
-    }
-    if (darkModeToggleBtn) {
-        darkModeToggleBtn.addEventListener('click', handleThemeToggle);
-    }
-
-    if (dockToggleBtn && dock) {
-        // Un seul écouteur pour éviter le double déclenchement
-        const handleDockToggle = (e) => {
-            e.preventDefault();
-            if (typeof toggleDock === 'function') toggleDock();
-        };
-
-        dockToggleBtn.addEventListener('click', handleDockToggle);
-        
-        if (localStorage.getItem('dockCollapsed') === 'true') {
-            dock.classList.add('collapsed');
-            const icon = document.querySelector('#dockToggleBtn .material-symbols-outlined');
-            if (icon) icon.textContent = 'expand_less';
-        }
-    }
-
-    // Collapsibles: Default Closed
-    document.querySelectorAll('.collapsible-container').forEach(c => c.classList.remove('open'));
-    const cont = document.querySelector('.container');
-    if (cont) {
-        cont.addEventListener('click', (event) => {
-            const header = event.target.closest('.collapsible-header');
-            if (header) { 
-                const parent = header.parentElement; 
-                if (parent && parent.classList.contains('collapsible-container')) parent.classList.toggle('open'); 
-            }
-        });
-    }
-
-    // Event Listeners for Buttons
-    const resetPatracBtn = document.getElementById('resetPatracdvrBtn');
-    if (resetPatracBtn) {
-        resetPatracBtn.addEventListener('click', () => {
-            if (confirm("Effacer tout le PATRACDVR ?")) {
-                const p = document.getElementById('patracdvr_container');
-                const u = document.getElementById('unassigned_members_container');
-                if (p) p.innerHTML = '';
-                if (u) u.innerHTML = '';
-                syncDomToStore();
-                activeMemberId = null;
-                const panel = document.getElementById('quickEditPanel');
-                if (panel) panel.style.display = 'none';
-            }
-        });
-    }
-
-    const addManualVehicleBtn = document.getElementById('addManualVehicleBtn');
-    if (addManualVehicleBtn) addManualVehicleBtn.addEventListener('click', addManualVehicle);
-    
-    const addManualMemberBtn = document.getElementById('addManualMemberBtn');
-    if (addManualMemberBtn) addManualMemberBtn.addEventListener('click', addManualMember);
-
-    const addMoicpBtn = document.getElementById('addMoicpBtn');
-    if (addMoicpBtn) addMoicpBtn.addEventListener('click', () => typeof addMoicp === 'function' && addMoicp());
-
-    const addZmspcpBtn = document.getElementById('addZmspcpBtn');
-    if (addZmspcpBtn) addZmspcpBtn.addEventListener('click', () => typeof addZmspcp === 'function' && addZmspcp());
-
-    const addEffractionBtn = document.getElementById('addEffractionBtn');
-    if (addEffractionBtn) addEffractionBtn.addEventListener('click', () => typeof addEffraction === 'function' && addEffraction());
-
-    if (previewBtn) previewBtn.addEventListener('click', openPresentationMode);
-    
-    const dlPdfBtn = document.getElementById('downloadPdfBtn');
-    if (dlPdfBtn) dlPdfBtn.addEventListener('click', downloadOiPdf);
-
-    const closePBtn = document.getElementById('closePresentationModalBtn');
-    if (closePBtn) {
-        closePBtn.addEventListener('click', () => {
-            const m = document.getElementById('presentationModal');
-            if (m) {
-                if (typeof m.close === 'function') m.close();
-                else m.style.display = 'none';
-            }
-        });
-    }
-
-    showStep(0);
-});
-
-
-    window.openPresentationMode = openPresentationMode;
-    window.downloadOiPdf = downloadOiPdf;

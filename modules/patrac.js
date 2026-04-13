@@ -143,7 +143,7 @@ function addPatracdvrMember(containerElement, data = {}) {
         equipement2: 'Sans',
         tenue: 'UBAS',
         gpb: 'GPBL',
-        dir: '', // NOUVEAU Champ DIR
+        dir: '', 
         ...data
     };
     Object.keys(memberData).forEach(key => btn.dataset[key] = memberData[key]);
@@ -267,6 +267,19 @@ function initializePatracdvr(dataFromStorage) {
     if (dataFromStorage && (dataFromStorage.patracdvr_rows?.length > 0 || dataFromStorage.patracdvr_unassigned?.length > 0)) {
         (dataFromStorage.patracdvr_unassigned || []).forEach(member => addPatracdvrMember(getUnassignedContainer(), member));
         (dataFromStorage.patracdvr_rows || []).forEach(row => addPatracdvrRow(row.vehicle, row.members));
+    }
+}
+
+function resetPatracdvrUI() {
+    if (confirm("Voulez-vous vraiment réinitialiser tout le personnel et les véhicules du PATRACDVR ?")) {
+        initializePatracdvr({});
+        if (typeof activeMemberId !== 'undefined') activeMemberId = null;
+        const panel = document.getElementById('quickEditPanel');
+        if (panel) panel.style.display = 'none';
+        
+        syncDomToStore();
+        updateArticulationDisplay();
+        if (typeof toast === 'function') toast("PATRACDVR réinitialisé", "success");
     }
 }
 
@@ -657,3 +670,5 @@ window.saveQuickEditChanges = saveQuickEditChanges;
 window.updateArticulationDisplay = updateArticulationDisplay;
 window.cloneMemberFromContext = cloneMemberFromContext;
 window.deleteMemberFromContext = deleteMemberFromContext;
+window.resetPatracdvrUI = resetPatracdvrUI;
+window.loadConfigObject = loadConfigObject;

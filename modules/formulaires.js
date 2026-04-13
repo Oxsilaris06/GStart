@@ -312,7 +312,23 @@ window.addTimeEvent = addTimeEvent;
 window.updateAdvTitle = updateAdvTitle;
 window.addAdversary = addAdversary;
 window.addHypothesis = addHypothesis;
-window.syncDomToStore = syncDomToStore;
+
+// Debounce helper
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+const debouncedSync = debounce(syncDomToStore, 500);
+window.syncDomToStore = debouncedSync;
+window.syncDomToStoreImmediate = syncDomToStore; // For cases where immediate sync is needed
 
 function syncDomToStore() {
     if (window.isFormLoading) {
@@ -454,9 +470,8 @@ function syncDomToStore() {
         // Sauvegarde des options de configuration (memberConfig est global dans le bundle)
         if (typeof memberConfig !== 'undefined') data.options = memberConfig;
 
-        // Persister dans Store et localStorage
+        // Persister dans Store (le Proxy déclenche notify() -> saveToStorage)
         Store.state.formData = data;
-        localStorage.setItem(window.LOCAL_STORAGE_KEY || 'tactical_oi_data', JSON.stringify(data));
 
     } catch (e) {
         console.error("Erreur de sauvegarde:", e);
@@ -806,11 +821,20 @@ window.importSession = function (file) {
 /**
  * Réinitialise tous les champs de la page active.
  */
+/**
+ * Réinitialise tous les champs de la page active.
+ */
 window.resetActivePage = async function () {
-    if (!confirm("Réinitialiser uniquement les champs de la page active ?")) return;
-
     const activeStep = document.querySelector('.wizard-step.active');
     if (!activeStep) return;
+
+    // Protection PATRACDVR
+    if (activeStep.querySelector('#patracdvr_container')) {
+        toast("Le PATRACDVR ne peut être réinitialisé que via son bouton dédié.", "warning");
+        return;
+    }
+
+    if (!confirm("Réinitialiser uniquement les champs de la page active ?")) return;
 
     // 1. Vider les champs standards
     activeStep.querySelectorAll('input:not([type="file"]), textarea, select').forEach(el => {
@@ -818,78 +842,54 @@ window.resetActivePage = async function () {
         else el.value = '';
     });
 
-    // 2. Supprimer les éléments dynamiques (Adversaires, Blocs, etc.)
-    activeStep.querySelectorAll('.dynamic-list-item, .adversary-block, .moicp-block, .zmspcp-block, .effraction-block, .time-event-row, .hypothesis-item').forEach(el => el.remove());
+    // 2. Supprimer les éléments dynamiques
+    activeStep.querySelectorAll('.dynamic-list-item, .adversary-entry, .moicp-block, .zmspcp-block, .effraction-block, .time-item, .order-chip').forEach(el => el.remove());
 
     // 3. Désélectionner les puces (chips)
     activeStep.querySelectorAll('.chip-btn.selected').forEach(el => el.classList.remove('selected'));
 
-    // 4. Supprimer les photos de la zone
+    // 4. Supprimer les photos de la zone ET de l'IndexedDB
     const images = activeStep.querySelectorAll('.image-preview-item img');
     for (const img of images) {
-        if (typeof removeImage === 'function') {
-            await removeImage(img.id, img.closest('.image-preview-item'));
-        } else {
-            img.closest('.image-preview-item').remove();
-        }
-    }
-
-    // 5. Cas spécial PATRACDVR
-    if (activeStep.querySelector('#patracdvr_container')) {
-        document.getElementById('patracdvr_container').innerHTML = '';
-        document.getElementById('unassigned_members_container').innerHTML = '';
-        if (window.activeMemberId !== undefined) window.activeMemberId = null;
-        const quickEditPanel = document.getElementById('quickEditPanel');
-        if (quickEditPanel) quickEditPanel.style.display = 'none';
-
-        // On réinitialise l'affichage par défaut si possible
-        if (typeof initializePatracdvr === 'function') initializePatracdvr({});
+        if (window.dbManager) await window.dbManager.deleteItem(img.id);
+        img.closest('.image-preview-item').remove();
     }
 
     // Sauvegarde de l'état vidé
     syncDomToStore();
-
-    // Rafraîchir l'articulation si on est sur la page concernée
-    if (typeof updateArticulationDisplay === 'function') updateArticulationDisplay();
-
-    alert("Page réinitialisée.");
+    toast("Page réinitialisée", "success");
 };
 
 /**
- * Réinitialise l'intégralité du formulaire (Optionnel: garde le PATRACDVR).
+ * Réinitialise l'intégralité du formulaire (Garde le PATRACDVR par défaut).
  */
-window.resetAllData = async function (keepPatracdvr = true) {
-    const msg = keepPatracdvr
-        ? "Attention: Toutes les données et photos seront effacées.\nVoulez-vous conserver la liste du personnel (PATRACDVR) ?"
-        : "Attention: TOUTES les données, y compris le personnel, seront définitivement effacées. Continuer ?";
+window.resetAllData = async function (keepPatrac = true) {
+    const msg = keepPatrac
+        ? "Réinitialisation complète : Effacer toutes les données et photos (SAUF la configuration PATRAC) ?"
+        : "Réinitialisation TOTALE : Effacer TOUTES les données, y compris le personnel ?";
 
     if (!confirm(msg)) return;
 
-    let patracdvrData = {};
-    if (keepPatracdvr) {
-        const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
-        const savedData = localStorage.getItem(key);
-        if (savedData) {
-            try {
-                const parsed = JSON.parse(savedData);
-                if (parsed.patracdvr_rows) patracdvrData.patracdvr_rows = parsed.patracdvr_rows;
-                if (parsed.patracdvr_unassigned) patracdvrData.patracdvr_unassigned = parsed.patracdvr_unassigned;
-            } catch (e) { console.error("Erreur sauvegarde Patracdvr avant reset:", e); }
-        }
+    let patracBackup = null;
+    if (keepPatrac && Store.state.formData) {
+        patracBackup = {
+            patracdvr_rows: Store.state.formData.patracdvr_rows || [],
+            patracdvr_unassigned: Store.state.formData.patracdvr_unassigned || [],
+            options: Store.state.formData.options || {}
+        };
     }
 
-    const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
-    localStorage.removeItem(key);
-    localStorage.removeItem('oiWizardStep');
+    // Clear everything
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    if (window.dbManager) await window.dbManager.clearAllImages();
 
-    if (window.dbManager && typeof dbManager.clearAllImages === 'function') {
-        await dbManager.clearAllImages();
+    if (patracBackup) {
+        Store.state.formData = patracBackup;
+        Store.saveToStorage();
+        toast("Application réinitialisée (Personnel conservé)", "success");
+        setTimeout(() => location.reload(), 1000);
+    } else {
+        toast("Application réinitialisée à zéro", "success");
+        setTimeout(() => location.reload(), 1000);
     }
-
-    if (keepPatracdvr && Object.keys(patracdvrData).length > 0) {
-        const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
-        localStorage.setItem(key, JSON.stringify(patracdvrData));
-    }
-
-    location.reload();
 };

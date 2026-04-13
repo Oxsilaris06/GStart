@@ -7,6 +7,19 @@ const BACKGROUND_IMAGE_LIGHT = 'assets/img/fond_oi_light.png';
 const BACKGROUND_IMAGE_DARK = 'assets/img/fond_oi_dark.png';
 
 // --- Globals ---
+const DEFAULTS = {
+    missions: {
+        moicp: 'RECONNAÎTRE LE DOMICILE EN VUE D\'APPRÉHENDER L\'OBJECTIF',
+        zmspcp: 'BOUCLER - SURVEILLER - INTERDIRE TOUTE FUITE',
+        effraction: `SOUTENIR L'ÉLÉMENT D'INTERVENTION\nL'objectif premier de la cellule est d'effectuer une effraction rapide et sécurisée sur la porte principale façade ALPHA afin de permettre la progression fluide de l'équipe d'assaut. En mesure de se rearticuler sur ordre.`
+    },
+    cat: {
+        moicp: `- Si décelé, dynamiser jusqu'au domicile.\n- Si présence tierce personne lors de la progression, contrôler.\n- Si fuite, CR direction fuite + interpellation.\n- Si rébellion, usage du strict niveau de force nécessaire.\n- Si retranchement, CR + réarticulation pour fixer l'adversaire.`,
+        zmspcp: `- Compte rendu de mise en place.\n- Renseigner régulièrement.\n- Si décelé, CR.\n- Si fuite, CR direction fuite + interpellation si rapport de force favorable.\n- Si rébellion, usage du strict minimum de force nécessaire.\n- Si retranchement, CR + réarticulation pour fixer l'adversaire.`,
+        generales: `- Pas d'initiative individuelle hors cadre légitime défense.\n- Discipline radio stricte.\n- CR systématique de tout changement de situation.`
+    }
+};
+
 let activeMemberId = null;
 let memberConfig = {
     fonctions: ["Chef inter", "Chef dispo", "Chef Oscar", "Conducteur", "Chef de bord", "DE", "Cyno", "Inter", "Effrac", "AO", "Sans"],
@@ -120,16 +133,43 @@ const StoreBase = {
 
     saveToStorage() {
         try {
-            const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
-            localStorage.setItem(key, JSON.stringify(this.state.formData));
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(this.state.formData));
         } catch (e) {
             console.error("LocalStorage Error:", e);
         }
     },
 
+    async checkIntegrity() {
+        if (!this.state.formData.dynamic_photos) return;
+        let changed = false;
+        
+        for (const containerId in this.state.formData.dynamic_photos) {
+            const photos = this.state.formData.dynamic_photos[containerId];
+            const validPhotos = [];
+            
+            for (const photo of photos) {
+                const exists = await window.dbManager.getItem(photo.id);
+                if (exists) {
+                    validPhotos.push(photo);
+                } else {
+                    console.warn(`Photo ${photo.id} introuvable dans IDB, suppression de la référence.`);
+                    changed = true;
+                }
+            }
+            
+            if (changed) {
+                this.state.formData.dynamic_photos[containerId] = validPhotos;
+            }
+        }
+        
+        if (changed) {
+            this.notify();
+            if (typeof window.syncAllThumbnails === 'function') window.syncAllThumbnails();
+        }
+    },
+
     loadFromStorage() {
-        const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
-        const data = localStorage.getItem(key);
+        const data = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (data) {
             try {
                 // On peuple directement pour éviter le Proxy set() récursif lors de l'init
@@ -276,6 +316,9 @@ window.saveToStorage = () => {
 };
 
 window.saveFormData = window.saveToStorage;
+
+// Export DEFAULTS
+window.DEFAULTS = DEFAULTS;
 
 // --- Vérification de disponibilité du stockage local ---
 (function checkStorageAvailability() {

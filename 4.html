@@ -1720,21 +1720,57 @@
         .annotation-canvas-container {
             order: 1;
             flex-grow: 1;
+            overflow: auto;
+            background: #000;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #111;
-            overflow: auto;
-            position: relative;
-            padding: 20px;
+            -webkit-overflow-scrolling: touch;
         }
 
         #annotationCanvas {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
-            border-radius: var(--radius-sm);
+            max-width: none; /* Allow zooming/scrolling if natural size is large */
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            background-color: white;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        @media (max-width: 768px) {
+            .annotation-toolbar {
+                padding: 10px;
+                gap: 10px;
+            }
+
+            .toolbar-main-tools, .toolbar-contextual-tools {
+                gap: 6px;
+                padding-block-end: 8px;
+            }
+
+            .tool-btn {
+                min-width: 65px;
+                padding: 8px;
+                gap: 4px;
+                font-size: 0.75em;
+            }
+
+            .tool-btn .material-symbols-outlined {
+                font-size: 20px;
+            }
+
+            .color-picker {
+                gap: 10px;
+                padding: 8px;
+            }
+
+            .color-circle {
+                width: 24px;
+                height: 24px;
+            }
+
+            .annotation-canvas-container {
+                max-height: calc(100vh - 200px);
+            }
         }
 
 
@@ -1929,6 +1965,16 @@
         .dock-menu.collapsed #dockToggleBtn:active {
             transform: none;
             background-color: transparent !important;
+        }
+
+        /* Accentuation Gold pour Effraction */
+        #effractionToolsModal .modal-header h3 {
+            color: var(--effraction-gold) !important;
+        }
+
+        #effractionToolsModal .btn-save {
+            background-color: var(--effraction-gold) !important;
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3) !important;
         }
 
 
@@ -2904,21 +2950,18 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 
                 // 4. Initialiser le dock
                 const dockToggleBtn = document.getElementById('dockToggleBtn');
-                const dock = document.getElementById('dockMenu');
-                if (dockToggleBtn && dock) {
-                    dockToggleBtn.addEventListener('click', () => {
-                        dock.classList.toggle('collapsed');
-                        const isCollapsed = dock.classList.contains('collapsed');
-                        localStorage.setItem('dockCollapsed', isCollapsed);
-                        const icon = dockToggleBtn.querySelector('.material-symbols-outlined');
-                        if (icon) icon.textContent = isCollapsed ? 'expand_less' : 'expand_more';
+                if (dockToggleBtn) {
+                    dockToggleBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        if (typeof toggleDock === 'function') toggleDock();
                     });
-                    
-                    if (localStorage.getItem('dockCollapsed') === 'true') {
-                        dock.classList.add('collapsed');
-                        const icon = dockToggleBtn.querySelector('.material-symbols-outlined');
-                        if (icon) icon.textContent = 'expand_less';
-                    }
+                }
+
+                if (localStorage.getItem('dockCollapsed') === 'true') {
+                    const dock = document.getElementById('dockMenu');
+                    const icon = dockToggleBtn?.querySelector('.material-symbols-outlined');
+                    if (dock) dock.classList.add('collapsed');
+                    if (icon) icon.textContent = 'expand_less';
                 }
 
                 // 5. Plein écran & Thème
@@ -2979,55 +3022,62 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         });
     </script>
     <!-- MODAL OUTILS EFFRACTION -->
-    <div id="effractionToolsModal" class="modal">
-        <div class="modal-content">
-            <h2 style="color: var(--effraction-gold); display: flex; align-items: center; gap: 10px;">
-                <span class="material-symbols-outlined">hardware</span> Configuration des Outils
-            </h2>
-            <p style="font-size: 0.9em; color: var(--text-secondary);">Sélectionnez les outils préconisés pour cette
-                photo.</p>
-
-            <div id="tools_sections_container">
-                <h4 style="margin-top: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">
-                    Hydraulique</h4>
-                <div class="effrac-tool-grid" data-category="hydraulique">
-                    <button type="button" class="effrac-tool-btn" data-tool="HDR50">HDR50</button>
-                    <button type="button" class="effrac-tool-btn" data-tool="DOOR">DOOR</button>
-                    <button type="button" class="effrac-tool-btn" data-tool="OP71">OP71</button>
-                </div>
-
-                <h4 style="margin-top: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">
-                    Mécanique</h4>
-                <div class="effrac-tool-grid" data-category="mecanique">
-                    <button type="button" class="effrac-tool-btn" data-tool="Multy Pry">Multy Pry</button>
-                    <button type="button" class="effrac-tool-btn" data-tool="Multi Sledge">Multi Sledge</button>
-                    <button type="button" class="effrac-tool-btn" data-tool="Mini Ram">Mini Ram</button>
-                    <button type="button" class="effrac-tool-btn" data-tool="Bélier lourd">Bélier lourd</button>
-                    <button type="button" class="effrac-tool-btn" data-tool="Pied de biche">Pied de biche</button>
-                    <button type="button" class="effrac-tool-btn" data-tool="Pince Monseigneur">Pince
-                        Monseigneur</button>
-                </div>
-
-                <h4 style="margin-top: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Autres
-                </h4>
-                <div class="effrac-tool-grid" data-category="autres">
-                    <button type="button" class="effrac-tool-btn" data-tool="Pass PTT">Pass PTT</button>
-                    <button type="button" class="effrac-tool-btn" data-tool="VIGIK">VIGIK</button>
-                    <button type="button" class="effrac-tool-btn" data-tool="Double clé">Double clé</button>
-                </div>
-
-                <h4 style="margin-top: 20px;">Outil Nouveau / Autre :</h4>
-                <input type="text" id="effrac_other_tools" placeholder="Saisir d'autres outils..." style="width:100%">
+    <!-- MODAL OUTILS EFFRACTION (MASTERCLASS) -->
+    <dialog id="effractionToolsModal">
+        <div class="modal-form">
+            <div class="modal-header">
+                <h3 style="color: var(--effraction-gold);">
+                    <span class="material-symbols-outlined">hardware</span> Outils Effraction
+                </h3>
+                <button type="button" class="close-modal-btn" onclick="document.getElementById('effractionToolsModal').close(); document.body.classList.remove('modal-open');">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-                <button type="button" class="remove-btn"
-                    onclick="document.getElementById('effractionToolsModal').style.display='none'">Annuler</button>
-                <button type="button" class="add-btn" style="background: var(--success-green); color: white;"
-                    onclick="saveEffractionTools()">Valider</button>
+            <div class="modal-body">
+                <p style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 20px;">Sélectionnez les outils préconisés pour cette photo.</p>
+
+                <div id="tools_sections_container">
+                    <h4 style="margin-top: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Hydraulique</h4>
+                    <div class="effrac-tool-grid" data-category="hydraulique">
+                        <button type="button" class="effrac-tool-btn" data-tool="HDR50">HDR50</button>
+                        <button type="button" class="effrac-tool-btn" data-tool="DOOR">DOOR</button>
+                        <button type="button" class="effrac-tool-btn" data-tool="OP71">OP71</button>
+                    </div>
+
+                    <h4 style="margin-top: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Mécanique</h4>
+                    <div class="effrac-tool-grid" data-category="mecanique">
+                        <button type="button" class="effrac-tool-btn" data-tool="Multy Pry">Multy Pry</button>
+                        <button type="button" class="effrac-tool-btn" data-tool="Multi Sledge">Multi Sledge</button>
+                        <button type="button" class="effrac-tool-btn" data-tool="Mini Ram">Mini Ram</button>
+                        <button type="button" class="effrac-tool-btn" data-tool="Bélier lourd">Bélier lourd</button>
+                        <button type="button" class="effrac-tool-btn" data-tool="Pied de biche">Pied de biche</button>
+                        <button type="button" class="effrac-tool-btn" data-tool="Pince Monseigneur">Pince Monseigneur</button>
+                    </div>
+
+                    <h4 style="margin-top: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Autres</h4>
+                    <div class="effrac-tool-grid" data-category="autres">
+                        <button type="button" class="effrac-tool-btn" data-tool="Pass PTT">Pass PTT</button>
+                        <button type="button" class="effrac-tool-btn" data-tool="VIGIK">VIGIK</button>
+                        <button type="button" class="effrac-tool-btn" data-tool="Double clé">Double clé</button>
+                    </div>
+
+                    <h4 style="margin-top: 25px;">Outil Nouveau / Autre :</h4>
+                    <input type="text" id="effrac_other_tools" placeholder="Saisir d'autres outils..." 
+                           style="width:100%; padding: 12px; margin-top: 8px; background: var(--bg-interactive); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 8px;">
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="document.getElementById('effractionToolsModal').close(); document.body.classList.remove('modal-open');">
+                    <span class="material-symbols-outlined">undo</span> Retour
+                </button>
+                <button type="button" class="btn-save" style="background-color: var(--effraction-gold) !important; color: white;" onclick="saveEffractionTools()">
+                    <span class="material-symbols-outlined">check_circle</span> Valider
+                </button>
             </div>
         </div>
-    </div>
+    </dialog>
 
     <!-- MODAL SELECTION DE MEMBRE POUR ANNOTATION -->
     <dialog id="memberSelectionModalCanvas"

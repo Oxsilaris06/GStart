@@ -2948,31 +2948,9 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 const darkModeIcon = document.getElementById('darkModeIcon');
                 if (darkModeIcon) darkModeIcon.textContent = isDarkMode ? 'nightlight' : 'clear_day';
 
-                // 4. Initialiser le dock
-                const dockToggleBtn = document.getElementById('dockToggleBtn');
-                if (dockToggleBtn) {
-                    dockToggleBtn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        if (typeof toggleDock === 'function') toggleDock();
-                    });
-                }
+                // 4. Initialisation du dock et Thème (gérée par presentation.js)
 
-                if (localStorage.getItem('dockCollapsed') === 'true') {
-                    const dock = document.getElementById('dockMenu');
-                    const icon = dockToggleBtn?.querySelector('.material-symbols-outlined');
-                    if (dock) dock.classList.add('collapsed');
-                    if (icon) icon.textContent = 'expand_less';
-                }
-
-                // 5. Plein écran & Thème
-                const fullscreenToggleBtn = document.getElementById('fullscreenToggle');
-                if (fullscreenToggleBtn && typeof toggleFullscreen === 'function') {
-                    fullscreenToggleBtn.addEventListener('click', toggleFullscreen);
-                }
-                const darkModeToggleBtn = document.getElementById('darkModeToggle');
-                if (darkModeToggleBtn && typeof handleThemeToggle === 'function') {
-                    darkModeToggleBtn.addEventListener('click', handleThemeToggle);
-                }
+                // 5. Thème et Plein écran (gérés par presentation.js)
 
                 // 6. Gestion du Reset / Import / Export
                 const resetMenuBtn = document.getElementById('resetMenuBtn');
@@ -3021,7 +2999,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             }
         });
     </script>
-    <!-- MODAL OUTILS EFFRACTION -->
     <!-- MODAL OUTILS EFFRACTION (MASTERCLASS) -->
     <dialog id="effractionToolsModal">
         <div class="modal-form">

@@ -1882,11 +1882,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (dockToggleBtn && dock) {
-        dockToggleBtn.addEventListener('click', toggleDock);
-        dockToggleBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // Prevent double trigger with click on some devices
-            toggleDock();
-        }, { passive: false });
+        // Un seul écouteur pour éviter le double déclenchement
+        const handleDockToggle = (e) => {
+            e.preventDefault();
+            if (typeof toggleDock === 'function') toggleDock();
+        };
+
+        dockToggleBtn.addEventListener('click', handleDockToggle);
+        
         if (localStorage.getItem('dockCollapsed') === 'true') {
             dock.classList.add('collapsed');
             const icon = document.querySelector('#dockToggleBtn .material-symbols-outlined');

@@ -1453,6 +1453,24 @@
             gap: 12px;
         }
 
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            max-height: calc(90vh - 140px);
+            scrollbar-width: thin;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            background: var(--bg-body);
+            border-top: 1px solid var(--border-color);
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+            display: flex;
+            gap: 12px;
+        }
+
         .modal-footer button {
             flex: 1;
             padding: 14px;
@@ -1562,6 +1580,17 @@
             flex-direction: column;
             height: 100%;
             background: #000;
+            overflow: hidden;
+        }
+
+        .annotation-canvas-container {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            position: relative;
+            background: #111;
         }
 
         .annotation-toolbar {
@@ -1577,106 +1606,34 @@
             z-index: 10;
         }
 
-        .light-mode .annotation-toolbar {
-            box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.1);
+        @media screen and (max-width: 768px) {
+            .annotation-canvas-container {
+                height: 60vh;
+                flex: 0 0 60vh;
+            }
+            .annotation-toolbar {
+                height: 40vh;
+                flex: 0 0 40vh;
+                padding: 12px;
+                gap: 10px;
+                overflow-y: auto;
+            }
+            .tool-btn {
+                min-width: 70px !important;
+                padding: 8px !important;
+                font-size: 0.8em !important;
+            }
+            .tool-btn .material-symbols-outlined {
+                font-size: 20px !important;
+            }
         }
 
-        .toolbar-main-tools,
-        .toolbar-contextual-tools {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 8px;
-            padding-block-end: 12px;
+        body.modal-open {
+            overflow: hidden !important;
+            position: fixed;
+            width: 100%;
         }
-
-        /* Scroll discret si nécessaire sur desktop */
-        .toolbar-main-tools::-webkit-scrollbar,
-        .toolbar-contextual-tools::-webkit-scrollbar {
-            height: 4px;
-        }
-
-        .toolbar-main-tools::-webkit-scrollbar-thumb,
-        .toolbar-contextual-tools::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 10px;
-        }
-
-        .tool-btn {
-            padding: 12px 16px;
-            background: transparent;
-            border: 1px solid transparent;
-            border-radius: var(--radius-md);
-            flex-direction: column;
-            gap: 8px;
-            min-width: 90px;
-            color: var(--text-secondary);
-            font-size: 0.9em;
-        }
-
-        .tool-btn:hover {
-            background: var(--bg-interactive);
-            color: var(--text-primary);
-        }
-
-        .tool-btn.active {
-            background: var(--bg-interactive);
-            color: var(--accent-blue);
-            border-color: var(--border-color);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .tool-btn .material-symbols-outlined {
-            font-size: 28px;
-        }
-
-        #contextual_tools,
-        .tool-controls {
-            display: none;
-        }
-
-        .tool-controls.active,
-        #contextual_tools.active {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 12px;
-            background: var(--bg-interactive);
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border-color);
-        }
-
-        .tool-settings-group {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            padding: 0 10px;
-        }
-
-        .tool-settings-group label {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            margin: 0;
-        }
-
-        .tool-settings-group input[type="range"] {
-            width: 70px;
-            margin: 0;
-        }
-
-        .tool-settings-group input[type="number"] {
-            width: 45px;
-            height: 24px;
-            padding: 2px;
-            font-size: 0.85rem;
-            text-align: center;
-            margin: 0;
-        }
-
+        
         .tool-btn.compact {
             min-width: 40px;
             height: 40px;
@@ -1994,7 +1951,7 @@
 
         #effractionToolsModal .btn-save {
             background-color: var(--effraction-gold) !important;
-            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3) !important;
+            box-shadow: 0 4px 12px var(--effraction-glow) !important;
         }
 
 
@@ -2598,6 +2555,7 @@
                     <button type="button" class="add-btn" onclick="addAdversary()"
                         style="margin-top: 10px; width: 100%; justify-content: center; font-weight: bold; background-color: var(--accent-blue);">
                         <span class="material-symbols-outlined">person_add</span> Créer Adversaire
+                    </button>
                 </div>
 
                 <div class="wizard-step">
@@ -2931,6 +2889,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         <div class="dock-menu-item" id="fullscreenToggle" title="Plein écran">
             <span class="material-symbols-outlined" id="fullscreenIcon">fullscreen</span>
         </div>
+        <input type="file" id="sessionFileInput" accept=".json" style="display: none;">
     </div>
 
 
@@ -2941,8 +2900,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW register failed:', err));
         }
     </script>
+    <script src="modules/notifications.js"></script>
     <script src="modules/init.js"></script>
     <script src="modules/outils.js"></script>
+    <script src="modules/presentation.js"></script>
     <script src="modules/navigation.js"></script>
     <script src="modules/medias.js"></script>
     <script src="modules/formulaires.js"></script>
@@ -2951,7 +2912,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
     <script src="modules/drag.js"></script>
     <script src="modules/dessin.js"></script>
     <script src="modules/shared.js"></script>
-    <script src="modules/presentation.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
@@ -2962,15 +2922,92 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 // 2. Charger les données
                 if (typeof loadFormData === 'function') await loadFormData();
                 
-                // 3. Initialiser le thème
+                // --- INITIALISATION DU WIZARD (RESTORED) ---
+                steps = Array.from(document.querySelectorAll(".wizard-step"));
+                progressSteps = Array.from(document.querySelectorAll(".wizard-progress-step"));
+                prevBtn = document.getElementById('prevBtn');
+                nextBtn = document.getElementById('nextBtn');
+                previewBtn = document.getElementById('previewBtn');
+                
+                patracdvrContainer = document.getElementById('patracdvr_container');
+                unassignedContainer = document.getElementById('unassigned_members_container');
+                resetPatracdvrBtn = document.getElementById('resetPatracdvrBtn');
+                presentationModal = document.getElementById('presentationModal');
+                downloadPdfBtn = document.getElementById('downloadPdfBtn');
+                coherenceAlertsContainer = document.getElementById('coherence_alerts_container');
+                recapFinalisation = document.getElementById('recap_finalisation');
+
+                // Drawing context
+                annotationModal = document.getElementById('annotationModal');
+                canvas = document.getElementById('annotationCanvas');
+                if (canvas) ctx = canvas.getContext('2d');
+                rotationInput = document.getElementById('rotation_input');
+                if (typeof initAnnotationWorkspace === 'function') {
+                    initAnnotationWorkspace();
+                }
+
+                // Attach Step navigation listeners
+                if (prevBtn) prevBtn.addEventListener('click', () => changeStep(-1));
+                if (nextBtn) nextBtn.addEventListener('click', () => changeStep(1));
+
+                // PATRAC & Quick Edit
+                initializeDragDropListeners();
+                if (typeof initDocumentDragTransfer === 'function') initDocumentDragTransfer();
+                if (typeof initPatracQuickEditUi === 'function') initPatracQuickEditUi();
+
+                // 3. Initialisation du thème
                 const isDarkMode = localStorage.getItem('theme') === 'dark' || !localStorage.getItem('theme');
-                if (!isDarkMode) { document.body.classList.replace('dark-mode', 'light-mode'); }
+                if (!isDarkMode) { 
+                    document.body.classList.remove('dark-mode');
+                    document.body.classList.add('light-mode'); 
+                }
                 const darkModeIcon = document.getElementById('darkModeIcon');
                 if (darkModeIcon) darkModeIcon.textContent = isDarkMode ? 'nightlight' : 'clear_day';
 
-                // 4. Initialisation du dock et Thème (gérée par presentation.js)
+                // 4. Dock initialization
+                const fullscreenToggleBtn = document.getElementById('fullscreenToggle');
+                const darkModeToggleBtn = document.getElementById('darkModeToggle');
+                const dockToggleBtn = document.getElementById('dockToggleBtn');
+                const dock = document.getElementById('dockMenu');
 
-                // 5. Thème et Plein écran (gérés par presentation.js)
+                if (fullscreenToggleBtn) {
+                    fullscreenToggleBtn.addEventListener('click', toggleFullscreen);
+                    const updateIcons = () => typeof updateFullscreenIcon === 'function' && updateFullscreenIcon();
+                    document.addEventListener('fullscreenchange', updateIcons);
+                    document.addEventListener('webkitfullscreenchange', updateIcons);
+                    document.addEventListener('mozfullscreenchange', updateIcons);
+                    document.addEventListener('msfullscreenchange', updateIcons);
+                    updateIcons();
+                }
+                if (darkModeToggleBtn) {
+                    darkModeToggleBtn.addEventListener('click', handleThemeToggle);
+                }
+
+                if (dockToggleBtn && dock) {
+                    dockToggleBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        if (typeof toggleDock === 'function') toggleDock();
+                    });
+                    
+                    if (localStorage.getItem('dockCollapsed') === 'true') {
+                        dock.classList.add('collapsed');
+                        const icon = document.querySelector('#dockToggleBtn .material-symbols-outlined');
+                        if (icon) icon.textContent = 'expand_less';
+                    }
+                }
+
+                // 5. Collapsibles logic
+                document.querySelectorAll('.collapsible-container').forEach(c => c.classList.remove('open'));
+                const cont = document.querySelector('.container');
+                if (cont) {
+                    cont.addEventListener('click', (event) => {
+                        const header = event.target.closest('.collapsible-header');
+                        if (header) { 
+                            const parent = header.parentElement; 
+                            if (parent && parent.classList.contains('collapsible-container')) parent.classList.toggle('open'); 
+                        }
+                    });
+                }
 
                 // 6. Gestion du Reset / Import / Export
                 const resetMenuBtn = document.getElementById('resetMenuBtn');
@@ -2980,10 +3017,16 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 const resetPageBtn = document.getElementById('resetPageBtn');
 
                 if (resetMenuBtn && resetOptionsModal) {
-                    resetMenuBtn.addEventListener('click', () => resetOptionsModal.showModal ? resetOptionsModal.showModal() : (resetOptionsModal.style.display = 'block'));
+                    resetMenuBtn.addEventListener('click', () => {
+                        document.body.classList.add('modal-open');
+                        resetOptionsModal.showModal();
+                    });
                 }
                 if (cancelResetBtn && resetOptionsModal) {
-                    cancelResetBtn.addEventListener('click', () => resetOptionsModal.close ? resetOptionsModal.close() : (resetOptionsModal.style.display = 'none'));
+                    cancelResetBtn.addEventListener('click', () => {
+                        document.body.classList.remove('modal-open');
+                        resetOptionsModal.close ? resetOptionsModal.close() : (resetOptionsModal.style.display = 'none');
+                    });
                 }
                 if (resetAllBtn && typeof resetAllData === 'function') {
                     resetAllBtn.addEventListener('click', () => resetAllData(true));
@@ -3007,12 +3050,68 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     });
                 }
 
-                // 7. Initialiser les puces (chips)
-                // (Note: Les chips sont maintenant initialisées dynamiquement dans addAdversary)
+                // 7. Buttons for PATRACDVR
+                const importJsonConfigBtn = document.getElementById('importJsonConfigBtn');
+                const jsonConfigInput = document.getElementById('jsonConfigInput');
+                if (importJsonConfigBtn && jsonConfigInput) {
+                    importJsonConfigBtn.addEventListener('click', () => jsonConfigInput.click());
+                    jsonConfigInput.addEventListener('change', (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            try {
+                                const config = JSON.parse(event.target.result);
+                                if (typeof loadConfigObject === 'function') {
+                                    loadConfigObject(config);
+                                    if (typeof toast === 'function') toast("Configuration PATRACDVR chargée", "success");
+                                }
+                            } catch (err) {
+                                console.error("Erreur import config:", err);
+                                if (typeof toast === 'function') toast("Erreur : Fichier JSON invalide", "error");
+                            }
+                        };
+                        reader.readAsText(file);
+                        e.target.value = '';
+                    });
+                }
 
-                // Note: Les écouteurs de collapsibles sont gérés dans modules/presentation.js
+                if (resetPatracdvrBtn && typeof resetPatracdvrUI === 'function') {
+                    resetPatracdvrBtn.addEventListener('click', resetPatracdvrUI);
+                }
 
-                if (typeof initializeDragDropListeners === 'function') initializeDragDropListeners();
+                const addManualVehicleBtn = document.getElementById('addManualVehicleBtn');
+                if (addManualVehicleBtn) addManualVehicleBtn.addEventListener('click', addManualVehicle);
+                
+                const addManualMemberBtn = document.getElementById('addManualMemberBtn');
+                if (addManualMemberBtn) addManualMemberBtn.addEventListener('click', addManualMember);
+                
+                const addMoicpBtn = document.getElementById('addMoicpBtn');
+                if (addMoicpBtn) addMoicpBtn.addEventListener('click', () => typeof addMoicp === 'function' && addMoicp());
+
+                const addZmspcpBtn = document.getElementById('addZmspcpBtn');
+                if (addZmspcpBtn) addZmspcpBtn.addEventListener('click', () => typeof addZmspcp === 'function' && addZmspcp());
+
+                const addEffractionBtn = document.getElementById('addEffractionBtn');
+                if (addEffractionBtn) addEffractionBtn.addEventListener('click', () => typeof addEffraction === 'function' && addEffraction());
+
+                if (previewBtn) previewBtn.addEventListener('click', openPresentationMode);
+                const dlPdfBtn = document.getElementById('downloadPdfBtn');
+                if (dlPdfBtn) dlPdfBtn.addEventListener('click', downloadOiPdf);
+
+                const closePBtn = document.getElementById('closePresentationModalBtn');
+                if (closePBtn) {
+                    closePBtn.addEventListener('click', () => {
+                        const m = document.getElementById('presentationModal');
+                        if (m) {
+                            if (typeof m.close === 'function') m.close();
+                            else m.style.display = 'none';
+                        }
+                    });
+                }
+
+                // Final Activation
+                showStep(Store.state.currentStep || 0);
 
             } catch (err) {
                 console.error("Erreur d'initialisation 1.html:", err);

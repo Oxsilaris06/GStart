@@ -1363,8 +1363,7 @@
 
         #quickEditModal,
         #settingsModal,
-        #resetOptionsModal,
-        #annotationModal {
+        #resetOptionsModal {
             width: 100vw;
             max-width: 100vw;
             height: 100vh;
@@ -1377,9 +1376,24 @@
             z-index: 9999;
         }
 
-        /* Glassmorphism for Desktop Modals (Fallbacks) */
+        #annotationModal {
+            width: 100vw;
+            height: 100vh;
+            max-width: 100vw;
+            max-height: 100vh;
+            border-radius: 0;
+            border: none;
+            display: none;
+            background: #000; /* Fond noir par défaut pour l'immersion photo */
+            flex-direction: column;
+            z-index: 10000;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* Glassmorphism for Desktop Modals */
         @media (min-width: 768px) {
-            #quickEditModal, #settingsModal, #resetOptionsModal, #annotationModal {
+            #quickEditModal, #settingsModal, #resetOptionsModal {
                 width: 90vw;
                 max-width: 600px;
                 height: 90vh;
@@ -1387,6 +1401,18 @@
                 border-radius: var(--radius-lg);
                 border: 1px solid var(--border-color);
                 box-shadow: 0 0 40px rgba(0,0,0,0.8);
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
+            #annotationModal {
+                width: 95vw;
+                max-width: 1600px;
+                height: 85vh;
+                max-height: 850px;
+                border-radius: var(--radius-lg);
+                border: 1px solid var(--border-color);
+                box-shadow: 0 0 60px rgba(0,0,0,0.9);
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
@@ -1564,7 +1590,6 @@
             color: var(--text-primary);
             background: var(--bg-interactive);
         }
-
         .quick-edit-btn.selected {
             background-color: var(--accent-blue);
             color: white;
@@ -1573,181 +1598,405 @@
         }
 
         /* ==========================================================================
-   OUTIL D'ANNOTATION (Figma-like Toolbar)
+   OUTIL D'ANNOTATION (Refonte Thème Premium Glassmorphism)
    ========================================================================== */
-        .annotation-wrapper {
+        
+        /* Forçage Thème Sombre pour l'Annotation (Indépendant du reste) */
+        .annotation-toolbar {
             display: flex;
             flex-direction: column;
-            height: 100%;
-            background: #000;
-            overflow: hidden;
+            gap: 8px; /* Compaction maximale */
+            padding: 12px;
+            background: rgba(14, 14, 18, 0.98) !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+            flex-shrink: 0;
+            z-index: 100;
+            box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+            overflow: hidden; /* Désactivation du scroll par défaut */
+            color: #e4e4e7 !important;
         }
 
-        .annotation-canvas-container {
-            flex-grow: 1;
+        .annotation-toolbar label {
+            color: #a1a1aa !important;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        /* Boutons Style Dock */
+        .annotation-toolbar .tool-btn {
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: auto;
-            position: relative;
-            background: #111;
-        }
-
-        .annotation-toolbar {
-            order: 2;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            padding: 20px;
-            background: var(--bg-container);
-            border-top: 1px solid var(--border-color);
-            flex-shrink: 0;
-            box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.5);
-            z-index: 10;
-        }
-
-        @media screen and (max-width: 768px) {
-            .annotation-canvas-container {
-                height: 60vh;
-                flex: 0 0 60vh;
-            }
-            .annotation-toolbar {
-                height: 40vh;
-                flex: 0 0 40vh;
-                padding: 12px;
-                gap: 10px;
-                overflow-y: auto;
-            }
-            .tool-btn {
-                min-width: 70px !important;
-                padding: 8px !important;
-                font-size: 0.8em !important;
-            }
-            .tool-btn .material-symbols-outlined {
-                font-size: 20px !important;
-            }
-        }
-
-        body.modal-open {
-            overflow: hidden !important;
-            position: fixed;
+            gap: 6px;
+            background: rgba(39, 39, 42, 0.7) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #d1d1d6 !important;
+            padding: 8px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 500;
+            min-width: 0;
             width: 100%;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
         }
-        
-        .tool-btn.compact {
-            min-width: 40px;
-            height: 40px;
+
+        .annotation-toolbar .tool-btn:hover {
+            background: rgba(63, 63, 70, 0.9) !important;
+            color: #ffffff !important;
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.2) !important;
+        }
+
+        .annotation-toolbar .tool-btn.active {
+            background: #3b82f6 !important; /* Blue 500 */
+            color: #ffffff !important;
+            border-color: #60a5fa !important;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .annotation-toolbar .tool-btn.compact {
+            min-width: 44px;
+            height: 44px;
             padding: 0;
         }
 
-        .tool-btn.compact .material-symbols-outlined {
-            font-size: 20px;
-        }
-
-        .color-picker {
-            display: flex;
-            justify-content: center;
-            gap: 16px;
-            padding: 12px;
-            background: var(--bg-interactive);
-            border-radius: var(--radius-full);
-            border: 1px solid var(--border-color);
-            margin: 0 auto;
-        }
-
-        .color-circle {
-            width: 32px;
-            height: 32px;
+        .annotation-toolbar .tool-btn.icon-only {
+            min-width: 36px;
+            height: 36px;
+            padding: 0;
             border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid transparent;
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
-            transition: transform 0.2s var(--ease-out-spring);
         }
 
-        .color-circle:hover {
-            transform: scale(1.15);
+        .annotation-toolbar .tool-btn.danger {
+            background: rgba(239, 68, 68, 0.2) !important;
+            border-color: rgba(239, 68, 68, 0.3) !important;
+            color: #fca5a5 !important;
         }
 
-        .color-circle.active {
-            border-color: white;
-            box-shadow: 0 0 0 3px var(--bg-interactive), 0 0 0 5px var(--text-primary);
+        .annotation-toolbar .tool-btn.danger:hover {
+            background: #ef4444 !important;
+            color: white !important;
         }
 
-        .annotation-canvas-container {
-            order: 1;
-            flex-grow: 1;
-            overflow: auto;
-            background: #000;
+        /* Inputs Numbers et Sliders */
+        .annotation-toolbar input[type="number"] {
+            background: rgba(24, 24, 27, 0.8) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #ffffff !important;
+            border-radius: 4px;
+            padding: 2px 4px;
+            font-weight: 600;
+            width: 36px;
+            text-align: center;
+            font-size: 0.75rem;
+            margin: 0 4px;
+        }
+
+        .number-input-group {
             display: flex;
             align-items: center;
             justify-content: center;
-            -webkit-overflow-scrolling: touch;
+            background: rgba(255,255,255,0.03);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .annotation-toolbar input[type="range"] {
+            accent-color: #3b82f6;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            height: 6px;
+        }
+
+        /* Sélecteurs de couleur */
+        .annotation-toolbar .color-picker {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 10px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .annotation-toolbar .color-circle {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            transition: transform 0.2s;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .annotation-toolbar .color-circle.active {
+            border-color: #ffffff;
+            transform: scale(1.15);
+            box-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+
+        /* Actions Finales */
+        .annotation-toolbar .annotation-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: auto;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 24px;
+        }
+
+        .annotation-toolbar .tool-btn-danger {
+            width: 100%;
+            justify-content: center;
+            background: rgba(239, 68, 68, 0.15) !important;
+            color: #fca5a5 !important;
+            border: 1px solid rgba(239, 68, 68, 0.2) !important;
+            padding: 12px;
+            border-radius: 12px;
+            font-weight: 700;
+        }
+
+        .annotation-toolbar .action-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .annotation-toolbar .btn-cancel,
+        .annotation-toolbar .btn-save {
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-out-spring);
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .annotation-toolbar .btn-cancel {
+            background: rgba(63, 63, 70, 0.5) !important; /* Zinc 700 */
+            color: #d1d1d6 !important;
+        }
+        .annotation-toolbar .btn-cancel:hover {
+            background: rgba(82, 82, 91, 0.7) !important;
+            transform: translateY(-2px);
+        }
+
+        .annotation-toolbar .btn-save {
+            background: rgba(16, 185, 129, 0.2) !important; /* Emerald 500 subtle */
+            color: #34d399 !important;
+            border-color: rgba(16, 185, 129, 0.4) !important;
+        }
+        .annotation-toolbar .btn-save:hover {
+            background: rgba(16, 185, 129, 0.4) !important;
+            color: white !important;
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Bouton Fermer (X) spécifique Annotation */
+        #annotationModal .close-modal-btn {
+            background: rgba(39, 39, 42, 0.8) !important; /* Zinc 800 */
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #ef4444 !important; /* Rouge */
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 0;
+        }
+
+        #annotationModal .close-modal-btn:hover {
+            background: rgba(239, 68, 68, 0.1) !important;
+            transform: scale(1.1);
+            border-color: #ef4444 !important;
+        }
+
+        /* Structure Layout */
+        .annotation-wrapper {
+            display: flex;
+            flex-direction: column-reverse !important; /* Mobile Default */
+            flex: 1;
+            min-height: 0;
+            background: #000;
+            overflow: hidden !important;
+            height: 100%;
+            width: 100%;
+        }
+
+        .annotation-canvas-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0a0a0c;
+            overflow: hidden !important;
+            position: relative;
+            cursor: crosshair;
+            padding: 40px; /* Espace autour pour le centrage */
         }
 
         #annotationCanvas {
-            max-width: none; /* Allow zooming/scrolling if natural size is large */
-            box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            background-color: white;
-            cursor: crosshair;
+            background-color: #fff;
+            box-shadow: 0 0 80px rgba(0,0,0,0.8);
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: none;
             touch-action: none;
+            transform-origin: center center;
         }
 
-        @media (max-width: 768px) {
-            #annotationModal {
-                padding: 0;
-                overflow: hidden;
-            }
-
+        @media (min-width: 768px) {
             .annotation-wrapper {
-                flex-direction: column !important;
-                height: 100vh;
-                width: 100vw;
-            }
-
-            .annotation-canvas-container {
-                height: 60vh !important;
-                flex-grow: 0;
-                flex-shrink: 0;
-                max-height: 60vh;
-                width: 100%;
-                overflow: auto;
+                flex-direction: row !important; /* PC: Outils à gauche */
+                height: clamp(500px, 85vh, 900px); /* Hauteur maîtrisée */
             }
 
             .annotation-toolbar {
-                height: 40vh !important;
-                flex-grow: 0;
-                flex-shrink: 0;
-                padding: 12px;
-                gap: 8px;
-                overflow-y: auto;
-                background: var(--bg-container);
-                border-top: 1px solid var(--border-color);
-                z-index: 100;
+                width: 240px;
+                max-height: 100%;
+                border-top: none;
+                border-right: 1px solid rgba(255,255,255,0.1);
+                padding: 10px;
+                gap: 6px; /* Plus serré pour éviter le clipping */
+                overflow-y: auto; /* Sécurité si écran trop petit */
+            }
+            
+            .toolbar-main-tools {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 4px;
+                width: 100%;
             }
 
-            .toolbar-main-tools, .toolbar-contextual-tools {
-                gap: 8px;
-                padding-bottom: 12px;
-                flex-wrap: wrap; /* Ensure tools don't overflow horizontally */
+            .annotation-canvas-container {
+                padding: 20px;
             }
 
             .tool-btn {
-                min-width: calc(33.33% - 8px); /* 3 columns on mobile */
-                padding: 10px 4px;
-                font-size: 0.8em;
-            }
-
-            .color-picker {
-                justify-content: space-around;
+                min-width: 0;
                 width: 100%;
-                padding-bottom: 10px;
+                padding: 6px 2px;
+                flex-direction: column;
+                gap: 2px;
+                font-size: 0.65rem;
+                border-radius: 6px;
+            }
+            
+            .tool-btn span { font-size: 1rem; }
+            
+            .annotation-toolbar label {
+                display: block;
+                margin-bottom: 2px;
+                font-size: 0.6rem;
+            }
+            
+            .color-picker { padding: 4px; }
+            .color-circle { width: 20px; height: 20px; }
+            
+            .annotation-actions {
+                padding-top: 8px;
+                gap: 4px;
+                border-top: 1px solid rgba(255,255,255,0.1);
+            }
+            
+            .annotation-actions .tool-btn-danger,
+            .annotation-actions .btn-cancel,
+            .annotation-actions .btn-save {
+                padding: 6px 8px;
+                font-size: 0.7rem;
+                border-radius: 6px;
+            }
+        }
+
+        /* Mode Mobile Spécifique pour Toolbar en Row */
+        @media screen and (max-width: 767px) {
+            .annotation-wrapper {
+                flex-direction: column-reverse !important;
+                height: 100% !important;
             }
 
-            #annotationCanvas {
-                /* Start with fit-to-screen CSS, JS will refine */
-                transition: transform 0.2s ease-out;
+            .annotation-toolbar {
+                flex-direction: row !important;
+                padding: 4px !important;
+                gap: 4px !important;
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
+                border-top: 1px solid rgba(255,255,255,0.1) !important;
+                height: 50px !important;
+                width: 100% !important;
             }
+
+            .toolbar-row {
+                flex-direction: row !important;
+                gap: 4px !important;
+                align-items: center !important;
+                flex-shrink: 0;
+            }
+
+            .annotation-toolbar label, 
+            .annotation-toolbar .toolbar-main-tools span:not(.material-symbols-outlined),
+            .annotation-toolbar .tool-btn:not(.icon-only):not(.compact) span:not(.material-symbols-outlined) {
+                display: none !important;
+            }
+
+            .annotation-toolbar .tool-btn {
+                min-width: 36px !important;
+                width: 36px !important;
+                height: 36px !important;
+                padding: 0 !important;
+                font-size: 0 !important;
+            }
+
+            .annotation-toolbar .tool-btn .material-symbols-outlined {
+                padding: 4px !important;
+                gap: 4px !important;
+            }
+
+            .annotation-toolbar .color-circle {
+                width: 18px !important;
+                height: 18px !important;
+            }
+
+            .annotation-actions {
+                flex-direction: row !important;
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+                border-top: none !important;
+                gap: 6px !important;
+                margin-left: auto;
+            }
+            
+            .annotation-actions .action-group {
+                display: flex;
+                gap: 6px;
+            }
+
+            .annotation-canvas-container {
+                padding: 5px;
+                flex: 1;
+                width: 100%;
+            }
+        }
+        
+        #annotationModal {
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            overflow: hidden !important;
         }
 
 
@@ -2005,127 +2254,7 @@
                 box-shadow: var(--shadow-sm);
             }
         }
-
         @media (min-width: 768px) {
-
-            /* Modales Desktop */
-            #quickEditModal,
-            #settingsModal,
-            #resetOptionsModal {
-                width: 90%;
-                max-width: 750px;
-                height: auto;
-                max-height: 85vh;
-                border-radius: var(--radius-lg);
-            }
-
-            #annotationModal {
-                width: 100vw;
-                max-width: 100vw;
-                height: 100vh;
-                border-radius: 0;
-            }
-
-            .annotation-toolbar {
-                padding: 12px;
-                gap: 10px;
-            }
-
-            .tool-btn {
-                min-width: 60px;
-                padding: 8px;
-                font-size: 0.8em;
-            }
-
-            .tool-btn .material-symbols-outlined {
-                font-size: 24px;
-            }
-
-            .toolbar-contextual-tools {
-                justify-content: space-around;
-            }
-
-            .annotation-actions {
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 8px;
-            }
-
-            /* Modale Présentation / Aperçu (Desktop) */
-            #presentationModal {
-                width: 95vw;
-                max-width: 1200px;
-                height: 95vh;
-                border-radius: var(--radius-lg);
-            }
-
-            #presentation-content {
-                border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-            }
-
-            .modal-actions-pdf {
-                flex-direction: row;
-                /* Aligné côte à côte sur PC */
-                justify-content: flex-end;
-                padding: 20px 40px;
-                border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-            }
-
-            .modal-actions-pdf button {
-                width: auto;
-                min-width: 220px;
-            }
-
-            /* Autres Outils (Desktop) */
-            .annotation-wrapper {
-                flex-direction: row;
-            }
-
-            .annotation-toolbar {
-                order: 1;
-                flex-direction: column;
-                width: 300px;
-                border-top: none;
-                border-right: 1px solid var(--border-color);
-                z-index: 10;
-                padding: 24px;
-            }
-
-            .toolbar-main-tools,
-            .toolbar-contextual-tools {
-                flex-direction: column;
-                overflow-y: auto;
-                overflow-x: hidden;
-            }
-
-            .tool-btn {
-                flex-direction: row;
-                justify-content: flex-start;
-                padding: 14px 20px;
-                font-size: 1em;
-            }
-
-            .annotation-canvas-container {
-                order: 2;
-                border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-            }
-
-            .annotation-actions {
-                flex-direction: column;
-                margin-block-start: auto;
-                padding-block-start: 24px;
-            }
-
-            .quick-edit-content {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-                gap: 30px;
-            }
-
-            #quickEditPanel .member-info-header {
-                padding-block-end: 20px;
-            }
-
             .wizard-nav {
                 flex-wrap: nowrap;
             }
@@ -2173,6 +2302,14 @@
             }
         }
 
+        /* Thème spécifique pour la modale d'annotation (Immersion Photo) */
+        #annotationModal .modal-form {
+            background: #000;
+        }
+        #annotationModal .modal-header {
+            background: rgba(20, 24, 32, 0.95);
+            border-bottom-color: rgba(255, 255, 255, 0.1);
+        }
         @media (max-width: 600px) {
             .dock-menu {
                 padding: 8px 12px;
@@ -2362,6 +2499,7 @@
                     style="font-size: 1.2em;">picture_as_pdf</span>
             </button>
             <button id="closePresentationModalBtn" type="button" class="wizard-nav-btn"
+                onclick="const m = document.getElementById('presentationModal'); if(m) { if(typeof m.close === 'function') m.close(); else m.style.display = 'none'; }"
                 style="background-color: var(--danger-red); color: white;">
                 Fermer
             </button>
@@ -2413,104 +2551,85 @@
     </dialog>
 
     <dialog id="annotationModal">
-        <div class="annotation-wrapper">
-            <!-- Zone d'affichage de l'image (Canvas) -->
-            <div class="annotation-canvas-container">
-                <canvas id="annotationCanvas"></canvas>
+        <div class="modal-form">
+            <div class="modal-header">
+                <h3 style="color: var(--accent-blue); display: flex; align-items: center; gap: 10px;">
+                    <span class="material-symbols-outlined">edit</span> Annotation Photo
+                </h3>
+                <button type="button" class="close-modal-btn" onclick="closeAnnotationModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
             </div>
+            
+            <div class="modal-body annotation-wrapper">
+                <div class="annotation-toolbar">
+                    <!-- 1. Barre d'outils de dessin & Couleur -->
+                    <div class="toolbar-row">
+                        <div class="toolbar-main-tools">
+                            <button id="tool_move" class="tool-btn active"><span class="material-symbols-outlined">pan_tool</span>Bouger</button>
+                            <button id="tool_location" class="tool-btn"><span class="material-symbols-outlined">pin_drop</span>Zone</button>
+                            <button id="tool_arrow" class="tool-btn"><span class="material-symbols-outlined">north_east</span>Axe</button>
+                            <button id="tool_box" class="tool-btn"><span class="material-symbols-outlined">crop_square</span>Box</button>
+                            <button id="tool_text" class="tool-btn"><span class="material-symbols-outlined">title</span>Texte</button>
+                            <button id="tool_member" class="tool-btn"><span class="material-symbols-outlined">badge</span>Membre</button>
+                        </div>
 
-            <!-- Barre d'outils (Située en bas par défaut via Flex) -->
-            <div class="annotation-toolbar">
-                <!-- 1. Sélecteur de couleur -->
-                <div class="color-picker">
-                    <div class="color-circle active" style="background:#c0392b"
-                        onclick="setAnnotationColor('#c0392b', this)"></div>
-                    <div class="color-circle" style="background:#2ecc71" onclick="setAnnotationColor('#2ecc71', this)">
+                        <div class="color-picker">
+                            <div class="color-circle active" style="background:#c0392b" onclick="setAnnotationColor('#c0392b', this)"></div>
+                            <div class="color-circle" style="background:#2ecc71" onclick="setAnnotationColor('#2ecc71', this)"></div>
+                            <div class="color-circle" style="background:#3498db" onclick="setAnnotationColor('#3498db', this)"></div>
+                            <div class="color-circle" style="background:#f1c40f" onclick="setAnnotationColor('#f1c40f', this)"></div>
+                            <div class="color-circle" style="background:#ffffff; border:1px solid #777;" onclick="setAnnotationColor('#ffffff', this)"></div>
+                        </div>
                     </div>
-                    <div class="color-circle" style="background:#3498db" onclick="setAnnotationColor('#3498db', this)">
-                    </div>
-                    <div class="color-circle" style="background:#f1c40f" onclick="setAnnotationColor('#f1c40f', this)">
-                    </div>
-                    <div class="color-circle" style="background:#ffffff; border:1px solid #777;"
-                        onclick="setAnnotationColor('#ffffff', this)"></div>
-                </div>
 
-                <!-- 2. Outils Contextuels (Affichés dynamiquement) -->
-                <div id="contextual_tools">
-                    <div class="toolbar-contextual-tools">
-                        <div class="tool-settings-group">
-                            <label for="rotation_input">Rotation</label>
-                            <div style="display: flex; gap: 4px; align-items: center;">
-                                <button type="button" class="tool-btn icon-only"
-                                    onclick="document.getElementById('rotation_input').stepDown(15); document.getElementById('rotation_input').dispatchEvent(new Event('change'))"
-                                    title="-15°"><span class="material-symbols-outlined">rotate_left</span></button>
-                                <input type="number" id="rotation_input" min="0" max="360" step="1" value="0">
-                                <button type="button" class="tool-btn icon-only"
-                                    onclick="document.getElementById('rotation_input').stepUp(15); document.getElementById('rotation_input').dispatchEvent(new Event('change'))"
-                                    title="+15°"><span class="material-symbols-outlined">rotate_right</span></button>
+                    <!-- 2. Outils Contextuels -->
+                    <div id="contextual_tools" class="toolbar-row">
+                        <div class="toolbar-contextual-tools">
+                            <div class="tool-settings-group">
+                                <label for="rotation_input">Rotation</label>
+                                <div class="number-input-group">
+                                    <button type="button" class="tool-btn icon-only" onclick="document.getElementById('rotation_input').stepDown(15); document.getElementById('rotation_input').dispatchEvent(new Event('change'))"><span class="material-symbols-outlined">rotate_left</span></button>
+                                    <input type="number" id="rotation_input" min="0" max="360" value="0">
+                                    <button type="button" class="tool-btn icon-only" onclick="document.getElementById('rotation_input').stepUp(15); document.getElementById('rotation_input').dispatchEvent(new Event('change'))"><span class="material-symbols-outlined">rotate_right</span></button>
+                                </div>
+                            </div>
+                            <div class="tool-settings-group">
+                                <label for="stroke_width_edit">Trait</label>
+                                <input type="range" id="stroke_width_edit" min="1" max="20" value="5">
+                            </div>
+                            <div id="text_size_control" class="tool-settings-group" style="display: none;">
+                                <label for="text_size_edit">Taille</label>
+                                <input type="range" id="text_size_edit" min="10" max="200" step="5" value="30">
+                            </div>
+                            <div class="tool-actions-group">
+                                <button id="edit_text_btn" class="tool-btn compact" title="Modifier le texte"><span class="material-symbols-outlined">text_fields</span></button>
+                                <button id="delete_btn" class="tool-btn compact danger" title="Supprimer l'objet"><span class="material-symbols-outlined">delete</span></button>
                             </div>
                         </div>
-                        <div class="tool-settings-group">
-                            <label for="resize_w">Largeur</label>
-                            <input type="range" id="resize_w" min="20" max="800" step="5">
-                        </div>
-                        <div class="tool-settings-group">
-                            <label for="resize_h">Hauteur</label>
-                            <input type="range" id="resize_h" min="20" max="800" step="5">
-                        </div>
-                        <div class="tool-settings-group">
-                            <label for="stroke_width_edit">Trait</label>
-                            <input type="range" id="stroke_width_edit" min="1" max="20" value="5">
-                        </div>
-                        <div id="text_size_control" class="tool-settings-group" style="display: none;">
-                            <label for="text_size_edit">Taille</label>
-                            <input type="range" id="text_size_edit" min="10" max="200" step="5" value="30">
-                        </div>
+                    </div>
 
-                        <div id="zone_settings" class="tool-settings-group" style="display: none;">
-                            <label for="circle_text">Nom Zone</label>
-                            <input type="text" id="circle_text" value="Zone" style="width: 80px; height: 24px;">
-                            <label for="circle_opacity" style="margin-top: 5px;">Transp.</label>
-                            <input type="range" id="circle_opacity" min="0.1" max="1" step="0.1" value="0.5">
+                    <!-- 3. Outils de Zoom (Nouveau) -->
+                    <div class="toolbar-row zoom-controls">
+                        <div class="toolbar-main-tools">
+                            <button id="zoom_in" class="tool-btn compact" title="Zoomer" onclick="changeZoom(0.2)"><span class="material-symbols-outlined">zoom_in</span></button>
+                            <button id="zoom_out" class="tool-btn compact" title="Dézoomer" onclick="changeZoom(-0.2)"><span class="material-symbols-outlined">zoom_out</span></button>
+                            <button id="zoom_reset" class="tool-btn compact" title="Fit" onclick="resetZoom()"><span class="material-symbols-outlined">fullscreen_exit</span></button>
                         </div>
+                    </div>
 
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <button id="edit_text_btn" class="tool-btn compact" title="Modifier le texte"><span
-                                    class="material-symbols-outlined">text_fields</span></button>
-                            <button id="delete_btn" class="tool-btn compact"
-                                style="background-color: var(--danger-red); color: white;"
-                                title="Supprimer l'objet"><span class="material-symbols-outlined">delete</span></button>
+                    <!-- 4. Actions Finales -->
+                    <div class="annotation-actions">
+                        <button id="tool_reset" class="tool-btn-danger"><span class="material-symbols-outlined">delete_sweep</span>Reset</button>
+                        <div class="action-group">
+                            <button id="annotation_cancel" class="btn-cancel">Annuler</button>
+                            <button id="annotation_save" class="btn-save">Valider</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- 3. Barre d'outils de dessin -->
-                <div class="toolbar-main-tools">
-                    <button id="tool_move" class="tool-btn active"><span
-                            class="material-symbols-outlined">pan_tool</span>Bouger</button>
-                    <button id="tool_location" class="tool-btn"><span
-                            class="material-symbols-outlined">pin_drop</span>Zone</button>
-                    <button id="tool_arrow" class="tool-btn"><span
-                            class="material-symbols-outlined">north_east</span>Axe</button>
-                    <button id="tool_box" class="tool-btn"><span
-                            class="material-symbols-outlined">crop_square</span>Box</button>
-                    <button id="tool_text" class="tool-btn"><span
-                            class="material-symbols-outlined">title</span>Texte</button>
-                    <button id="tool_member" class="tool-btn"><span
-                            class="material-symbols-outlined">badge</span>Membre</button>
-                </div>
-
-                <!-- 4. Actions Finales -->
-                <div class="annotation-actions">
-                    <button id="tool_reset" class="tool-btn" style="color: var(--danger-red);"><span
-                            class="material-symbols-outlined">delete_sweep</span>Reset</button>
-                    <div style="display: flex; gap: 10px;">
-                        <button id="annotation_cancel" class="add-btn"
-                            style="background: transparent; border: 1px solid var(--border-color); color: var(--text-primary);">Annuler</button>
-                        <button id="annotation_save" class="add-btn"
-                            style="background-color: #27ae60; color: white;"><span
-                                class="material-symbols-outlined">save</span>Valider</button>
-                    </div>
+                <div class="annotation-canvas-container">
+                    <canvas id="annotationCanvas"></canvas>
                 </div>
             </div>
         </div>
@@ -2900,9 +3019,11 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW register failed:', err));
         }
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="modules/notifications.js"></script>
     <script src="modules/init.js"></script>
     <script src="modules/outils.js"></script>
+    <script src="modules/pdf_engine_v2.js"></script>
     <script src="modules/presentation.js"></script>
     <script src="modules/navigation.js"></script>
     <script src="modules/medias.js"></script>

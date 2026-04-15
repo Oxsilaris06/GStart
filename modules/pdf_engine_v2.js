@@ -15,7 +15,8 @@ const PDFEngineV2 = {
             scale: 2, 
             useCORS: true, 
             letterRendering: true,
-            logging: false
+            logging: true, // Activé pour diagnostic
+            allowTaint: true
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
     },
@@ -55,7 +56,13 @@ const PDFEngineV2 = {
 
             const worker = document.createElement('div');
             worker.innerHTML = htmlContent;
-            worker.style.position = 'absolute'; worker.style.left = '-9999px'; worker.style.width = '297mm';
+            worker.style.position = 'fixed'; 
+            worker.style.left = '-10000px'; 
+            worker.style.top = '0'; 
+            worker.style.width = '297mm';
+            worker.style.zIndex = '9999';
+            worker.style.visibility = 'visible';
+            worker.style.background = 'white';
             document.body.appendChild(worker);
 
             const opt = {
@@ -63,6 +70,9 @@ const PDFEngineV2 = {
                 filename: `OI_${(data.formData.date_op || 'SANS_DATE').replace(/\//g,'-')}_${data.formData.trigramme_redacteur || 'RED'}.pdf`
             };
 
+            // Attendre un court instant pour garantir le rendu des polices et images Base64
+            await new Promise(r => setTimeout(r, 500));
+            
             await html2pdf().from(worker).set(opt).save();
             document.body.removeChild(worker);
             if (typeof toast === 'function') toast("PDF généré avec succès !", "success");
@@ -415,11 +425,11 @@ const PDFEngineV2 = {
 
         // --- PAGE PATRACDVR ---
         pages += `
-            <div class="pdf-page"><h2>7. RÉCAPITULATIF PATRACDVR</h2><div class="card"><table style="font-size: 0.8em;"><thead><tr><th>VL</th><th>PAX</th><th>CELLULE</th><th>FONCTION</th><th>PPALE</th><th>AFIS</th><th>ÉQUIPEMENT</th><th>DIR</th></tr></thead><tbody>
+            <div class="pdf-page"><h2>7. RÉCAPITULATIF PATRACDVR</h2><div class="card"><table style="font-size: 0.7em;"><thead><tr><th>VL</th><th>PAX</th><th>CELLULE</th><th>FONCTION</th><th>PPALE</th><th>SEC.</th><th>AFIS</th><th>EQPT/GREN.</th><th>DIR</th></tr></thead><tbody>
                 ${(formData.patracdvr_rows || []).flatMap(row => (row.members.map((m, idx) => `<tr>
                     ${idx === 0 ? `<td rowspan="${row.members.length}" style="font-weight: bold; background: ${colors.header};">${row.vehicle}</td>` : ''}
-                    <td style="font-weight: bold;">${m.trigramme}</td><td>${m.cellule}</td><td>${m.fonction}</td><td>${m.principales}</td><td>${m.afis}</td>
-                    <td>${[m.equipement, m.equipement2].filter(v => v && v !== 'Sans').join(', ')}</td><td class="monospaced">${m.dir || ''}</td>
+                    <td style="font-weight: bold;">${m.trigramme}</td><td>${m.cellule}</td><td>${m.fonction}</td><td>${m.principales}</td><td>${m.secondaires}</td><td>${m.afis}</td>
+                    <td>${[m.equipement, m.equipement2, m.grenades, m.tenue, m.gpb].filter(v => v && v !== 'Sans').join(', ')}</td><td class="monospaced">${m.dir || ''}</td>
                 </tr>`))).join('')}
             </tbody></table></div>
             <h3>Pool (Non affecté)</h3><div style="display: flex; gap: 5px; flex-wrap: wrap;">
@@ -434,11 +444,17 @@ const PDFEngineV2 = {
         </div><div class="card"><h3>LIAISON & GESTUELLE</h3><div class="value">${formData.cat_liaison || 'N/A'}</div></div>
         <div style="margin-top: auto; text-align: center; font-size: 0.8em; color: ${colors.textMuted}; border-top: 1px solid ${colors.border}; padding-top: 10px;">GSTART - Système de Génération d'Ordre Initial Tactique - Document Confidentiel</div></div>`;
 
-        if (isPreview) {
-            return `<div>${css}${pages}</div>`;
-        } else {
-            return `<html><head>${css}</head><body>${pages}</body></html>`;
-        }
+        // --- CONSTRUCTION FINALE UNIFIÉE ---
+        // On retourne un fragment CSS + HTML. 
+        // L'utilisation de <html>/<body> à l'intérieur d'une div ouvrière causait des pages blanches.
+        return `
+            <div class="pdf-export-container">
+                ${css}
+                <div class="pdf-content">
+                    ${pages}
+                </div>
+            </div>
+        `;
     }
 };
 

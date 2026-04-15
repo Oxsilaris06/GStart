@@ -481,7 +481,7 @@ function syncDomToStore() {
 async function loadFormData() {
     window.isFormLoading = true;
     try {
-        cleanupObjectUrls(); // S'assurer que les anciennes URLs sont révoquées avant de charger de nouvelles données
+        // Suppression de cleanupObjectUrls car nous n'utilisons plus de Blobs pour les vignettes
     // Utilisation de la clé isolée
     const key = window.LOCAL_STORAGE_KEY || 'tactical_oi_data';
     const dataString = localStorage.getItem(key);
@@ -603,15 +603,25 @@ async function loadFormData() {
                     for (const imgData of fileDataArray) {
                         const imageBlob = await dbManager.getItem(imgData.id);
                         if (imageBlob) {
-                            const objectURL = URL.createObjectURL(imageBlob);
-                            Store.state.objectUrlsCache[imgData.id] = objectURL;
+                            // On convertit en Base64 pour éviter les erreurs "local resource" en file://
+                            const base64Data = await new Promise((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result);
+                                reader.onerror = reject;
+                                reader.readAsDataURL(imageBlob);
+                            });
 
-                            let previewUrl = objectURL;
+                            let previewUrl = base64Data;
                             Store.state.annotations = JSON.parse(imgData.annotations || '[]');
                             if (Store.state.annotations.length > 0) {
                                 try {
                                     const annotatedBlob = await createAnnotatedImageBlob(imageBlob, Store.state.annotations);
-                                    previewUrl = URL.createObjectURL(annotatedBlob);
+                                    previewUrl = await new Promise((resolve, reject) => {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => resolve(reader.result);
+                                        reader.onerror = reject;
+                                        reader.readAsDataURL(annotatedBlob);
+                                    });
                                 } catch (e) {
                                     console.error("Erreur génération preview annotée", e);
                                 }

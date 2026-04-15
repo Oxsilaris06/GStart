@@ -1,6 +1,7 @@
 // --- Annotation / Drawing Globals ---
 let longPressTimer = null;
 const LONG_PRESS_DURATION = 500; // ms
+let currentAnnotationZoom = 1.0;
 
 function setContextualTools(selection) {
     const contextualTools = document.getElementById('contextual_tools');
@@ -161,10 +162,16 @@ function setAnnotationColor(color, element) {
 }
 
 async function openAnnotationModal(previewImgId) {
+    // Robust initialization
+    if (!canvas) canvas = document.getElementById('annotationCanvas');
+    if (!ctx && canvas) ctx = canvas.getContext('2d');
+    if (!annotationModal) annotationModal = document.getElementById('annotationModal');
+
     const previewImg = document.getElementById(previewImgId);
     if (!previewImg) return;
 
-            let objectURL = Store.state.objectUrlsCache[previewImgId];
+    let objectURL = Store.state.objectUrlsCache[previewImgId];
+    annotationModal.dataset.targetPreviewId = previewImgId;
 
     if (!objectURL) {
         // Fallback: Essayer de récupérer l'URL depuis l'élément img s'il s'agit d'un blob existant
@@ -195,66 +202,118 @@ async function openAnnotationModal(previewImgId) {
     baseImage = new Image();
 
     baseImage.onload = () => {
-        canvas.width = baseImage.naturalWidth;
-        canvas.height = baseImage.naturalHeight;
-        try {
-            const rawAnnotations = previewImg.dataset.annotations;
-            Store.state.annotations = rawAnnotations ? JSON.parse(rawAnnotations) : [];
-        } catch (e) {
-            console.error("Erreur parsing Store.state.annotations:", e);
-            Store.state.annotations = [];
-        }
-        // Migration: ajouter couleur si manquante
-        Store.state.annotations.forEach(a => { if (!a.color) a.color = '#c0392b'; });
-
-        // Ajuster tailles par défaut pour mobile
-        const isMobile = window.innerWidth <= 768;
-        if (isMobile) {
-            const strokeInput = document.getElementById('stroke_width_edit');
-            const textInput = document.getElementById('text_size_edit');
-            if (strokeInput) strokeInput.value = 3;
-            if (textInput) textInput.value = 24;
-
-            // FIT-TO-SCREEN INITIAL (Mobile only)
-            const container = document.querySelector('.annotation-canvas-container');
-            if (container) {
-                const availableH = container.clientHeight || (window.innerHeight * 0.6);
-                const availableW = container.clientWidth || window.innerWidth;
-                
-                // Calculer le scale pour que l'image entre dans le 60vh sans dépasser
-                const scaleH = availableH / canvas.height;
-                const scaleW = availableW / canvas.width;
-                const fitScale = Math.min(scaleH, scaleW, 1.0); // Pas plus de 100% au départ
-                
-                // On applique le scale via CSS pour permettre le pinch-zoom natif ultérieur
-                canvas.style.width = (canvas.width * fitScale) + 'px';
-                canvas.style.height = (canvas.height * fitScale) + 'px';
-            }
-        }
-
-        setActiveTool('move');
-        redrawCanvas();
-        annotationModal.dataset.targetPreviewId = previewImgId;
-        try {
+        console.log("Image d'annotation chargée (onload):", baseImage.naturalWidth, "x", baseImage.naturalHeight);
+        
+        // Rafraîchir les références DOM pour éviter les éléments détachés
+        canvas = document.getElementById('annotationCanvas');
+        ctx = canvas.getContext('2d');
+        
+        // AFFICHER LA MODALE D'ABORD (Sinon drawImage peut échouer sur un canevas masqué sur PC)
+        if (!annotationModal.open) {
             document.body.classList.add('modal-open');
             annotationModal.showModal();
-        } catch (e) {
-            if (!annotationModal.open) {
-                document.body.classList.add('modal-open');
-                annotationModal.showModal();
-            }
         }
+
+        // Attendre que le navigateur ait calculé le layout de la modale montrée
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                console.log("Layout modale prêt, initialisation canevas. offsetWidth:", canvas.offsetWidth);
+                
+                // Fixer dimensions du buffer de dessin
+                canvas.width = baseImage.naturalWidth;
+                canvas.height = baseImage.naturalHeight;
+                
+                try {
+                    const rawAnnotations = previewImg.dataset.annotations;
+                    Store.state.annotations = rawAnnotations ? JSON.parse(rawAnnotations) : [];
+                } catch (e) {
+                    console.error("Erreur parsing annotations:", e);
+                    Store.state.annotations = [];
+                }
+                Store.state.annotations.forEach(a => { if (!a.color) a.color = '#c0392b'; });
+
+                // GESTION AFFICHAGE INITIAL (RESET ZOOM / FIT)
+                resetZoom();
+                
+                annotationModal.dataset.targetPreviewId = previewImgId;
+                
+                // Sécurité : Ré-initialiser l'espace de travail si nécessaire
+                if (typeof initAnnotationWorkspace === 'function') {
+                    initAnnotationWorkspace();
+                }
+            });
+        });
     };
 
-    baseImage.onerror = (e) => {
-        alert("Impossible de charger l'image pour l'annotation. Erreur de source.");
-        console.error("Erreur de chargement de l'image:", e);
+    baseImage.onerror = async (e) => {
+        console.warn("Erreur de chargement baseImage, tentative de regénération du blob...", e);
+        // Si l'URL a expiré ou a été révoquée, on tente de la recréer
+        try {
+            const imageBlob = await dbManager.getItem(previewImgId);
+            if (imageBlob) {
+                const newUrl = URL.createObjectURL(imageBlob);
+                Store.state.objectUrlsCache[previewImgId] = newUrl;
+                previewImg.src = newUrl;
+                baseImage.src = newUrl; // Ré-essayer
+            } else {
+                alert("Impossible de charger l'image. Données corrompues.");
+            }
+        } catch (err) {
+            console.error("Échec définitif du chargement image:", err);
+            alert("Erreur critique de chargement d'image.");
+        }
     };
 
     baseImage.src = objectURL;
 }
 
+/**
+ * Calcule et applique le zoom 'Fit' pour que l'image soit entièrement visible
+ */
+function resetZoom() {
+    if (!canvas || !baseImage) return;
+    
+    const container = document.querySelector('.annotation-canvas-container');
+    if (!container) return;
+
+    // Dimensions disponibles
+    const availableW = container.clientWidth - 40; // padding
+    const availableH = container.clientHeight - 40;
+
+    // Calcul du scale pour fitter
+    const scaleW = availableW / baseImage.naturalWidth;
+    const scaleH = availableH / baseImage.naturalHeight;
+    const fitScale = Math.min(scaleW, scaleH, 1.0); // Pas plus de 100% par défaut
+
+    currentAnnotationZoom = fitScale;
+    applyCanvasTransform();
+    
+    // S'assurer que les dimensions de rendu CSS correspondent à l'image
+    canvas.style.width = baseImage.naturalWidth + 'px';
+    canvas.style.height = baseImage.naturalHeight + 'px';
+    
+    setActiveTool('move');
+    redrawCanvas();
+}
+
+function changeZoom(delta) {
+    currentAnnotationZoom = Math.max(0.1, Math.min(5, currentAnnotationZoom + delta));
+    applyCanvasTransform();
+}
+
+function applyCanvasTransform() {
+    if (canvas) {
+        canvas.style.transform = `scale(${currentAnnotationZoom})`;
+    }
+}
+
+window.changeZoom = changeZoom;
+window.resetZoom = resetZoom;
+
 function redrawCanvas() {
+    if (!ctx || !canvas) return;
+    if (!baseImage || !baseImage.complete || baseImage.naturalWidth === 0) return;
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(baseImage, 0, 0);
     Store.state.annotations.forEach(drawAnnotation);
@@ -644,7 +703,7 @@ async function closeAnnotationModal() {
         else annotationModal.style.display = 'none';
         
         persistAnnotationsToPreview();
-        if (typeof cleanupObjectUrls === 'function') cleanupObjectUrls();
+        // REMOVED: cleanupObjectUrls() - Trop agressif, révoque tout le cache UI.
     }
 }
 

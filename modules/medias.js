@@ -39,18 +39,24 @@ async function handleFileChange(input, previewContainerId, isSingle) {
                     let objectURL = null;
             try {
                 await dbManager.putItem(previewImgId, file);
-                objectURL = URL.createObjectURL(file);
-                Store.state.objectUrlsCache[previewImgId] = objectURL;
+                
+                // On utilise FileReader pour obtenir du Base64 (DataURL)
+                const base64Data = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
 
                 const interactiveItem = document.createElement('div');
-                interactiveItem.className = 'image-preview-item draggable'; // NOUVEAU: Draggable
+                interactiveItem.className = 'image-preview-item draggable';
                 interactiveItem.draggable = true;
-                interactiveItem.id = previewImgId + "_item"; // Unique ID for drag item
+                interactiveItem.id = previewImgId + "_item";
 
-                const isEffrac = previewContainerId.includes('effrac'); // Plus robuste pour mobile
+                const isEffrac = previewContainerId.includes('effrac');
 
                 interactiveItem.innerHTML = `
-                            <img id="${previewImgId}" class="image-preview" src="${objectURL}" style="display:block;" data-annotations="[]" data-tools="[]" data-other-tools="">
+                            <img id="${previewImgId}" class="image-preview" src="${base64Data}" style="display:block;" data-annotations="[]" data-tools="[]" data-other-tools="">
                             <input type="text" class="photo-title-input" placeholder="Légende de la photo..." 
                                 style="width: 100%; margin-top: 5px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 2px 5px; font-size: 0.8em;" 
                                 oninput="syncDomToStore()">
@@ -160,12 +166,16 @@ async function updateCustomBgPreview() {
     try {
         const blob = await dbManager.getItem('custom_pdf_background');
         if (blob) {
-            const url = URL.createObjectURL(blob);
+            const base64Data = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
             const img = document.createElement('img');
-            img.src = url;
+            img.src = base64Data;
             img.className = 'image-preview';
             img.style.maxWidth = '200px';
-            img.onload = () => URL.revokeObjectURL(url);
             container.appendChild(img);
         } else {
             container.innerHTML = '<p style="font-style:italic; color:var(--text-secondary);">Aucun fond personnalisé. Fond par défaut actif.</p>';

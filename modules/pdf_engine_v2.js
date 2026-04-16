@@ -305,8 +305,12 @@ const PDFEngineV2 = {
                 .logo-container { width: 60mm; height: 30mm; display: flex; align-items: center; justify-content: center; }
                 .logo-container img { max-width: 100%; max-height: 100%; }
                 .header-info { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 10pt; line-height: 1.4; }
-                .bg-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.6; width: 80%; z-index: -1; }
-                .pdf-footer { position: absolute; bottom: 10mm; left: 15mm; right: 15mm; border-top: 1px solid ${colors.border}; padding-top: 10px; text-align: center; font-size: 9pt; color: ${colors.textMuted}; font-family: 'JetBrains Mono', monospace; }
+                .bg-watermark { 
+                    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                    width: 100%; height: 100%; object-fit: contain; 
+                    opacity: ${isDark ? 0.4 : 0.6}; z-index: -1; 
+                }
+                .pdf-footer { position: absolute; bottom: 10mm; left: 15mm; right: 15mm; border-top: 1px solid ${colors.accent}; padding-top: 10px; text-align: center; font-size: 9pt; color: ${colors.accent}; font-family: 'JetBrains Mono', monospace; }
                 .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 8pt; margin-right: 4px; background: ${colors.accent}; color: white; }
                 .monospaced { font-family: 'JetBrains Mono', monospace; }
                 .no-break { page-break-inside: avoid; }
@@ -343,8 +347,8 @@ const PDFEngineV2 = {
         const headerHtml = ''; 
 
         const footerHtml = `
-            <div class="pdf-footer">
-                OI - ${formData.trigramme_redacteur || 'N/A'} - ${formData.unite_redacteur || 'N/A'} - <span style="color:${colors.danger}">CONFIDENTIEL</span>
+            <div class="pdf-footer" style="color: ${isDark ? colors.text : '#000000'}">
+                OI - ${formData.trigramme_redacteur || 'N/A'} - ${formData.unite_redacteur || 'N/A'} - <span style="color:${colors.danger}; font-weight: bold;">CONFIDENTIEL</span>
             </div>
         `;
         let pages = '';
@@ -363,7 +367,7 @@ const PDFEngineV2 = {
 
                 <div style="text-align: center; margin-bottom: 20mm;">
                     <h1 style="font-size: 38pt; color: ${colors.accent}; border:none; margin: 0;">ORDRE INITIAL</h1>
-                    <div style="width: 100mm; height: 3px; background: ${colors.accent}; margin: 15px auto;"></div>
+                    <div style="width: 100mm; height: 3px; background: ${colors.bg}; margin: 15px auto;"></div>
                 </div>
 
                 <div class="grid" style="margin-top: 0;">
@@ -493,7 +497,7 @@ const PDFEngineV2 = {
                     <div class="card"><div class="label">Forces Amies / Concours</div><div class="value">${formData.amies || '-'}</div><div class="label">Terrain / Environnement</div><div class="value">${formData.terrain_info || '-'}</div></div>
                     <div class="card"><div class="label">Population / Voisinage</div><div class="value">${formData.population || '-'}</div><div class="label">Cadre Juridique</div><div class="value">${formData.cadre_juridique || '-'}</div></div>
                 </div>
-                <h2>4. MISSION</h2><div class="card" style="border-left: 5px solid ${colors.accent};"><div class="value" style="font-size: 1.4em; font-weight: bold; font-family: 'JetBrains Mono', monospace;">${formData.missions_psig || '-'}</div></div>
+                <h2>4. MISSION</h2><div class="card" style="border-left: 5px solid ${colors.accent}; padding-left: 20px;"><div class="value" style="font-size: 1.4em; font-weight: bold; font-family: 'JetBrains+Mono', monospace;">${formData.missions_psig || '-'}</div></div>
             </div>
         `;
 
@@ -773,7 +777,7 @@ const PDFEngineV2 = {
                 ${bgSrc ? `<img src="${bgSrc}" class="bg-watermark">` : ''}
                 <div style="flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column;">
                     <h1 style="font-size: 40pt; text-align: center; margin:0;">AVEZ-VOUS DES QUESTIONS ?</h1>
-                    <div style="width: 120mm; height: 4px; background: ${colors.accent}; margin-top: 25px;"></div>
+                    <div style="width: 120mm; height: 4px; background: ${colors.bg}; margin-top: 25px;"></div>
                 </div>
                 ${footerHtml}
             </div>

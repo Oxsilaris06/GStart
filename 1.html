@@ -1240,6 +1240,47 @@ dialog::backdrop {
         scroll-behavior: auto !important;
     }
 }
+        #stable-button {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            background: var(--bg-interactive);
+            color: var(--success-green);
+            padding: 8px 15px;
+            font-family: 'Saira Stencil One', sans-serif;
+            text-decoration: none;
+            border: 2px solid var(--success-green);
+            border-radius: var(--radius-sm);
+            font-size: 1.1em;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+            transition: all var(--transition-fast);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        #stable-button:hover {
+            transform: scale(1.05);
+            background: var(--bg-interactive-hover);
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: clamp(1.4rem, 8vw, 1.8rem);
+                padding-top: 15px;
+                margin-block-end: 20px;
+            }
+            #stable-button {
+                top: 8px;
+                right: 8px;
+                padding: 4px 8px;
+                font-size: 0.7em;
+                border-width: 1px;
+                letter-spacing: 1px;
+            }
+        }
     </style>
 </head>
 </head>
@@ -1396,6 +1437,7 @@ dialog::backdrop {
     </dialog>
 
     <div class="container">
+        <a href="4.html" id="stable-button">STABLE</a>
         <h1>Générateur d'OI</h1>
 
         <ul class="wizard-progress">

@@ -3009,7 +3009,21 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                         </div>
                     </div>
 
-                    <h3>Conduites à tenir (CAT) Générales</h3>
+                    <div class="card" style="margin-top: 15px; border-left: 4px solid var(--accent-blue);">
+                        <h3 style="color: var(--accent-blue);"><span class="material-symbols-outlined" style="vertical-align: middle;">person_edit</span> Informations de Rédaction</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                            <div>
+                                <label for="trigramme_redacteur">Trigramme Rédacteur (ex: ABC):</label>
+                                <input type="text" id="trigramme_redacteur" placeholder="ABC" oninput="syncDomToStore()">
+                            </div>
+                            <div>
+                                <label for="unite_redacteur">Unité (ex: PSIG ...):</label>
+                                <input type="text" id="unite_redacteur" placeholder="PSIG ..." oninput="syncDomToStore()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 25px;">Conduites à tenir (CAT) Générales</h3>
                     <textarea id="cat_generales" rows="6">- Si rébellion, user du strict niveau de force nécessaire
 - Si retranché, alerter en mesure de se ré-articuler
 - Si tente de fuir, alerter en mesure de jalonner/interpeller

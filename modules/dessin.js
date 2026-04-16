@@ -960,14 +960,12 @@ function initAnnotationWorkspace() {
         });
     }
 
-    const annCancel = document.getElementById('annotation_cancel');
-    if (annCancel) {
-        annCancel.addEventListener('click', closeAnnotationModal);
-    }
+    const annCancel = document.querySelectorAll('#annotation_cancel, #annotation_cancel_header');
+    annCancel.forEach(btn => btn.addEventListener('click', closeAnnotationModal));
 
-    const annSave = document.getElementById('annotation_save');
-    if (annSave) {
-        annSave.addEventListener('click', async () => {
+    const annSave = document.querySelectorAll('#annotation_save, #annotation_save_header');
+    annSave.forEach(btn => {
+        btn.addEventListener('click', async () => {
             const targetId = annotationModal.dataset.targetPreviewId;
             const previewImg = targetId ? document.getElementById(targetId) : null;
             if (previewImg) {
@@ -991,7 +989,7 @@ function initAnnotationWorkspace() {
             if (typeof saveToStorage === 'function') saveToStorage();
             await closeAnnotationModal();
         });
-    }
+    });
 
     const rotInput = document.getElementById('rotation_input');
     if (rotInput) {

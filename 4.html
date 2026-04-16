@@ -22,6 +22,56 @@
     <!-- Utilisation des Material Symbols Outlined -->
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <script>
+        // Log Interceptor with Persistance (V6.6)
+        (function() {
+            const STORAGE_KEY = 'gstart_captured_logs';
+            const MAX_LOGS = 500;
+            
+            // Clean old logs on full page refresh
+            if (!performance.navigation.type || performance.navigation.type !== 1) {
+                 // Clear only if not a Refresh? Actually better to keeps logs across refreshes until manually cleared.
+            }
+
+            const getStoredLogs = () => {
+                try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch(e) { return []; }
+            };
+
+            window.__capturedLogs = getStoredLogs();
+            
+            const originalLog = console.log;
+            const originalWarn = console.warn;
+            const originalError = console.error;
+            
+            const formatLog = (args, type) => {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = `[${timestamp}] [${type.toUpperCase()}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`;
+                window.__capturedLogs.push(logEntry);
+                
+                // Keep only last 500 logs
+                if (window.__capturedLogs.length > MAX_LOGS) window.__capturedLogs.shift();
+                
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(window.__capturedLogs));
+            };
+
+            console.log = (...args) => { formatLog(args, 'log'); originalLog.apply(console, args); };
+            console.warn = (...args) => { formatLog(args, 'warn'); originalWarn.apply(console, args); };
+            console.error = (...args) => { formatLog(args, 'error'); originalError.apply(console, args); };
+            
+            window.openLogs = function() {
+                const html = `<html><head><title>Console Logs - GStart</title><style>body { font-family: monospace; background: #000; color: #fff; padding: 20px; line-height: 1.5; } h2 { color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; } .log { color: #fff; border-bottom: 1px solid #1a1a1a; padding: 4px 0; } .warn { color: #fbbf24; border-bottom: 1px solid #1a1a1a; padding: 4px 0; } .error { color: #f87171; font-weight: bold; border-left: 3px solid red; padding: 4px 0 4px 10px; border-bottom: 1px solid #1a1a1a; } .btn-clear { background: #ef4444; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; font-size: 14px; }</style></head><body><h2>GStart Mobile Console <button class="btn-clear" onclick="localStorage.removeItem('gstart_captured_logs'); location.reload();">Vider les logs</button></h2>${window.__capturedLogs.map(l => {
+                    const cls = l.includes('[ERROR]') ? 'error' : l.includes('[WARN]') ? 'warn' : 'log';
+                    return `<div class="${cls}">${l}</div>`;
+                }).reverse().join('')}</body></html>`;
+                
+                // Open or Use existing named window
+                const logWindow = window.open("", "GStartLogs", "width=800,height=600");
+                logWindow.document.open();
+                logWindow.document.write(html);
+                logWindow.document.close();
+            };
+        })();
+    </script>
     <style>
         body.modal-open {
             overflow: hidden !important;
@@ -2428,26 +2478,48 @@
             position: absolute;
             top: 25px;
             right: 25px;
-            background: #000000;
+            background: var(--bg-interactive);
             color: var(--success-green);
-            padding: 10px 18px;
+            padding: 8px 15px;
             font-family: 'Saira Stencil One', sans-serif;
             text-decoration: none;
             border: 2px solid var(--success-green);
             border-radius: var(--radius-sm);
-            font-size: 1.1em;
-            letter-spacing: 2px;
-            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+            font-size: 1em;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
             transition: all var(--transition-fast);
             z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
 
-        #beta-button:hover {
+        #log-button {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            background: var(--bg-interactive);
+            color: var(--accent-blue);
+            padding: 8px 15px;
+            font-family: 'Saira Stencil One', sans-serif;
+            border: 2px solid var(--accent-blue);
+            border-radius: var(--radius-sm);
+            font-size: 1em;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
+            transition: all var(--transition-fast);
+            z-index: 100;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            text-transform: uppercase;
+        }
+
+        #log-button:hover, #beta-button:hover {
             transform: scale(1.05);
-            box-shadow: 0 0 20px rgba(46, 204, 113, 0.5);
-            color: #34d399;
-            /* Emerald 400 - success-hover */
-            border-color: #34d399;
+            background: var(--bg-interactive-hover);
         }
 
         @media (max-width: 600px) {
@@ -2466,6 +2538,49 @@
                 border-width: 1px;
                 letter-spacing: 1px;
             }
+        }
+
+        /* Modale de Chargement PDF (V6.10) */
+        #pdfLoadingModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            z-index: 10000;
+            align-items: center; justify-content: center;
+            flex-direction: column;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+        .pdf-loading-card {
+            background: var(--bg-container);
+            border: 1px solid var(--border-light);
+            padding: 40px;
+            border-radius: var(--radius-lg);
+            text-align: center;
+            box-shadow: var(--shadow-float);
+            max-width: 350px; width: 85%;
+            display: flex; flex-direction: column; align-items: center; gap: 20px;
+        }
+        .pdf-spinner {
+            width: 60px; height: 60px;
+            border: 5px solid rgba(255,255,255,0.05);
+            border-top: 5px solid var(--accent-blue);
+            border-radius: 50%;
+            animation: pdf-spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes pdf-spin { to { transform: rotate(360deg); } }
+        #pdfLoadingStatus {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95em;
+            color: var(--accent-blue);
+            font-weight: bold;
+            min-height: 1.5em;
+        }
+        .pdf-loading-subtext {
+            font-size: 0.8em;
+            color: var(--text-muted);
         }
 
         /* ==========================================================================
@@ -2708,7 +2823,10 @@
     </dialog>
 
     <div class="container">
-        <a href="4.html" id="beta-button">BETA</a>
+        <button id="log-button" onclick="openLogs()">
+            <span class="material-symbols-outlined" style="font-size: 1.25em;">terminal</span> LOG
+        </button>
+        <a href="1.html" id="beta-button">BETA</a>
         <h1>Générateur d'OI</h1>
 
         <ul class="wizard-progress">
@@ -3411,6 +3529,14 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         <button onclick="window.deleteMemberFromContext()" style="display:flex; align-items:center; gap:8px; width:100%; padding:8px 12px; background:none; border:none; color:var(--danger-red); cursor:pointer; text-align:left;">
             <span class="material-symbols-outlined" style="font-size:18px;">delete</span> Supprimer
         </button>
+    </div>
+    <!-- Modale de Chargement PDF (V6.10) -->
+    <div id="pdfLoadingModal">
+        <div class="pdf-loading-card">
+            <div class="pdf-spinner"></div>
+            <div id="pdfLoadingStatus">Initialisation...</div>
+            <div class="pdf-loading-subtext">Veuillez patienter pendant la génération du rapport tactique.</div>
+        </div>
     </div>
 </body>
 

@@ -52,6 +52,21 @@ const PDFEngineV2 = {
     async downloadOiPdf() {
         console.group("🚀 [PDF ENGINE V4] - Démarrage de la génération");
         const startTime = Date.now();
+        
+        const loader = document.getElementById('pdfLoadingModal');
+        const statusText = document.getElementById('pdfLoadingStatus');
+        const updateStatus = (msg) => { if (statusText) statusText.textContent = msg; };
+
+        // 0. Fermer l'aperçu si ouvert
+        const previewModal = document.getElementById('presentationModal');
+        if (previewModal && previewModal.open) {
+            previewModal.close();
+            document.body.classList.remove('modal-open');
+        }
+
+        // Afficher loader
+        if (loader) loader.style.display = 'flex';
+        updateStatus("Initialisation moteur...");
 
         try {
             // Détection robuste des librairies (Umd vs Global)
@@ -59,19 +74,19 @@ const PDFEngineV2 = {
             const html2canvasLib = window.html2canvas || null;
 
             if (!jsPDFLib) {
-                console.error("❌ Librairie jsPDF non trouvée. window.jspdf:", window.jspdf, "window.jsPDF:", window.jsPDF);
-                throw new Error("Librairie jsPDF manquante. Vérifiez votre connexion Internet (CDN) ou le chargement des scripts dans 1.html.");
+                console.error("❌ Librairie jsPDF non trouvée.");
+                throw new Error("Librairie jsPDF manquante.");
             }
             if (!html2canvasLib) {
-                console.error("❌ Librairie html2canvas non trouvée. window.html2canvas:", window.html2canvas);
+                console.error("❌ Librairie html2canvas non trouvée.");
                 throw new Error("Librairie html2canvas manquante.");
             }
 
-            if (typeof toast === 'function') toast("Génération du rapport multipage...", "info");
-
             // 1. Collecte & Préparation
-            console.log("📍 [1/6] Collecte des données...");
+            updateStatus("Collecte des données...");
             const data = await this.collectAllData();
+            
+            updateStatus("Génération du squelette...");
             const htmlContent = this.generateHTML(data, false);
 
             // 2. Injection DOM temporaire
@@ -86,12 +101,11 @@ const PDFEngineV2 = {
             document.body.appendChild(tempContainer);
 
             // 3. Synchronisation globale (Polices)
+            updateStatus("Chargement des polices...");
             if (document.fonts) await document.fonts.ready;
 
             // Trouver toutes les pages
             const pageElements = Array.from(tempContainer.querySelectorAll('.pdf-page'));
-            console.log(`📄 Total de pages à traiter : ${pageElements.length}`);
-
             if (pageElements.length === 0) throw new Error("Aucune page HTML générée.");
 
             // 4. Initialisation du document PDF (A4 Paysage)
@@ -104,17 +118,18 @@ const PDFEngineV2 = {
 
             // 5. BOUCLE DE RENDU INDÉPENDANTE
             for (let i = 0; i < pageElements.length; i++) {
+                const isCover = (i === 0);
+                updateStatus(isCover ? "Rendu : Couverture..." : `Rendu : Page ${i + 1}/${pageElements.length}...`);
+                
                 const pageEl = pageElements[i];
-                console.log(`📍 Capture Page ${i + 1}/${pageElements.length}...`);
 
-                // Attendre le décodage des images spécifiques à cette page
+                // Attendre le décodage des images
                 const pageImgs = Array.from(pageEl.querySelectorAll('img'));
                 await Promise.all(pageImgs.map(img => {
                     if (img.complete) return Promise.resolve();
                     return img.decode().catch(e => console.warn("Page img fail", e));
                 }));
 
-                // Petit répit pour le moteur de layout
                 await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
                 // Capture de la page
@@ -132,31 +147,28 @@ const PDFEngineV2 = {
 
                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
-                // Ajouter au PDF
                 if (i > 0) doc.addPage();
                 doc.addImage(imgData, 'JPEG', 0, 0, 297, 210, undefined, 'FAST');
 
-                // Nettoyage mémoire immédiat du canvas
                 canvas.width = 0;
                 canvas.height = 0;
             }
 
             // 6. Sauvegarde
+            updateStatus("Assemblage final...");
             const fileName = `OI_${(data.formData.date_op || 'SANS_DATE').replace(/\//g, '-')}_${data.formData.trigramme_redacteur || 'RED'}.pdf`;
             doc.save(fileName);
 
             console.log(`✅ [SUCCESS] PDF V4 généré en ${((Date.now() - startTime) / 1000).toFixed(2)}s`);
             if (typeof toast === 'function') toast("PDF généré avec succès !", "success");
 
-            // Nettoyage final
-            document.body.removeChild(tempContainer);
-
         } catch (error) {
             console.error("❌ [CRITICAL V4] PDF Engine Failed:", error);
-            if (typeof toast === 'function') toast("Erreur lors de la génération. (V4)", "error");
+            if (typeof toast === 'function') toast("Erreur de génération. Veuillez consulter les logs.", "error");
+        } finally {
+            if (loader) loader.style.display = 'none';
             const el = document.getElementById('pdf-render-temp-worker');
             if (el) el.remove();
-        } finally {
             console.groupEnd();
         }
     },

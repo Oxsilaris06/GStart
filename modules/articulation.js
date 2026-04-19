@@ -64,6 +64,9 @@ function addMoicp(data) {
             <label>Conduite à Tenir (C):</label>
             <textarea class="moicp-cat" rows="5" oninput="syncDomToStore()">${defaultCat}</textarea>
 
+            <label>Place du Chef (India):</label>
+            <input type="text" class="moicp-place-chef" value="${data?.place_chef || ''}" oninput="syncDomToStore()">
+
             <h4 style="margin-top: 15px; color: var(--accent-blue);">
                 <span class="material-symbols-outlined" style="vertical-align: middle;">group</span> Composition (ordre d'engagement)
             </h4>

@@ -418,6 +418,7 @@ function syncDomToStore() {
             itineraire: block.querySelector('.moicp-itineraire')?.value || '',
             points_particuliers: block.querySelector('.moicp-pp')?.value || '',
             cat: block.querySelector('.moicp-cat')?.value || '',
+            place_chef: block.querySelector('.moicp-place-chef')?.value || '',
             members: Array.from(block.querySelectorAll('.articulation-member')).map(m => m.dataset.trigramme)
         }));
 

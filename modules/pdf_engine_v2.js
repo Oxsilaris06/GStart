@@ -272,7 +272,7 @@ const PDFEngineV2 = {
                 }
                 .pdf-page { 
                     ${pageStyle}
-                    padding: 15mm; position: relative; display: flex !important; flex-direction: column; 
+                    padding: 15mm 20mm; position: relative; display: flex !important; flex-direction: column; 
                     background: ${colors.bg}; border: 1px solid ${colors.border};
                     overflow: hidden;
                     box-sizing: border-box;
@@ -299,12 +299,13 @@ const PDFEngineV2 = {
                     margin-bottom: 15px; 
                     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
                     position: relative;
+                    page-break-inside: avoid;
                 }
                 .patracdvr-table th { 
                     background: ${colors.header}; 
                     color: ${colors.accent}; 
-                    font-size: 8.5pt; 
-                    padding: 6px 3px; 
+                    font-size: 7.5pt; 
+                    padding: 4px 2px; 
                     text-align: center;
                     border: 1px solid ${colors.border};
                     white-space: nowrap;
@@ -312,17 +313,17 @@ const PDFEngineV2 = {
                     text-overflow: ellipsis;
                 }
                 .patracdvr-table td { 
-                    padding: 5px 3px; 
+                    padding: 4px 2px; 
                     border: 1px solid ${colors.border}; 
-                    font-size: 8.5pt; 
+                    font-size: 7.5pt; 
                     vertical-align: middle;
                     overflow: hidden;
                     text-overflow: ellipsis;
                 }
                 .label { font-weight: bold; color: ${colors.accent}; font-size: 9pt; text-transform: uppercase; display: block; margin-bottom: 3px; }
-                .value { margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; font-size: 10pt; }
+                .value { margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; font-size: 10pt; }
                 table { width: 100%; border-collapse: collapse; margin-bottom: 15px; background: ${colors.bgCard}; table-layout: fixed; }
-                th, td { border: 1px solid ${colors.border}; padding: 6px; text-align: left; word-wrap: break-word; overflow: hidden; }
+                th, td { border: 1px solid ${colors.border}; padding: 8px; text-align: left; word-wrap: break-word; overflow-wrap: break-word; overflow: hidden; }
                 th { background: ${colors.header}; font-weight: bold; color: ${colors.accent}; font-size: 8pt; }
                 tr { page-break-inside: avoid; }
                 .photo-gallery-grid { display: grid; grid-template-columns: 1fr; gap: 15px; flex: 1; align-content: center; justify-items: center; }
@@ -336,12 +337,13 @@ const PDFEngineV2 = {
                     text-align: center; border: 1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'};
                     border-radius: 8px; margin-top: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
                 }
-                .photo-tools { padding: 6px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+                .photo-tools { padding: 6px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 100%; }
                 .tool-badge { 
                     background: ${colors.warning}; 
                     color: ${isDark ? '#000000' : '#000000'}; 
-                    padding: 4px 10px; border-radius: 6px; font-size: 0.9em; 
+                    padding: 4px 10px; border-radius: 6px; font-size: 10pt; 
                     font-weight: bold; border: 1px solid rgba(0,0,0,0.1);
+                    display: inline-block; white-space: normal; line-height: 1.2;
                 }
                 .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
                 .logo-container { width: 60mm; height: 30mm; display: flex; align-items: center; justify-content: center; }
@@ -372,7 +374,7 @@ const PDFEngineV2 = {
                 .cell-group { border: 1px solid ${colors.accent}; border-radius: 6px; padding: 8px; background: rgba(59, 130, 246, 0.05); margin-bottom: 8px; page-break-inside: avoid; }
                 .cell-name { font-size: 0.7em; font-weight: bold; color: ${colors.accent}; text-transform: uppercase; margin-bottom: 4px; border-bottom: 1px solid rgba(59, 130, 246, 0.2); }
                 .cell-members { display: flex; flex-wrap: wrap; gap: 5px; }
-                .patracdvr-table { font-size: 8.5pt !important; width: 100%; height: 100%; }
+                .patracdvr-table { font-size: 7.5pt !important; width: 100%; height: 100%; table-layout: fixed; }
             </style>
         `;
 
@@ -463,12 +465,12 @@ const PDFEngineV2 = {
                 const imgSrc = photosBase64[p.id] || '';
                 
                 galleryPages += `
-                    <div class="pdf-page" style="display: flex; flex-direction: column; justify-content: flex-start; padding: 15mm;">
+                    <div class="pdf-page" style="display: flex; flex-direction: column; justify-content: flex-start; padding: 15mm 20mm;">
                         <h2 style="margin-bottom: 10mm;">${sectionTitle} (Photo ${idx + 1}/${photoMetas.length})</h2>
-                        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; border: 2px solid ${colors.border}; border-radius: 12px; background: ${isDark ? 'rgba(18,18,20,0.8)' : 'rgba(255,255,255,0.8)'}; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; border: 2px solid ${colors.border}; border-radius: 12px; background: ${isDark ? 'rgba(18,18,20,0.8)' : 'rgba(255,255,255,0.8)'}; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
                             
                             <!-- Utilisation de max-height et max-width sans object-fit pour html2canvas -->
-                            <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 140mm; max-height: 140mm;">
+                            <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 130mm; max-height: 130mm;">
                                 <img src="${imgSrc}" style="max-width: 100%; max-height: 100%; width: auto; height: auto; border-radius: 6px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); display: block; margin: 0 auto;">
                             </div>
 
@@ -477,8 +479,8 @@ const PDFEngineV2 = {
                             </div>
                             ${(tools.length > 0 || p.other_tools) ? `
                                 <div class="photo-tools" style="margin-top: 15px; text-align: center;">
-                                    ${tools.map(t => `<span class="tool-badge" style="padding: 6px 15px; font-size: 12pt;">${t}</span>`).join('')}
-                                    ${p.other_tools ? `<span class="tool-badge" style="padding: 6px 15px; font-size: 12pt; border-style: dashed;">${p.other_tools}</span>` : ''}
+                                    ${tools.map(t => `<span class="tool-badge">${t}</span>`).join('')}
+                                    ${p.other_tools ? `<span class="tool-badge" style="border-style: dashed;">${p.other_tools}</span>` : ''}
                                 </div>
                             ` : ''}
                         </div>
@@ -503,7 +505,7 @@ const PDFEngineV2 = {
                                     <img src="${mainPhotoSrc}" style="width: 100%; display: block;">
                                 </div>
                             ` : ''}
-                            <div style="flex: 1;">
+                            <div style="flex: 1; min-width: 0;">
                                 <div class="card" style="padding: 10px; margin-bottom: 8px;">
                                     <h3 style="border-bottom: 2px solid ${colors.accent}; padding-bottom: 3px; margin: 0 0 5px 0; font-size: 11pt;">IDENTITÉ</h3>
                                     <div class="grid" style="gap: 5px;">
@@ -550,11 +552,15 @@ const PDFEngineV2 = {
                 `;
 
                 // Galerie Photos Supplémentaires (Extra + Renforts) pour cet adversaire
-                const extraPhotos = [
-                    ...(formData.dynamic_photos?.[`photo_extra_${adv.id}`] || []),
-                    ...(formData.dynamic_photos?.[`photo_renforts_${adv.id}`] || [])
-                ];
-                pages += renderGallery(extraPhotos, `Adversaire : ${adv.nom_adversaire || 'Individu'}`);
+                const extraPhotos = formData.dynamic_photos?.[`photo_extra_${adv.id}`] || [];
+                const renfortPhotos = formData.dynamic_photos?.[`photo_renforts_${adv.id}`] || [];
+                
+                if (extraPhotos.length > 0) {
+                    pages += renderGallery(extraPhotos, `Adversaire : ${adv.nom_adversaire || 'Individu'} (Photos annexes)`);
+                }
+                if (renfortPhotos.length > 0) {
+                    pages += renderGallery(renfortPhotos, `Adversaire : ${adv.nom_adversaire || 'Individu'} (Renfort possible)`);
+                }
             });
         }
 
@@ -667,6 +673,7 @@ const PDFEngineV2 = {
                                 <div class="cell-members">${items.map(m => `<span class="badge">${m}</span>`).join('')}</div>
                             </div>
                         `).join('')}
+                        <div style="margin-top: 10px;"><span class="label">Place du Chef</span> ${block.place_chef || '-'}</div>
                     </div>
                 </div></div>
             `;
@@ -688,10 +695,10 @@ const PDFEngineV2 = {
                     <h2>Articulation : EFFRACTION - ${block.title || '-'}</h2>
                     <div style="display: flex; gap: 15px; align-items: start;">
                         ${doorPhotoSrc ? `
-                            <div style="width: 75mm; border: 2px solid ${colors.accent}; border-radius: 12px; overflow: hidden; flex-shrink: 0; position: relative; background: ${colors.bgCard}; shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                            <div style="width: 75mm; border: 2px solid ${colors.accent}; border-radius: 12px; overflow: visible; flex-shrink: 0; position: relative; background: ${colors.bgCard}; shadow: 0 4px 15px rgba(0,0,0,0.2);">
                                 <img src="${doorPhotoSrc}" style="width: 100%; display: block;">
-                                <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 10px; background: rgba(0,0,0,0.6); border-top: 1px solid ${colors.accent};">
-                                    ${tools.length > 0 ? tools.map(t => `<span class="tool-badge" style="padding: 3px 8px; font-size: 0.8em;">${t}</span>`).join('') : '<span style="color:#fff; font-size: 0.8em; font-weight:bold;">CARACTÉRISTIQUES PORTE</span>'}
+                                <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 10px; background: rgba(0,0,0,0.8); border-top: 1px solid ${colors.accent}; border-radius: 0 0 10px 10px;">
+                                    ${tools.length > 0 ? tools.map(t => `<span class="tool-badge" style="padding: 3px 8px; font-size: 9pt; white-space: normal;">${t}</span>`).join('') : '<span style="color:#fff; font-size: 9pt; font-weight:bold;">CARACTÉRISTIQUES PORTE</span>'}
                                 </div>
                             </div>
                         ` : ''}
@@ -811,17 +818,17 @@ const PDFEngineV2 = {
                     <div class="pdf-page">
                         <h2>7. RÉCAPITULATIF PATRACDVR ${allMembers.length > MAX_MEMBERS_PER_PAGE ? `(Partie ${Math.floor(i / MAX_MEMBERS_PER_PAGE) + 1})` : ''}</h2>
                         <div class="card" style="padding: 2px; height: 170mm; overflow: hidden; display: flex; flex-direction: column;">
-                            <table class="patracdvr-table" style="width: 100%; table-layout: auto;">
+                            <table class="patracdvr-table" style="width: 100%; table-layout: fixed;">
                                 <thead>
                                     <tr>
-                                        <th style="width:8%;">VL</th>
-                                        <th style="width:8%;">PAX</th>
+                                        <th style="width:7%;">VL</th>
+                                        <th style="width:7%;">PAX</th>
                                         <th style="width:10%;">CELLULE</th>
-                                        <th style="width:15%;">FONCTION</th>
+                                        <th style="width:14%;">FONCTION</th>
                                         <th style="width:10%;">PPALE</th>
                                         <th style="width:10%;">SEC.</th>
                                         <th style="width:8%;">AFIS</th>
-                                        <th style="width:25%;">EQPT/GREN.</th>
+                                        <th style="width:${hasDir ? '28%' : '34%'};">EQPT/GREN.</th>
                                         ${hasDir ? '<th style="width:6%;">DIR</th>' : ''}
                                     </tr>
                                 </thead>

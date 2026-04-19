@@ -458,16 +458,25 @@ const PDFEngineV2 = {
 
             photoMetas.forEach((p, idx) => {
                 const tools = JSON.parse(p.tools || '[]');
+                
+                // Calcul du ratio pour l'image
+                const imgSrc = photosBase64[p.id] || '';
+                
                 galleryPages += `
                     <div class="pdf-page" style="display: flex; flex-direction: column; justify-content: flex-start; padding: 15mm;">
                         <h2 style="margin-bottom: 10mm;">${sectionTitle} (Photo ${idx + 1}/${photoMetas.length})</h2>
                         <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; border: 2px solid ${colors.border}; border-radius: 12px; background: ${isDark ? 'rgba(18,18,20,0.8)' : 'rgba(255,255,255,0.8)'}; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
-                            <img src="${photosBase64[p.id] || ''}" style="max-width: 100%; max-height: 170mm; object-fit: contain; border-radius: 6px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
-                            <div class="photo-caption" style="margin-top: 20px; width: 90%;">
+                            
+                            <!-- Utilisation de max-height et max-width sans object-fit pour html2canvas -->
+                            <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 140mm; max-height: 140mm;">
+                                <img src="${imgSrc}" style="max-width: 100%; max-height: 100%; width: auto; height: auto; border-radius: 6px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); display: block; margin: 0 auto;">
+                            </div>
+
+                            <div class="photo-caption" style="margin-top: 20px; width: 90%; text-align: center;">
                                 ${p.customTitle || (sectionTitle + ' - Détail')}
                             </div>
                             ${(tools.length > 0 || p.other_tools) ? `
-                                <div class="photo-tools" style="margin-top: 15px;">
+                                <div class="photo-tools" style="margin-top: 15px; text-align: center;">
                                     ${tools.map(t => `<span class="tool-badge" style="padding: 6px 15px; font-size: 12pt;">${t}</span>`).join('')}
                                     ${p.other_tools ? `<span class="tool-badge" style="padding: 6px 15px; font-size: 12pt; border-style: dashed;">${p.other_tools}</span>` : ''}
                                 </div>
@@ -784,7 +793,16 @@ const PDFEngineV2 = {
 
             if (allMembers.length === 0) return '';
 
-            const MAX_MEMBERS_PER_PAGE = 12;
+            // Calcul dynamique de la pagination pour séparer en deux si trop dense
+            const hasDir = allMembers.some(m => m.dir && m.dir.trim() !== '');
+            const hasLongEqpt = allMembers.some(m => [m.equipement, m.equipement2, m.grenades, m.tenue, m.gpb].join('').length > 40);
+            
+            let MAX_MEMBERS_PER_PAGE = 12;
+            if (hasDir || hasLongEqpt) {
+                // Si le tableau est lourd, on réduit les lignes pour ne pas écraser la hauteur lors du wrap textuel
+                MAX_MEMBERS_PER_PAGE = 8;
+            }
+
             let patracPages = '';
 
             for (let i = 0; i < allMembers.length; i += MAX_MEMBERS_PER_PAGE) {
@@ -793,18 +811,18 @@ const PDFEngineV2 = {
                     <div class="pdf-page">
                         <h2>7. RÉCAPITULATIF PATRACDVR ${allMembers.length > MAX_MEMBERS_PER_PAGE ? `(Partie ${Math.floor(i / MAX_MEMBERS_PER_PAGE) + 1})` : ''}</h2>
                         <div class="card" style="padding: 2px; height: 170mm; overflow: hidden; display: flex; flex-direction: column;">
-                            <table class="patracdvr-table" style="width: 100%; table-layout: fixed;">
+                            <table class="patracdvr-table" style="width: 100%; table-layout: auto;">
                                 <thead>
                                     <tr>
-                                        <th style="width:22mm;">VL</th>
-                                        <th style="width:18mm;">PAX</th>
-                                        <th style="width:20mm;">CELLULE</th>
-                                        <th style="width:28mm;">FONCTION</th>
-                                        <th style="width:18mm;">PPALE</th>
-                                        <th style="width:18mm;">SEC.</th>
-                                        <th style="width:14mm;">AFIS</th>
-                                        <th style="width:35mm;">EQPT/GREN.</th>
-                                        <th style="width:10mm;">DIR</th>
+                                        <th style="width:8%;">VL</th>
+                                        <th style="width:8%;">PAX</th>
+                                        <th style="width:10%;">CELLULE</th>
+                                        <th style="width:15%;">FONCTION</th>
+                                        <th style="width:10%;">PPALE</th>
+                                        <th style="width:10%;">SEC.</th>
+                                        <th style="width:8%;">AFIS</th>
+                                        <th style="width:25%;">EQPT/GREN.</th>
+                                        ${hasDir ? '<th style="width:6%;">DIR</th>' : ''}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -817,8 +835,8 @@ const PDFEngineV2 = {
                                             <td>${m.principales || '-'}</td>
                                             <td>${m.secondaires || '-'}</td>
                                             <td>${m.afis || '-'}</td>
-                                            <td style="font-size: 0.8em;">${[m.equipement, m.equipement2, m.grenades, m.tenue, m.gpb].filter(v => v && v !== 'Sans').join(', ') || '-'}</td>
-                                            <td class="monospaced" style="font-weight: bold; text-align: center;">${m.dir || ''}</td>
+                                            <td style="font-size: 0.8em; word-wrap: break-word;">${[m.equipement, m.equipement2, m.grenades, m.tenue, m.gpb].filter(v => v && v !== 'Sans').join(', ') || '-'}</td>
+                                            ${hasDir ? `<td class="monospaced" style="font-weight: bold; text-align: center;">${m.dir || ''}</td>` : ''}
                                         </tr>
                                     `).join('')}
                                 </tbody>

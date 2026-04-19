@@ -635,12 +635,12 @@ function refreshArticulationFromPatracdvr() {
     refreshRameVL(currentRame.length > 0 ? currentRame : null);
 
     // 2. Colonne de progression (via Store)
-    const currentColonneCount = document.querySelectorAll('#colonne_progression_container .order-chip').length;
-    refreshColonneProgression(currentColonneCount > 0 ? null : null); // null force le refresh intelligent
+    const currentColonne = Array.from(document.querySelectorAll('#colonne_progression_container .order-chip')).map(c => c.dataset.trigramme);
+    refreshColonneProgression(currentColonne.length > 0 ? currentColonne : null);
 
     // 3. Ordre de pénétration
-    const currentPenetrationCount = document.querySelectorAll('#ordre_penetration_container .order-chip').length;
-    refreshOrdrePenetration(currentPenetrationCount > 0 ? null : null);
+    const currentPenetration = Array.from(document.querySelectorAll('#ordre_penetration_container .order-chip')).map(c => c.dataset.trigramme);
+    refreshOrdrePenetration(currentPenetration.length > 0 ? currentPenetration : null);
 
     // 4. Mise à jour des compositions dans les blocs MOICP/ZMSPCP
     document.querySelectorAll('.moicp-members').forEach(zone => _autoPopulateFromCellule(zone, 'india', 'moicp'));

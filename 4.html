@@ -2053,13 +2053,16 @@
 
             .annotation-toolbar {
                 flex-direction: row !important;
-                padding: 4px !important;
-                gap: 4px !important;
+                flex-wrap: nowrap !important;
+                padding: 8px !important;
+                gap: 8px !important;
                 overflow-x: auto !important;
                 overflow-y: hidden !important;
                 border-top: 1px solid rgba(255,255,255,0.1) !important;
-                height: 50px !important;
+                height: auto !important;
+                min-height: 60px !important;
                 width: 100% !important;
+                -webkit-overflow-scrolling: touch;
             }
 
             .toolbar-row {
@@ -2108,9 +2111,11 @@
             }
 
             .annotation-canvas-container {
-                padding: 5px;
+                padding: 0 !important;
+                margin: 0 !important;
                 flex: 1;
                 width: 100%;
+                overflow: hidden !important;
             }
         }
         
@@ -2753,8 +2758,8 @@
                     <span class="material-symbols-outlined">edit</span> Annotation Photo
                 </h3>
                 <div class="header-actions" style="display: flex; gap: 10px; margin-left: auto;">
-                    <button id="annotation_cancel_header" class="btn-cancel compact" onclick="closeAnnotationModal()">Annuler</button>
-                    <button id="annotation_save_header" class="btn-save compact">Valider</button>
+                    <button id="annotation_cancel_header" class="btn-cancel compact wizard-nav-btn" style="border-radius: 8px;" onclick="closeAnnotationModal()">Annuler</button>
+                    <button id="annotation_save_header" class="btn-save compact wizard-nav-btn" style="border-radius: 8px;">Valider</button>
                 </div>
                 <button type="button" class="close-modal-btn" onclick="closeAnnotationModal()" style="margin-left: 10px;">
                     <span class="material-symbols-outlined">close</span>
@@ -2802,6 +2807,15 @@
                                 <label for="text_size_edit">Taille</label>
                                 <input type="range" id="text_size_edit" min="10" max="200" step="5" value="30">
                             </div>
+                            <div id="zone_settings" class="tool-settings-group" style="display: none;">
+                                <label for="circle_text">Texte</label>
+                                <input type="text" id="circle_text" value="Z" style="width: 40px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 2px 4px;">
+                                <label for="circle_opacity">Opa.</label>
+                                <input type="range" id="circle_opacity" min="0" max="1" step="0.1" value="0.5" style="width: 50px;">
+                            </div>
+                            <input type="hidden" id="text_size_tool" value="30">
+                            <input type="hidden" id="resize_w" value="100">
+                            <input type="hidden" id="resize_h" value="100">
                             <div class="tool-actions-group">
                                 <button id="edit_text_btn" class="tool-btn compact" title="Modifier le texte"><span class="material-symbols-outlined">text_fields</span></button>
                                 <button id="delete_btn" class="tool-btn compact danger" title="Supprimer l'objet"><span class="material-symbols-outlined">delete</span></button>

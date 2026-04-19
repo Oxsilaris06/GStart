@@ -427,9 +427,10 @@ function drawAnnotation(annotation) {
             ctx.stroke();
             if (annotation.text) {
                 ctx.fillStyle = 'black';
-                ctx.font = `bold ${Math.max(12, radius / 2)}px Oswald`;
+                ctx.font = `bold ${Math.max(12, radius / 2)}px Oswald, Arial, sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
+                ctx.fillStyle = 'black';
                 ctx.fillText(annotation.text, annotation.x, annotation.y);
             }
             break;
@@ -446,7 +447,7 @@ function drawAnnotation(annotation) {
         }
         case 'text': {
             const size = annotation.size || 30;
-            ctx.font = `bold ${size}px Oswald`;
+            ctx.font = `bold ${size}px Oswald, Arial, sans-serif`;
             ctx.fillStyle = color;
             ctx.strokeStyle = "black";
             ctx.lineWidth = 2;
@@ -456,7 +457,7 @@ function drawAnnotation(annotation) {
         }
         case 'member': {
             const size = annotation.size || 30;
-            ctx.font = `bold ${size}px Oswald`;
+            ctx.font = `bold ${size}px Oswald, Arial, sans-serif`;
             const paddingX = size * 0.8;
             const paddingY = size * 0.4;
             const textWidth = ctx.measureText(annotation.text).width;
@@ -574,6 +575,7 @@ function handleDrawStart(e) {
             const sizeInput = document.getElementById('text_size_tool');
             const size = sizeInput ? parseInt(sizeInput.value) : 30;
             Store.state.annotations.push({
+                id: Date.now() + Math.random(),
                 type: 'text',
                 x: startX,
                 y: startY,
@@ -592,6 +594,7 @@ function handleDrawStart(e) {
         selectedAnnotation = null;
         setContextualTools(null);
         currentAnnotation = {
+            id: Date.now() + Math.random(),
             type: currentTool,
             startX: startX,
             startY: startY,
@@ -789,7 +792,7 @@ function drawAnnotationOnContext(context, canvasWidth, canvasHeight, annotation)
             context.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${annotation.opacity || 0.5})`; context.fill();
             context.strokeStyle = color; context.lineWidth = 3; context.stroke();
             if (annotation.text) {
-                context.fillStyle = 'black'; context.font = `bold ${Math.max(12, radius / 2)}px Oswald`;
+                context.fillStyle = 'black'; context.font = `bold ${Math.max(12, radius / 2)}px Oswald, Arial, sans-serif`;
                 context.textAlign = 'center'; context.textBaseline = 'middle';
                 context.fillText(annotation.text, annotation.x, annotation.y);
             }
@@ -821,7 +824,7 @@ function drawAnnotationOnContext(context, canvasWidth, canvasHeight, annotation)
         }
         case 'text': {
             const size = annotation.size || 30;
-            context.font = `bold ${size}px Oswald`;
+            context.font = `bold ${size}px Oswald, Arial, sans-serif`;
             context.fillStyle = color;
             context.strokeStyle = "black";
             context.lineWidth = 2;
@@ -831,7 +834,7 @@ function drawAnnotationOnContext(context, canvasWidth, canvasHeight, annotation)
         }
         case 'member': {
             const size = annotation.size || 30;
-            context.font = `bold ${size}px Oswald`;
+            context.font = `bold ${size}px Oswald, Arial, sans-serif`;
             const paddingX = size * 0.8;
             const paddingY = size * 0.4;
             const textWidth = context.measureText(annotation.text).width;
@@ -894,7 +897,7 @@ window.populateMemberCanvasModal = function (x, y) {
                 // Taille un peu plus petite par défaut pour les puces membres
                 const size = document.getElementById('text_size_edit') ? parseInt(document.getElementById('text_size_edit').value) : 20;
                 Store.state.annotations.push({
-                    type: 'member', x, y, text: tri, color: currentAnnotationColor, rotation: 0, size: size
+                    id: Date.now() + Math.random(), type: 'member', x, y, text: tri, color: currentAnnotationColor, rotation: 0, size: size
                 });
                 redrawCanvas();
                 syncDomToStore(); // Optionnel : Déclencher manuellement saveFormData si nécessaire
@@ -941,6 +944,14 @@ function initAnnotationWorkspace() {
             const toolId = btn.id.replace(/^tool_/, '');
             if (['move', 'location', 'arrow', 'box', 'text', 'member'].includes(toolId)) {
                 setActiveTool(toolId);
+                if (toolId === 'location') {
+                    const txt = prompt("Texte personnalisé de la zone :", document.getElementById('circle_text')?.value || "Z");
+                    if (txt !== null) {
+                        const circleInput = document.getElementById('circle_text');
+                        if (circleInput) circleInput.value = txt;
+                        if (typeof updateZoneText === 'function') updateZoneText(txt);
+                    }
+                }
             }
         });
     });
@@ -1001,7 +1012,12 @@ function initAnnotationWorkspace() {
     if (delBtn) {
         delBtn.addEventListener('click', () => {
             if (!selectedAnnotation) return;
-            Store.state.annotations = Store.state.annotations.filter((ann) => ann !== selectedAnnotation);
+            // Support backward compatibility if old annotations don't have an ID
+            if (selectedAnnotation.id) {
+                Store.state.annotations = Store.state.annotations.filter((ann) => ann.id !== selectedAnnotation.id);
+            } else {
+                Store.state.annotations = Store.state.annotations.filter((ann) => ann !== selectedAnnotation);
+            }
             selectedAnnotation = null;
             setContextualTools(null);
             redrawCanvas();

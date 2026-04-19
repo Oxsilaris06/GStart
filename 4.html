@@ -2054,6 +2054,8 @@
             }
 
             .annotation-toolbar {
+                display: flex !important;
+                flex-direction: column;
                 width: 250px;
                 max-height: none;
                 border-bottom: none;
@@ -2062,10 +2064,16 @@
                 gap: 24px;
             }
 
-            .toolbar-main-tools {
+            #dock-left .toolbar-vertical-group {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 10px;
+            }
+
+            #dock-right .toolbar-vertical-group {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
             }
 
             .tool-btn {
@@ -2077,7 +2085,7 @@
                 justify-content: center;
                 height: auto;
             }
-            .tool-btn span { font-size: 1.6rem; }
+            .tool-btn span.material-symbols-outlined { font-size: 1.6rem; }
 
             .annotation-actions-sidebar {
                 margin-top: auto;
@@ -2139,6 +2147,10 @@
                 display: none !important;
             }
 
+            .btn-text {
+                display: none !important;
+            }
+
             .annotation-wrapper.show-triple-dock {
                 display: grid !important;
                 grid-template-columns: 55px 1fr 55px !important;
@@ -2173,7 +2185,6 @@
                 height: 100% !important;
                 padding: 10px 5px !important;
                 overflow-y: auto !important;
-                overflow-x: hidden !important;
                 border-radius: 0 !important;
                 position: relative !important;
             }
@@ -2220,7 +2231,7 @@
             .vertical-slider {
                 appearance: slider-vertical !important; /* Webkit */
                 writing-mode: bt-lr; /* IE/Edge */
-                width: 8px !important;
+                width: 20px !important;
                 height: 80px !important;
                 margin: 0 !important;
             }
@@ -3064,12 +3075,12 @@
                     <!-- 1. Outils Principaux (Gauche) -->
                     <div id="dock-left" class="mobile-dock vertical">
                         <div class="toolbar-vertical-group">
-                            <button id="tool_move" class="tool-btn icon-only active" title="Bouger"><span class="material-symbols-outlined">pan_tool</span></button>
-                            <button id="tool_location" class="tool-btn icon-only" title="Zone"><span class="material-symbols-outlined">pin_drop</span></button>
-                            <button id="tool_arrow" class="tool-btn icon-only" title="Axe"><span class="material-symbols-outlined">north_east</span></button>
-                            <button id="tool_box" class="tool-btn icon-only" title="Box"><span class="material-symbols-outlined">crop_square</span></button>
-                            <button id="tool_text" class="tool-btn icon-only" title="Texte"><span class="material-symbols-outlined">title</span></button>
-                            <button id="tool_member" class="tool-btn icon-only" title="Membre"><span class="material-symbols-outlined">badge</span></button>
+                            <button id="tool_move" class="tool-btn active" title="Bouger"><span class="material-symbols-outlined">pan_tool</span><span class="btn-text">Bouger</span></button>
+                            <button id="tool_location" class="tool-btn" title="Zone"><span class="material-symbols-outlined">pin_drop</span><span class="btn-text">Zone</span></button>
+                            <button id="tool_arrow" class="tool-btn" title="Axe"><span class="material-symbols-outlined">north_east</span><span class="btn-text">Axe</span></button>
+                            <button id="tool_box" class="tool-btn" title="Box"><span class="material-symbols-outlined">crop_square</span><span class="btn-text">Box</span></button>
+                            <button id="tool_text" class="tool-btn" title="Texte"><span class="material-symbols-outlined">title</span><span class="btn-text">Texte</span></button>
+                            <button id="tool_member" class="tool-btn" title="Membre"><span class="material-symbols-outlined">badge</span><span class="btn-text">Membre</span></button>
                         </div>
                     </div>
 

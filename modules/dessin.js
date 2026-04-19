@@ -968,10 +968,12 @@ function initAnnotationWorkspace() {
     canvas.addEventListener('touchmove', handleDrawMove, { passive: false });
     canvas.addEventListener('touchend', handleDrawEnd);
 
-    document.querySelectorAll('.toolbar-main-tools .tool-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const toolId = btn.id.replace(/^tool_/, '');
-            if (['move', 'location', 'arrow', 'box', 'text', 'member'].includes(toolId)) {
+    const drawingTools = ['tool_move', 'tool_location', 'tool_arrow', 'tool_box', 'tool_text', 'tool_member'];
+    drawingTools.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.addEventListener('click', () => {
+                const toolId = id.replace(/^tool_/, '');
                 setActiveTool(toolId);
                 if (toolId === 'location') {
                     const txt = prompt("Texte personnalisé de la zone :", document.getElementById('circle_text')?.value || "Z");
@@ -981,8 +983,8 @@ function initAnnotationWorkspace() {
                         if (typeof updateZoneText === 'function') updateZoneText(txt);
                     }
                 }
-            }
-        });
+            });
+        }
     });
 
     const toolReset = document.getElementById('tool_reset');

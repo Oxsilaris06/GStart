@@ -1,7 +1,8 @@
 // ==================== Constants.js ====================
-const LOCAL_STORAGE_KEY = 'tactical_oi_data';
+// Support OI2_CONFIG override (oi2.html uses separate storage keys)
+const LOCAL_STORAGE_KEY = (window.OI2_CONFIG && window.OI2_CONFIG.LOCAL_STORAGE_KEY) || 'tactical_oi_data';
 window.LOCAL_STORAGE_KEY = LOCAL_STORAGE_KEY;
-const INDEXED_DB_NAME = 'OI_GeneratorLiteDB';
+const INDEXED_DB_NAME = (window.OI2_CONFIG && window.OI2_CONFIG.DB_NAME) || 'OI_GeneratorLiteDB';
 const BACKGROUND_IMAGE_ID = 'pdf_background';
 const BACKGROUND_IMAGE_LIGHT = 'assets/img/fond_oi_light.png';
 const BACKGROUND_IMAGE_DARK = 'assets/img/fond_oi_dark.png';

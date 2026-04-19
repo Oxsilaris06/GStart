@@ -214,6 +214,13 @@ async function openAnnotationModal(previewImgId) {
             annotationModal.showModal();
         }
 
+        // Fermer les accordéons sur mobile par défaut
+        if (window.innerWidth <= 767) {
+            document.querySelectorAll('.mobile-accordion').forEach(details => {
+                details.removeAttribute('open');
+            });
+        }
+
         // Attendre que le navigateur ait calculé le layout de la modale montrée
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -922,6 +929,21 @@ window.updateAnnotationRotation = updateAnnotationRotation;
 window.setAnnotationColor = setAnnotationColor;
 window.openAnnotationModal = openAnnotationModal;
 
+function toggleMobileDock() {
+    const fab = document.getElementById('mobile-dock-fab');
+    const panel = document.getElementById('annotation-toolbar-panel');
+    if (!fab || !panel) return;
+    
+    if (panel.classList.contains('expanded')) {
+        panel.classList.remove('expanded');
+        fab.classList.remove('hidden');
+    } else {
+        panel.classList.add('expanded');
+        fab.classList.add('hidden');
+    }
+}
+window.toggleMobileDock = toggleMobileDock;
+
 /**
  * Branche le canvas et la barre d'outils d'annotation (équivalent monolithique 4.html).
  * À appeler une fois le canvas initialisé (ex. après getElementById dans presentation.js).
@@ -930,6 +952,82 @@ let annotationWorkspaceInitialized = false;
 function initAnnotationWorkspace() {
     if (annotationWorkspaceInitialized || !canvas || !ctx || !annotationModal) return;
     annotationWorkspaceInitialized = true;
+    
+    // Initialiser le dock flottant
+    const dockContainer = document.getElementById('mobile-dock-container');
+    const dockHandle = document.getElementById('mobile-dock-handle');
+    const fab = document.getElementById('mobile-dock-fab');
+    const panel = document.getElementById('annotation-toolbar-panel');
+
+    if (dockContainer && dockHandle) {
+        let isDraggingDock = false;
+        let dragStartY = 0;
+        let dragStartX = 0;
+        let initialTop = 0;
+        let initialLeft = 0;
+
+        dockHandle.addEventListener('touchstart', (e) => {
+            if (window.innerWidth > 767) return;
+            isDraggingDock = true;
+            dragStartX = e.touches[0].clientX;
+            dragStartY = e.touches[0].clientY;
+            
+            const rect = dockContainer.getBoundingClientRect();
+            initialLeft = rect.left;
+            initialTop = rect.top;
+            
+            // Remove bottom constraint to freely position via top/left
+            dockContainer.style.bottom = 'auto';
+            dockContainer.style.transform = 'none';
+        }, {passive: true});
+
+        document.addEventListener('touchmove', (e) => {
+            if (!isDraggingDock) return;
+            // Ne pas appeler preventDefault si on drag le panel lui-même pour scroller ses outils,
+            // mais ici on écoute sur le document pour déplacer le dock.
+            // On peut preventDefault pour éviter le scroll de la page
+            if(e.cancelable) e.preventDefault();
+            
+            const deltaX = e.touches[0].clientX - dragStartX;
+            const deltaY = e.touches[0].clientY - dragStartY;
+            
+            let newLeft = initialLeft + deltaX;
+            let newTop = initialTop + deltaY;
+            
+            // Keep within bounds
+            const modalRect = document.querySelector('.annotation-wrapper').getBoundingClientRect();
+            const dockRect = dockContainer.getBoundingClientRect();
+            
+            newLeft = Math.max(0, Math.min(newLeft, modalRect.width - dockRect.width));
+            newTop = Math.max(0, Math.min(newTop, modalRect.height - dockRect.height));
+            
+            dockContainer.style.left = `${newLeft}px`;
+            dockContainer.style.top = `${newTop}px`;
+        }, {passive: false});
+
+        document.addEventListener('touchend', () => {
+            isDraggingDock = false;
+        });
+        
+        // Also make FAB draggable
+        if (fab) {
+            fab.addEventListener('touchstart', (e) => {
+                if (window.innerWidth > 767) return;
+                // Si on a tapé, ce sera géré par onclick.
+                // On met en place le drag
+                isDraggingDock = true;
+                dragStartX = e.touches[0].clientX;
+                dragStartY = e.touches[0].clientY;
+                
+                const rect = dockContainer.getBoundingClientRect();
+                initialLeft = rect.left;
+                initialTop = rect.top;
+                
+                dockContainer.style.bottom = 'auto';
+                dockContainer.style.transform = 'none';
+            }, {passive: true});
+        }
+    }
 
     canvas.addEventListener('mousedown', handleDrawStart);
     canvas.addEventListener('mousemove', handleDrawMove);

@@ -2114,31 +2114,17 @@
                 overflow: hidden !important;
             }
 
-            #mobile-dock-container {
-                position: absolute !important;
-                bottom: 20px !important;
-                left: 50% !important;
-                transform: translateX(-50%) !important;
-                z-index: 1000 !important;
-                display: flex !important;
-                flex-direction: column !important;
-                align-items: center !important;
-                pointer-events: none !important; /* allow clicking through to canvas when minimized */
-                width: 95% !important;
-                max-width: 400px !important;
-            }
-
             #mobile-dock-fab {
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                gap: 8px !important;
                 background: var(--accent-blue) !important;
                 color: white !important;
                 border: none !important;
-                border-radius: 30px !important;
-                padding: 12px 24px !important;
-                font-weight: 600 !important;
+                border-radius: 50% !important;
+                width: 50px !important;
+                height: 50px !important;
+                padding: 0 !important;
                 box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
                 cursor: pointer !important;
                 pointer-events: auto !important;
@@ -2150,26 +2136,107 @@
             }
 
             .annotation-toolbar {
-                pointer-events: auto !important;
+                display: none !important;
+            }
+
+            .annotation-wrapper.show-triple-dock {
+                display: grid !important;
+                grid-template-columns: 55px 1fr 55px !important;
+                grid-template-rows: 1fr 55px !important;
+            }
+            
+            .annotation-wrapper.show-triple-dock .annotation-canvas-container {
                 position: relative !important;
-                flex-direction: column !important;
-                flex-wrap: nowrap !important;
-                padding: 10px 12px !important;
-                gap: 5px !important;
-                overflow-x: hidden !important;
-                overflow-y: auto !important;
-                max-height: 70vh !important;
+                grid-column: 2 !important;
+                grid-row: 1 !important;
                 width: 100% !important;
+                height: 100% !important;
+            }
+
+            .annotation-wrapper.show-triple-dock .annotation-toolbar {
+                display: contents !important;
+            }
+
+            .mobile-dock {
                 background: rgba(24, 29, 38, 0.95) !important;
                 backdrop-filter: blur(10px) !important;
                 border: 1px solid rgba(255,255,255,0.1) !important;
-                border-radius: 16px !important;
                 box-shadow: 0 10px 30px rgba(0,0,0,0.7) !important;
-                display: none !important; /* Hidden by default, shown when FAB clicked */
+                pointer-events: auto !important;
+                display: flex !important;
+                align-items: center !important;
+                z-index: 1000;
+            }
+            .mobile-dock.vertical {
+                flex-direction: column !important;
+                width: 55px !important;
+                height: 100% !important;
+                padding: 10px 5px !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+                border-radius: 0 !important;
+                position: relative !important;
+            }
+            .mobile-dock.horizontal {
+                flex-direction: row !important;
+                height: 55px !important;
+                width: 100% !important;
+                padding: 5px 10px !important;
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
+                justify-content: center !important;
+                border-radius: 0 !important;
+            }
+            #dock-left {
+                grid-column: 1 !important;
+                grid-row: 1 !important;
+            }
+            #dock-right {
+                grid-column: 3 !important;
+                grid-row: 1 !important;
+            }
+            #dock-bottom {
+                grid-column: 1 / 4 !important;
+                grid-row: 2 !important;
             }
 
             .annotation-toolbar.expanded {
                 display: flex !important;
+            }
+
+            .toolbar-vertical-group {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 15px !important;
+                align-items: center !important;
+                width: 100% !important;
+            }
+            .vertical-slider-group {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                gap: 5px !important;
+            }
+            .vertical-slider {
+                appearance: slider-vertical !important; /* Webkit */
+                writing-mode: bt-lr; /* IE/Edge */
+                width: 8px !important;
+                height: 80px !important;
+                margin: 0 !important;
+            }
+            .color-picker.vertical {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 10px !important;
+                align-items: center !important;
+                padding: 0 !important;
+                background: none !important;
+            }
+            .toolbar-divider {
+                width: 80% !important;
+                height: 1px !important;
+                background: rgba(255,255,255,0.1) !important;
+                margin: 5px 0 !important;
             }
 
             /* Drag Handle */
@@ -2258,12 +2325,16 @@
 
             .annotation-toolbar .tool-btn {
                 min-width: 44px !important;
-                width: 100% !important;
+                width: 44px !important;
                 height: 44px !important;
                 padding: 0 !important;
                 font-size: 0 !important;
-                border-radius: 10px !important;
+                border-radius: 50% !important;
                 background: rgba(255,255,255,0.06) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                margin: 0 !important;
             }
 
             .annotation-toolbar .tool-btn.active {
@@ -2985,109 +3056,74 @@
             </div>
             
             <div class="modal-body annotation-wrapper">
-                <div id="mobile-dock-container">
-                    <button id="mobile-dock-fab" type="button" onclick="toggleMobileDock()">
-                        <span class="material-symbols-outlined">build</span> Outils
-                    </button>
-                    <div class="annotation-toolbar" id="annotation-toolbar-panel">
-                        <div id="mobile-dock-handle" style="pointer-events: auto; position: relative;">
-                            <div style="flex: 1; display: flex; justify-content: center;"><div class="drag-bar" style="width: 40px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px;"></div></div>
-                            <button type="button" onclick="toggleMobileDock()" style="position: absolute; right: 0; background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 0 10px;">
-                                <span class="material-symbols-outlined">close</span>
-                            </button>
+                <button id="mobile-dock-fab" type="button" onclick="toggleMobileDock()" class="tool-btn icon-only" title="Outils" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; width: 50px; height: 50px; border-radius: 50%; padding: 0; display: flex; justify-content: center; align-items: center; background: var(--accent-blue); box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                    <span class="material-symbols-outlined" style="margin: 0; font-size: 24px; color: white;">build</span>
+                </button>
+                
+                <div class="annotation-toolbar triple-dock-ui" id="annotation-toolbar-panel">
+                    <!-- 1. Outils Principaux (Gauche) -->
+                    <div id="dock-left" class="mobile-dock vertical">
+                        <div class="toolbar-vertical-group">
+                            <button id="tool_move" class="tool-btn icon-only active" title="Bouger"><span class="material-symbols-outlined">pan_tool</span></button>
+                            <button id="tool_location" class="tool-btn icon-only" title="Zone"><span class="material-symbols-outlined">pin_drop</span></button>
+                            <button id="tool_arrow" class="tool-btn icon-only" title="Axe"><span class="material-symbols-outlined">north_east</span></button>
+                            <button id="tool_box" class="tool-btn icon-only" title="Box"><span class="material-symbols-outlined">crop_square</span></button>
+                            <button id="tool_text" class="tool-btn icon-only" title="Texte"><span class="material-symbols-outlined">title</span></button>
+                            <button id="tool_member" class="tool-btn icon-only" title="Membre"><span class="material-symbols-outlined">badge</span></button>
                         </div>
-                        <!-- 1. Barre d'outils de dessin & Couleur -->
-                    <details class="mobile-accordion" open>
-                        <summary>Outils Principaux</summary>
-                        <div class="details-content">
-                            <div class="toolbar-row">
-                                <div class="toolbar-main-tools">
-                                    <button id="tool_move" class="tool-btn active"><span class="material-symbols-outlined">pan_tool</span>Bouger</button>
-                                    <button id="tool_location" class="tool-btn"><span class="material-symbols-outlined">pin_drop</span>Zone</button>
-                                    <button id="tool_arrow" class="tool-btn"><span class="material-symbols-outlined">north_east</span>Axe</button>
-                                    <button id="tool_box" class="tool-btn"><span class="material-symbols-outlined">crop_square</span>Box</button>
-                                    <button id="tool_text" class="tool-btn"><span class="material-symbols-outlined">title</span>Texte</button>
-                                    <button id="tool_member" class="tool-btn"><span class="material-symbols-outlined">badge</span>Membre</button>
-                                </div>
-                            </div>
-                        </div>
-                    </details>
-
-                    <details class="mobile-accordion" open>
-                        <summary>Couleurs</summary>
-                        <div class="details-content">
-                            <div class="toolbar-row">
-                                <div class="color-picker">
-                                    <div class="color-circle active" style="background:#c0392b" onclick="setAnnotationColor('#c0392b', this)"></div>
-                                    <div class="color-circle" style="background:#2ecc71" onclick="setAnnotationColor('#2ecc71', this)"></div>
-                                    <div class="color-circle" style="background:#3498db" onclick="setAnnotationColor('#3498db', this)"></div>
-                                    <div class="color-circle" style="background:#f1c40f" onclick="setAnnotationColor('#f1c40f', this)"></div>
-                                    <div class="color-circle" style="background:#ffffff; border:1px solid #777;" onclick="setAnnotationColor('#ffffff', this)"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </details>
-
-                    <!-- 2. Outils Contextuels -->
-                    <details class="mobile-accordion" open>
-                        <summary>Réglages (Rotation, Trait)</summary>
-                        <div class="details-content">
-                            <div id="contextual_tools" class="toolbar-row">
-                                <div class="toolbar-contextual-tools">
-                                    <div class="tool-settings-group">
-                                        <label for="rotation_input">Rotation</label>
-                                        <div class="number-input-group">
-                                            <button type="button" class="tool-btn icon-only" onclick="document.getElementById('rotation_input').stepDown(15); document.getElementById('rotation_input').dispatchEvent(new Event('change'))"><span class="material-symbols-outlined">rotate_left</span></button>
-                                            <input type="number" id="rotation_input" min="0" max="360" value="0">
-                                            <button type="button" class="tool-btn icon-only" onclick="document.getElementById('rotation_input').stepUp(15); document.getElementById('rotation_input').dispatchEvent(new Event('change'))"><span class="material-symbols-outlined">rotate_right</span></button>
-                                        </div>
-                                    </div>
-                                    <div class="tool-settings-group">
-                                        <label for="stroke_width_edit">Trait</label>
-                                        <input type="range" id="stroke_width_edit" min="1" max="20" value="5">
-                                    </div>
-                                    <div id="text_size_control" class="tool-settings-group" style="display: none;">
-                                        <label for="text_size_edit">Taille</label>
-                                        <input type="range" id="text_size_edit" min="10" max="200" step="5" value="30">
-                                    </div>
-                                    <div id="zone_settings" class="tool-settings-group" style="display: none;">
-                                        <label for="circle_text">Texte</label>
-                                        <input type="text" id="circle_text" value="Z" style="width: 40px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 2px 4px;">
-                                        <label for="circle_opacity">Opa.</label>
-                                        <input type="range" id="circle_opacity" min="0" max="1" step="0.1" value="0.5" style="width: 50px;">
-                                    </div>
-                                    <input type="hidden" id="text_size_tool" value="30">
-                                    <input type="hidden" id="resize_w" value="100">
-                                    <input type="hidden" id="resize_h" value="100">
-                                </div>
-                            </div>
-                        </div>
-                    </details>
-
-                    <!-- 3. Outils de Zoom et Actions (Nouveau) -->
-                    <details class="mobile-accordion" open>
-                        <summary>Actions (Zoom, Editer, Supprimer)</summary>
-                        <div class="details-content">
-                            <div class="toolbar-row zoom-controls" style="margin-bottom: 10px;">
-                                <div class="toolbar-main-tools">
-                                    <button id="zoom_in" class="tool-btn compact" title="Zoomer" onclick="changeZoom(0.2)"><span class="material-symbols-outlined">zoom_in</span></button>
-                                    <button id="zoom_out" class="tool-btn compact" title="Dézoomer" onclick="changeZoom(-0.2)"><span class="material-symbols-outlined">zoom_out</span></button>
-                                    <button id="zoom_reset" class="tool-btn compact" title="Fit" onclick="resetZoom()"><span class="material-symbols-outlined">fullscreen_exit</span></button>
-                                </div>
-                            </div>
-                            <div class="toolbar-row tool-actions-group">
-                                <button id="edit_text_btn" class="tool-btn compact" title="Modifier le texte"><span class="material-symbols-outlined">text_fields</span> Editer Texte</button>
-                                <button id="delete_btn" class="tool-btn compact danger" title="Supprimer l'objet"><span class="material-symbols-outlined">delete</span> Supprimer</button>
-                            </div>
-                        </div>
-                    </details>
-
-                    <!-- 4. Actions Finales Spécifiques Sidebar (PC seulement) -->
-                    <div class="annotation-actions-sidebar">
-                        <button id="tool_reset" class="tool-btn danger"><span class="material-symbols-outlined">delete_sweep</span>Réinitialiser tout</button>
                     </div>
+
+                    <!-- 2. Réglages Contextuels (Droite) -->
+                    <div id="dock-right" class="mobile-dock vertical">
+                        <button type="button" onclick="toggleMobileDock()" class="tool-btn icon-only danger close-dock-btn" style="width: 30px; height: 30px; min-width: 30px; position: absolute; top: 5px; right: 5px; z-index: 1001;" title="Fermer">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">close</span>
+                        </button>
+                        <div id="contextual_tools" class="toolbar-vertical-group" style="margin-top: 35px;">
+                            <div class="tool-settings-group vertical-slider-group" title="Rotation">
+                                <span class="material-symbols-outlined" style="font-size: 16px; color: var(--text-secondary);">rotate_right</span>
+                                <input type="range" id="rotation_input_slider" min="0" max="360" value="0" class="vertical-slider" oninput="document.getElementById('rotation_input').value=this.value; document.getElementById('rotation_input').dispatchEvent(new Event('change'))">
+                                <input type="hidden" id="rotation_input" value="0">
+                            </div>
+                            <div class="tool-settings-group vertical-slider-group" title="Trait">
+                                <span class="material-symbols-outlined" style="font-size: 16px; color: var(--text-secondary);">line_weight</span>
+                                <input type="range" id="stroke_width_edit" min="1" max="20" value="5" class="vertical-slider">
+                            </div>
+                            
+                            <div id="text_size_control" class="tool-settings-group vertical-slider-group" style="display: none;" title="Taille">
+                                <span class="material-symbols-outlined" style="font-size: 16px; color: var(--text-secondary);">format_size</span>
+                                <input type="range" id="text_size_edit" min="10" max="200" step="5" value="30" class="vertical-slider">
+                            </div>
+                            <div id="zone_settings" class="tool-settings-group vertical-slider-group" style="display: none;" title="Opacité">
+                                <span class="material-symbols-outlined" style="font-size: 16px; color: var(--text-secondary);">opacity</span>
+                                <input type="range" id="circle_opacity" min="0" max="1" step="0.1" value="0.5" class="vertical-slider">
+                                <input type="text" id="circle_text" value="Z" style="width: 30px; text-align: center; margin-top: 5px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px;">
+                            </div>
+                            <input type="hidden" id="text_size_tool" value="30">
+                            <input type="hidden" id="resize_w" value="100">
+                            <input type="hidden" id="resize_h" value="100">
+                            
+                            <button id="edit_text_btn" class="tool-btn icon-only" title="Modifier le texte"><span class="material-symbols-outlined">edit_note</span></button>
+                        </div>
                     </div>
-                </div> <!-- End mobile-dock-container -->
+
+                    <!-- 3. Couleurs et Actions (Bas) -->
+                    <div id="dock-bottom" class="mobile-dock horizontal">
+                        <div class="color-picker horizontal" style="display: flex; gap: 10px; justify-content: center; align-items: center;">
+                            <div class="color-circle active" style="background:#c0392b" onclick="setAnnotationColor('#c0392b', this)"></div>
+                            <div class="color-circle" style="background:#2ecc71" onclick="setAnnotationColor('#2ecc71', this)"></div>
+                            <div class="color-circle" style="background:#3498db" onclick="setAnnotationColor('#3498db', this)"></div>
+                            <div class="color-circle" style="background:#f1c40f" onclick="setAnnotationColor('#f1c40f', this)"></div>
+                            <div class="color-circle" style="background:#ffffff; border:1px solid #777;" onclick="setAnnotationColor('#ffffff', this)"></div>
+                        </div>
+                        
+                        <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.2); margin: 0 10px;"></div>
+
+                        <div class="toolbar-horizontal-group" style="display: flex; gap: 10px; align-items: center;">
+                            <button id="delete_btn" class="tool-btn icon-only danger" title="Supprimer l'objet"><span class="material-symbols-outlined">delete</span></button>
+                            <button id="tool_reset" class="tool-btn icon-only danger" style="opacity: 0.8;" title="Réinitialiser tout"><span class="material-symbols-outlined">delete_sweep</span></button>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="annotation-canvas-container">
                     <canvas id="annotationCanvas"></canvas>

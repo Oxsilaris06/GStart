@@ -681,12 +681,14 @@ function handleDrawMove(e) {
         cancelLongPress();
     }
 
-    if (!isDrawing && !isMovingAnnotation) return;
+    if (!isDrawing && !isMovingAnnotation && !isPanning) return;
     
-    // On bloque le scroll natif SEULEMENT si on est en train de dessiner ou bouger une annotation
-    e.preventDefault(); 
+    // On bloque le scroll natif SEULEMENT si on est en train de dessiner, bouger une annotation ou panner
+    if (isDrawing || isMovingAnnotation || isPanning) {
+        if (e.cancelable) e.preventDefault();
+    }
 
-    } else if (isMovingAnnotation && selectedAnnotation) {
+    if (isMovingAnnotation && selectedAnnotation) {
         const deltaX = pos.x - startX;
         const deltaY = pos.y - startY;
 
@@ -1003,6 +1005,7 @@ window.updateZoneOpacity = updateZoneOpacity;
 window.updateAnnotationRotation = updateAnnotationRotation;
 window.setAnnotationColor = setAnnotationColor;
 window.openAnnotationModal = openAnnotationModal;
+window.createAnnotatedImageBlob = createAnnotatedImageBlob;
 
 function toggleMobileDock() {
     const fab = document.getElementById('mobile-dock-fab');

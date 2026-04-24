@@ -592,7 +592,13 @@ const PDFEngineV2 = {
                         <div class="label">Cheminement Initial</div><div class="value">${formData.cheminement_initial || '-'}</div>
                     </div>
                 </div>
-                <h2>4. MISSION</h2><div class="card" style="border-left: 5px solid ${colors.accent}; padding-left: 20px;"><div class="value" style="font-size: 1.4em; font-weight: bold; font-family: 'Inter', sans-serif;">${formData.missions_psig || '-'}</div></div>
+            </div>
+
+            <div class="pdf-page">
+                <h2>4. MISSION</h2>
+                <div class="card" style="border-left: 10px solid ${colors.accent}; padding: 40px; background: ${colors.header}; min-height: 80mm;">
+                    <div class="value" style="font-size: 1.8em; font-weight: 800; font-family: 'Inter', sans-serif; text-align: left; line-height: 1.6; white-space: pre-wrap;">${formData.missions_psig || '-'}</div>
+                </div>
             </div>
         `;
 
@@ -723,28 +729,28 @@ const PDFEngineV2 = {
                 const doorPhotoSrc = photoMeta ? photosBase64[photoMeta.id] : null;
                 const tools = photoMeta ? JSON.parse(photoMeta.tools || '[]') : [];
                 pages += `
-                    <div class="pdf-page">
-                        <h2>Articulation : EFFRACTION - ${effracBlock.title || '-'}</h2>
-                        <div style="display: flex; gap: 15px; align-items: start;">
+                    <div class="pdf-page" style="overflow: hidden;">
+                        <h2 style="margin-bottom: 8px;">Articulation : EFFRACTION - ${effracBlock.title || '-'}</h2>
+                        <div style="display: flex; gap: 15px; align-items: start; margin-bottom: 10px;">
                             ${doorPhotoSrc ? `
-                                <div style="width: 75mm; max-height: 90mm; border: 2px solid ${colors.accent}; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: #000; display:flex; align-items:center; justify-content:center;">
-                                    <img src="${doorPhotoSrc}" style="max-width: 100%; max-height: 90mm; width: auto; height: auto; display: block;">
-                                    <div style="position:absolute; bottom:0; left:0; right:0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 10px; background: rgba(0,0,0,0.8); border-top: 1px solid ${colors.accent};">
-                                        ${tools.length > 0 ? tools.map(t => `<span class="tool-badge" style="padding: 3px 8px; font-size: 9pt;">${t}</span>`).join('') : '<span style="color:#fff; font-size: 9pt; font-weight:bold;">CARACTÉRISTIQUES PORTE</span>'}
+                                <div style="width: 70mm; height: 75mm; border: 2px solid ${colors.accent}; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: #000; display:flex; align-items:center; justify-content:center; position: relative;">
+                                    <img src="${doorPhotoSrc}" style="max-width: 100%; max-height: 100%; width: auto; height: auto; display: block;">
+                                    <div style="position:absolute; bottom:0; left:0; right:0; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; padding: 6px; background: rgba(0,0,0,0.8); border-top: 1px solid ${colors.accent};">
+                                        ${tools.length > 0 ? tools.map(t => `<span class="tool-badge" style="padding: 2px 6px; font-size: 8pt;">${t}</span>`).join('') : '<span style="color:#fff; font-size: 8pt; font-weight:bold;">PORTE</span>'}
                                     </div>
                                 </div>
                             ` : ''}
                             <div style="flex: 1;">
-                                <div class="card" style="padding: 10px;">
-                                    <h3>Caractéristiques Techniques</h3>
-                                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 0.9em;">
+                                <div class="card" style="padding: 10px; height: 75mm; overflow: hidden;">
+                                    <h3 style="margin-top:0;">Caractéristiques Techniques</h3>
+                                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 0.85em;">
                                         <div><span class="label">Structure</span> ${effracBlock.structure || '-'}</div>
                                         <div><span class="label">Serrurerie</span> ${effracBlock.serrurerie || '-'}</div>
                                         <div><span class="label">Environnement</span> ${effracBlock.environnement || '-'}</div>
                                         <div><span class="label">Bâti à Bâti</span> ${effracBlock.bati_a_bati || '-'} mm</div>
                                         <div><span class="label">Dormant à Dormant</span> ${effracBlock.dormant_a_dormant || '-'} mm</div>
                                         <div><span class="label">Prof. Linteaux</span> ${effracBlock.prof_linteaux || '-'} mm</div>
-                                        <hr style="grid-column: span 2; border: 0; border-top: 1px dashed ${colors.border}; margin: 5px 0;">
+                                        <hr style="grid-column: span 2; border: 0; border-top: 1px dashed ${colors.border}; margin: 4px 0;">
                                         <div><span class="label">H. Porte</span> ${effracBlock.h_porte || '-'}</div>
                                         <div><span class="label">H. Marche</span> ${effracBlock.h_marche || '-'}</div>
                                         <div style="grid-column: span 2;"><span class="label">Prof. Bâti</span> ${effracBlock.prof_bati || '-'}</div>
@@ -752,17 +758,17 @@ const PDFEngineV2 = {
                                 </div>
                             </div>
                         </div>
-                        <div class="card" style="margin-top: 15px;">
-                            <h3>Hypothèses d'Effraction</h3>
-                            <table style="font-size: 0.85em; table-layout: auto;">
-                                <thead><tr><th>Hypothèse</th><th>Technique / Moyen</th><th>Dégagement</th><th>Assaut</th></tr></thead>
+                        <div class="card" style="margin-top: 0;">
+                            <h3 style="margin: 5px 0;">Hypothèses d'Effraction</h3>
+                            <table style="font-size: 0.8em; table-layout: fixed; width: 100%;">
+                                <thead><tr><th style="width:20%;">Hypothèse</th><th style="width:30%;">Technique / Moyen</th><th style="width:25%;">Dégagement</th><th style="width:25%;">Assaut</th></tr></thead>
                                 <tbody>
                                     ${(effracBlock.hypotheses || []).length > 0 ? effracBlock.hypotheses.map(h => `
                                         <tr>
-                                            <td style="font-weight: bold; color:${colors.accent}">${h.title || h.id}</td>
-                                            <td>${h.effrac || '-'}</td>
-                                            <td>${h.degag || '-'}</td>
-                                            <td>${h.assaut || '-'}</td>
+                                            <td style="font-weight: bold; color:${colors.accent}; word-wrap: break-word;">${h.title || h.id}</td>
+                                            <td style="word-wrap: break-word;">${h.effrac || '-'}</td>
+                                            <td style="word-wrap: break-word;">${h.degag || '-'}</td>
+                                            <td style="word-wrap: break-word;">${h.assaut || '-'}</td>
                                         </tr>
                                     `).join('') : '<tr><td colspan="4">Aucune hypothèse saisie</td></tr>'}
                                 </tbody>

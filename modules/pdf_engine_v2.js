@@ -86,14 +86,20 @@ const PDFEngineV2 = {
             updateStatus("Collecte des données...");
             const data = await this.collectAllData();
 
+            // --- Format PDF sélectionné ---
+            const is169 = (window.pdfOutputFormat === '16:9');
+            // A4 landscape: 297×210mm | 16:9: 338×190.125mm (exactement 16/9)
+            const PAGE_W = is169 ? 338   : 297;
+            const PAGE_H = is169 ? 190.125 : 210;
+
             updateStatus("Génération du squelette...");
-            const htmlContent = this.generateHTML(data, false);
+            const htmlContent = this.generateHTML(data, false, { pageW: PAGE_W, pageH: PAGE_H });
 
             // 2. Injection DOM temporaire
             const tempContainer = document.createElement('div');
             tempContainer.id = 'pdf-render-temp-worker';
             tempContainer.style.cssText = `
-                position: fixed; top: 0; left: 0; width: 297mm; background: white;
+                position: fixed; top: 0; left: 0; width: ${PAGE_W}mm; background: white;
                 z-index: -9999; visibility: visible !important; display: block !important;
                 opacity: 0 !important; pointer-events: none;
             `;
@@ -108,11 +114,11 @@ const PDFEngineV2 = {
             const pageElements = Array.from(tempContainer.querySelectorAll('.pdf-page'));
             if (pageElements.length === 0) throw new Error("Aucune page HTML générée.");
 
-            // 4. Initialisation du document PDF (A4 Paysage)
+            // 4. Initialisation du document PDF
             const doc = new jsPDFLib({
                 orientation: 'landscape',
                 unit: 'mm',
-                format: 'a4',
+                format: is169 ? [PAGE_W, PAGE_H] : 'a4',
                 compress: true
             });
 
@@ -148,7 +154,7 @@ const PDFEngineV2 = {
                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
                 if (i > 0) doc.addPage();
-                doc.addImage(imgData, 'JPEG', 0, 0, 297, 210, undefined, 'FAST');
+                doc.addImage(imgData, 'JPEG', 0, 0, PAGE_W, PAGE_H, undefined, 'FAST');
 
                 canvas.width = 0;
                 canvas.height = 0;
@@ -237,8 +243,19 @@ const PDFEngineV2 = {
     /**
      * @param {Boolean} isPreview Si true, adapte le CSS pour un affichage web sans marges mm strictes.
      */
-    generateHTML(data, isPreview = false) {
+    generateHTML(data, isPreview = false, pageOptions = {}) {
         const { formData, photosBase64, isDark } = data;
+        const PAGE_W_MM = pageOptions.pageW || 297;
+        const PAGE_H_MM = pageOptions.pageH || 210;
+        const is169 = PAGE_W_MM > 300;
+
+        // --- BUDGETS VERTICAUX DYNAMIQUES ---
+        const MAX_GALLERY_IMG_H = is169 ? '108mm' : '130mm';
+        const MAX_ADV_PORTRAIT_H = is169 ? '75mm' : '90mm';
+        const CARD_MARGIN_B = is169 ? '8px' : '15px';
+        const H2_MARGIN_T = is169 ? '12px' : '20px';
+        const H2_MARGIN_B = is169 ? '10px' : '15px';
+
         const colors = isDark ? {
             bg: '#0a0a0c', bgCard: '#121214', text: '#ffffff', textMuted: '#a1a1aa',
             accent: '#3b82f6', border: '#3f3f46', danger: '#ef4444', header: '#1a1a1a',
@@ -251,7 +268,9 @@ const PDFEngineV2 = {
 
         const pageStyle = isPreview
             ? `width: 100%; max-width: 1000px; margin: 0 auto 40px auto; min-height: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border-radius: 12px;`
-            : `width: 297mm; height: 210mm; page-break-after: always;`;
+            : `width: ${PAGE_W_MM}mm; height: ${PAGE_H_MM}mm; page-break-after: always;`;
+        // En 16:9, on réduit légèrement les marges pour maximiser le contenu
+        const pagePadding = PAGE_W_MM > 300 ? '10mm 16mm' : '15mm 20mm';
 
         const css = `
             <style>
@@ -264,7 +283,7 @@ const PDFEngineV2 = {
                     margin: 0; padding: ${isPreview ? '20px' : '0'}; 
                     background: ${colors.bg}; 
                     color: ${colors.text} !important; 
-                    font-size: 11pt; line-height: 1.4; 
+                    font-size: ${is169 ? '10pt' : '11pt'}; line-height: 1.4; 
                     width: 100%;
                     display: block !important;
                     opacity: 1 !important;
@@ -272,7 +291,7 @@ const PDFEngineV2 = {
                 }
                 .pdf-page { 
                     ${pageStyle}
-                    padding: 15mm 20mm; position: relative; display: flex !important; flex-direction: column; 
+                    padding: ${pagePadding}; position: relative; display: flex !important; flex-direction: column; 
                     background: ${colors.bg}; border: 1px solid ${colors.border};
                     overflow: hidden;
                     box-sizing: border-box;
@@ -287,16 +306,16 @@ const PDFEngineV2 = {
                     -webkit-background-clip: initial !important;
                     background-clip: initial !important;
                 }
-                h1 { font-size: 32pt; color: ${colors.accent} !important; background: transparent !important; }
-                h2 { font-size: 20pt; border-bottom: 2px solid ${colors.accent}; padding-bottom: 5px; margin-bottom: 15px; margin-top: 20px; color: ${colors.accent} !important; }
-                h3 { font-size: 14pt; margin-bottom: 10px; color: ${colors.accent} !important; }
+                h1 { font-size: ${is169 ? '28pt' : '32pt'}; color: ${colors.accent} !important; background: transparent !important; }
+                h2 { font-size: ${is169 ? '17pt' : '20pt'}; border-bottom: 2px solid ${colors.accent}; padding-bottom: 5px; margin-bottom: ${H2_MARGIN_B}; margin-top: ${H2_MARGIN_T}; color: ${colors.accent} !important; }
+                h3 { font-size: ${is169 ? '12pt' : '14pt'}; margin-bottom: 8px; color: ${colors.accent} !important; }
                 .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
                 .card { 
                     background: ${isDark ? 'rgba(18, 18, 20, 0.85)' : 'rgba(255, 255, 255, 0.95)'}; 
                     border: 1px solid ${isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'}; 
                     border-radius: 16px; 
-                    padding: 15px; 
-                    margin-bottom: 15px; 
+                    padding: ${is169 ? '10px' : '15px'}; 
+                    margin-bottom: ${CARD_MARGIN_B}; 
                     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
                     position: relative;
                     page-break-inside: avoid;
@@ -465,22 +484,21 @@ const PDFEngineV2 = {
                 const imgSrc = photosBase64[p.id] || '';
 
                 galleryPages += `
-                    <div class="pdf-page" style="display: flex; flex-direction: column; justify-content: flex-start; padding: 15mm 20mm;">
-                        <h2 style="margin-bottom: 10mm;">${sectionTitle} (Photo ${idx + 1}/${photoMetas.length})</h2>
-                        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; border: 2px solid ${colors.border}; border-radius: 12px; background: ${isDark ? 'rgba(18,18,20,0.8)' : 'rgba(255,255,255,0.8)'}; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                    <div class="pdf-page" style="display: flex; flex-direction: column; justify-content: flex-start; padding: ${pagePadding};">
+                        <h2>${sectionTitle} (Photo ${idx + 1}/${photoMetas.length})</h2>
+                        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; border: 2px solid ${colors.border}; border-radius: 12px; background: ${isDark ? 'rgba(18,18,20,0.8)' : 'rgba(255,255,255,0.8)'}; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
                             
-                            <!-- Utilisation de max-height et max-width sans object-fit pour html2canvas -->
-                            <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 130mm; max-height: 130mm;">
+                            <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: ${MAX_GALLERY_IMG_H}; max-height: ${MAX_GALLERY_IMG_H};">
                                 <img src="${imgSrc}" style="max-width: 100%; max-height: 100%; width: auto; height: auto; border-radius: 6px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); display: block; margin: 0 auto;">
                             </div>
 
-                            <div class="photo-caption" style="margin-top: 20px; width: 90%; text-align: center;">
+                            <div class="photo-caption" style="margin-top: ${is169 ? '8px' : '15px'}; width: 95%; text-align: center; font-weight: bold; font-size: ${is169 ? '11pt' : '12pt'};">
                                 ${p.customTitle || (sectionTitle + ' - Détail')}
                             </div>
                             ${(tools.length > 0 || p.other_tools) ? `
-                                <div class="photo-tools" style="margin-top: 15px; text-align: center;">
-                                    ${tools.map(t => `<span class="tool-badge">${t}</span>`).join('')}
-                                    ${p.other_tools ? `<span class="tool-badge" style="border-style: dashed;">${p.other_tools}</span>` : ''}
+                                <div class="photo-tools" style="margin-top: ${is169 ? '5px' : '10px'}; text-align: center;">
+                                    ${tools.map(t => `<span class="tool-badge" style="font-size: ${is169 ? '8pt' : '9pt'};">${t}</span>`).join('')}
+                                    ${p.other_tools ? `<span class="tool-badge" style="border-style: dashed; font-size: ${is169 ? '8pt' : '9pt'};">${p.other_tools}</span>` : ''}
                                 </div>
                             ` : ''}
                         </div>
@@ -501,8 +519,8 @@ const PDFEngineV2 = {
                         <h2>2.${idx + 1} FICHE ADVERSAIRE : ${adv.nom_adversaire || 'Inconnu'}</h2>
                         <div style="display: flex; gap: 15px; align-items: start;">
                             ${mainPhotoSrc ? `
-                                <div style="width: 70mm; max-height: 90mm; border: 2px solid ${colors.accent}; border-radius: 8px; overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #000;">
-                                    <img src="${mainPhotoSrc}" style="max-width: 100%; max-height: 90mm; width: auto; height: auto; display: block;">
+                                <div style="width: 70mm; max-height: ${MAX_ADV_PORTRAIT_H}; border: 2px solid ${colors.accent}; border-radius: 8px; overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #000;">
+                                    <img src="${mainPhotoSrc}" style="max-width: 100%; max-height: ${MAX_ADV_PORTRAIT_H}; width: auto; height: auto; display: block;">
                                 </div>
                             ` : ''}
                                 <div class="card" style="padding: 10px; margin-bottom: 8px;">
@@ -596,8 +614,8 @@ const PDFEngineV2 = {
 
             <div class="pdf-page">
                 <h2>4. MISSION</h2>
-                <div class="card" style="border-left: 10px solid ${colors.accent}; padding: 40px; background: ${colors.header}; min-height: 80mm;">
-                    <div class="value" style="font-size: 1.8em; font-weight: 800; font-family: 'Inter', sans-serif; text-align: left; line-height: 1.6; white-space: pre-wrap;">${formData.missions_psig || '-'}</div>
+                <div class="card" style="border-left: 10px solid ${colors.accent}; padding: ${is169 ? '25px 30px' : '40px'}; background: ${colors.header}; min-height: ${is169 ? '65mm' : '80mm'};">
+                    <div class="value" style="font-size: ${is169 ? '1.5em' : '1.8em'}; font-weight: 800; font-family: 'Inter', sans-serif; text-align: left; line-height: 1.6; white-space: pre-wrap;">${formData.missions_psig || '-'}</div>
                 </div>
             </div>
         `;
@@ -728,22 +746,24 @@ const PDFEngineV2 = {
                 const photoMeta = formData.dynamic_photos?.['photo_effrac_' + effracBlock.id]?.[0];
                 const doorPhotoSrc = photoMeta ? photosBase64[photoMeta.id] : null;
                 const tools = photoMeta ? JSON.parse(photoMeta.tools || '[]') : [];
+                const EFFRAC_TOP_H = is169 ? '65mm' : '75mm';
+
                 pages += `
                     <div class="pdf-page" style="overflow: hidden;">
-                        <h2 style="margin-bottom: 8px;">Articulation : EFFRACTION - ${effracBlock.title || '-'}</h2>
-                        <div style="display: flex; gap: 15px; align-items: start; margin-bottom: 10px;">
+                        <h2 style="margin-bottom: ${is169 ? '5px' : '8px'};">Articulation : EFFRACTION - ${effracBlock.title || '-'}</h2>
+                        <div style="display: flex; gap: 15px; align-items: start; margin-bottom: ${is169 ? '5px' : '10px'};">
                             ${doorPhotoSrc ? `
-                                <div style="width: 70mm; height: 75mm; border: 2px solid ${colors.accent}; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: #000; display:flex; align-items:center; justify-content:center; position: relative;">
+                                <div style="width: 70mm; height: ${EFFRAC_TOP_H}; border: 2px solid ${colors.accent}; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: #000; display:flex; align-items:center; justify-content:center; position: relative;">
                                     <img src="${doorPhotoSrc}" style="max-width: 100%; max-height: 100%; width: auto; height: auto; display: block;">
-                                    <div style="position:absolute; bottom:0; left:0; right:0; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; padding: 6px; background: rgba(0,0,0,0.8); border-top: 1px solid ${colors.accent};">
-                                        ${tools.length > 0 ? tools.map(t => `<span class="tool-badge" style="padding: 2px 6px; font-size: 8pt;">${t}</span>`).join('') : '<span style="color:#fff; font-size: 8pt; font-weight:bold;">PORTE</span>'}
+                                    <div style="position:absolute; bottom:0; left:0; right:0; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; padding: 4px; background: rgba(0,0,0,0.8); border-top: 1px solid ${colors.accent};">
+                                        ${tools.length > 0 ? tools.map(t => `<span class="tool-badge" style="padding: 2px 6px; font-size: 8pt;">${t}</span>`).join('') : '<span style="color:#fff; font-size: 7pt; font-weight:bold;">PORTE</span>'}
                                     </div>
                                 </div>
                             ` : ''}
                             <div style="flex: 1;">
-                                <div class="card" style="padding: 10px; height: 75mm; overflow: hidden;">
-                                    <h3 style="margin-top:0;">Caractéristiques Techniques</h3>
-                                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 0.85em;">
+                                <div class="card" style="padding: ${is169 ? '8px' : '10px'}; height: ${EFFRAC_TOP_H}; overflow: hidden;">
+                                    <h3 style="margin-top:0; font-size: ${is169 ? '11pt' : '13pt'};">Caractéristiques Techniques</h3>
+                                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: ${is169 ? '4px' : '8px'}; font-size: ${is169 ? '0.8em' : '0.85em'};">
                                         <div><span class="label">Structure</span> ${effracBlock.structure || '-'}</div>
                                         <div><span class="label">Serrurerie</span> ${effracBlock.serrurerie || '-'}</div>
                                         <div><span class="label">Environnement</span> ${effracBlock.environnement || '-'}</div>
@@ -758,9 +778,9 @@ const PDFEngineV2 = {
                                 </div>
                             </div>
                         </div>
-                        <div class="card" style="margin-top: 0;">
-                            <h3 style="margin: 5px 0;">Hypothèses d'Effraction</h3>
-                            <table style="font-size: 0.8em; table-layout: fixed; width: 100%;">
+                        <div class="card" style="margin-top: 0; padding: ${is169 ? '8px' : '12px'};">
+                            <h3 style="margin: 5px 0; font-size: ${is169 ? '11pt' : '13pt'};">Hypothèses d'Effraction</h3>
+                            <table style="font-size: ${is169 ? '0.75em' : '0.8em'}; table-layout: fixed; width: 100%;">
                                 <thead><tr><th style="width:20%;">Hypothèse</th><th style="width:30%;">Technique / Moyen</th><th style="width:25%;">Dégagement</th><th style="width:25%;">Assaut</th></tr></thead>
                                 <tbody>
                                     ${(effracBlock.hypotheses || []).length > 0 ? effracBlock.hypotheses.map(h => `

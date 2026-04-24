@@ -2499,6 +2499,52 @@
             box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25), var(--inner-glow);
         }
 
+        /* Toggle Format PDF */
+        .pdf-format-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 6px 10px;
+        }
+        .pdf-format-toggle .toggle-label {
+            font-size: 0.8em;
+            color: var(--text-secondary);
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .pdf-format-track {
+            display: flex;
+            background: var(--bg-body);
+            border-radius: 999px;
+            border: 1px solid var(--border-color);
+            padding: 3px;
+            gap: 2px;
+        }
+        .pdf-format-track button {
+            all: unset;
+            cursor: pointer;
+            padding: 5px 14px;
+            border-radius: 999px;
+            font-size: 0.8em;
+            font-weight: 700;
+            color: var(--text-secondary);
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+            white-space: nowrap;
+            width: auto !important;
+        }
+        .pdf-format-track button.active {
+            background: var(--accent-blue);
+            color: white;
+            box-shadow: 0 2px 8px rgba(59,130,246,0.4);
+        }
+
         .coherence-alert {
             background-color: var(--danger-bg);
             color: var(--danger-red);
@@ -3017,6 +3063,14 @@
         <div id="presentation-content">
         </div>
         <div class="modal-actions-pdf">
+            <div class="pdf-format-toggle">
+                <span class="toggle-label">Format PDF</span>
+                <div class="pdf-format-track" id="pdfFormatTrack">
+                    <button id="btnFormatA4" class="active" onclick="setPdfFormat('a4')">A4 Paysage</button>
+                    <button id="btnFormat169" onclick="setPdfFormat('16:9')">16:9</button>
+                </div>
+                <span id="pdfFormatDims" class="toggle-label" style="color: var(--text-muted); font-size:0.72em;">297×210 mm</span>
+            </div>
             <button id="downloadPdfBtn" type="button" class="wizard-nav-btn">
                 Télécharger le PDF <span class="material-symbols-outlined"
                     style="font-size: 1.2em;">picture_as_pdf</span>
@@ -3789,6 +3843,26 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 console.error("Erreur d'initialisation 1.html:", err);
             }
         });
+
+        // --- Toggle Format PDF ---
+        window.setPdfFormat = function(fmt) {
+            window.pdfOutputFormat = fmt;
+            localStorage.setItem('pdfOutputFormat', fmt);
+
+            const btnA4  = document.getElementById('btnFormatA4');
+            const btn169 = document.getElementById('btnFormat169');
+            const dims   = document.getElementById('pdfFormatDims');
+
+            if (btnA4)  btnA4.classList.toggle('active',  fmt === 'a4');
+            if (btn169) btn169.classList.toggle('active', fmt === '16:9');
+            if (dims) dims.textContent = fmt === '16:9' ? '338×190 mm' : '297×210 mm';
+        };
+
+        // Restaurer le choix au chargement
+        (function initPdfFormatToggle() {
+            const saved = localStorage.getItem('pdfOutputFormat') || 'a4';
+            window.setPdfFormat(saved);
+        })();
     </script>
     <!-- MODAL OUTILS EFFRACTION (MASTERCLASS) -->
     <dialog id="effractionToolsModal">

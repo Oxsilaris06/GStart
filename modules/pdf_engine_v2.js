@@ -52,7 +52,7 @@ const PDFEngineV2 = {
     async downloadOiPdf() {
         console.group("🚀 [PDF ENGINE V4] - Démarrage de la génération");
         const startTime = Date.now();
-        
+
         const loader = document.getElementById('pdfLoadingModal');
         const statusText = document.getElementById('pdfLoadingStatus');
         const updateStatus = (msg) => { if (statusText) statusText.textContent = msg; };
@@ -85,7 +85,7 @@ const PDFEngineV2 = {
             // 1. Collecte & Préparation
             updateStatus("Collecte des données...");
             const data = await this.collectAllData();
-            
+
             updateStatus("Génération du squelette...");
             const htmlContent = this.generateHTML(data, false);
 
@@ -120,7 +120,7 @@ const PDFEngineV2 = {
             for (let i = 0; i < pageElements.length; i++) {
                 const isCover = (i === 0);
                 updateStatus(isCover ? "Rendu : Couverture..." : `Rendu : Page ${i + 1}/${pageElements.length}...`);
-                
+
                 const pageEl = pageElements[i];
 
                 // Attendre le décodage des images
@@ -460,10 +460,10 @@ const PDFEngineV2 = {
 
             photoMetas.forEach((p, idx) => {
                 const tools = JSON.parse(p.tools || '[]');
-                
+
                 // Calcul du ratio pour l'image
                 const imgSrc = photosBase64[p.id] || '';
-                
+
                 galleryPages += `
                     <div class="pdf-page" style="display: flex; flex-direction: column; justify-content: flex-start; padding: 15mm 20mm;">
                         <h2 style="margin-bottom: 10mm;">${sectionTitle} (Photo ${idx + 1}/${photoMetas.length})</h2>
@@ -501,11 +501,10 @@ const PDFEngineV2 = {
                         <h2>2.${idx + 1} FICHE ADVERSAIRE : ${adv.nom_adversaire || 'Inconnu'}</h2>
                         <div style="display: flex; gap: 15px; align-items: start;">
                             ${mainPhotoSrc ? `
-                                <div style="width: 70mm; border: 2px solid ${colors.accent}; border-radius: 8px; overflow: hidden; flex-shrink: 0;">
-                                    <img src="${mainPhotoSrc}" style="width: 100%; display: block;">
+                                <div style="width: 70mm; max-height: 90mm; border: 2px solid ${colors.accent}; border-radius: 8px; overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #000;">
+                                    <img src="${mainPhotoSrc}" style="max-width: 100%; max-height: 90mm; width: auto; height: auto; display: block;">
                                 </div>
                             ` : ''}
-                            <div style="flex: 1; min-width: 0;">
                                 <div class="card" style="padding: 10px; margin-bottom: 8px;">
                                     <h3 style="border-bottom: 2px solid ${colors.accent}; padding-bottom: 3px; margin: 0 0 5px 0; font-size: 11pt;">IDENTITÉ</h3>
                                     <div class="grid" style="gap: 5px;">
@@ -514,14 +513,19 @@ const PDFEngineV2 = {
                                             <div class="value" style="font-size: 9pt;">${adv.date_naissance || '-'} @ ${adv.lieu_naissance || '-'}</div>
                                             <span class="label">Profession</span>
                                             <div class="value" style="font-size: 9pt;">${adv.profession_adversaire || '-'}</div>
+                                            <span class="label">Situation familiale</span>
+                                            <div class="value" style="font-size: 9pt;">${adv.situation_familiale || '-'}</div>
                                         </div>
                                         <div>
                                             <span class="label">Signalement</span>
                                             <div class="value" style="font-size: 9pt;">${adv.stature_adversaire || '-'} | ${adv.ethnie_adversaire || '-'}</div>
-                                            <span class="label">Signes</span>
+                                            <span class="label">Signes particuliers</span>
                                             <div class="value" style="font-size: 9pt;">${adv.signes_particuliers || 'Ras'}</div>
+                                            <span class="label">Substances</span>
+                                            <div class="value" style="font-size: 9pt;">${adv.substances_adversaire || '-'}</div>
                                         </div>
                                     </div>
+                                    ${(adv.me_list && adv.me_list.length > 0) ? `<span class="label" style="margin-top:5px;">Moyens Employés</span><div class="value" style="font-size:9pt;">${adv.me_list.join(' / ')}</div>` : ''}
                                 </div>
                                 <div class="card" style="padding: 10px; margin-bottom: 8px;">
                                     <h3 style="border-bottom: 2px solid ${colors.danger}; padding-bottom: 3px; margin: 0 0 5px 0; font-size: 11pt;">DANGEROSITÉ</h3>
@@ -554,7 +558,7 @@ const PDFEngineV2 = {
                 // Galerie Photos Supplémentaires (Extra + Renforts) pour cet adversaire
                 const extraPhotos = formData.dynamic_photos?.[`photo_extra_${adv.id}`] || [];
                 const renfortPhotos = formData.dynamic_photos?.[`photo_renforts_${adv.id}`] || [];
-                
+
                 if (extraPhotos.length > 0) {
                     pages += renderGallery(extraPhotos, `Adversaire : ${adv.nom_adversaire || 'Individu'} (Photos annexes)`);
                 }
@@ -564,13 +568,29 @@ const PDFEngineV2 = {
             });
         }
 
-        // --- PAGE 3: ENVIRONNEMENT & MISSION ---
         pages += `
             <div class="pdf-page">
                 <h2>3. ENVIRONNEMENT ET AMIS</h2>
                 <div class="grid">
-                    <div class="card"><div class="label">Forces Amies / Concours</div><div class="value">${formData.amies || '-'}</div><div class="label">Terrain / Environnement</div><div class="value">${formData.terrain_info || '-'}</div></div>
-                    <div class="card"><div class="label">Population / Voisinage</div><div class="value">${formData.population || '-'}</div><div class="label">Cadre Juridique</div><div class="value">${formData.cadre_juridique || '-'}</div></div>
+                    <div class="card">
+                        <div class="label">Forces Amies / Concours</div><div class="value">${formData.amies || '-'}</div>
+                        <div class="label">Terrain / Météo</div><div class="value">${formData.terrain_info || '-'}</div>
+                        <div class="label">Éclairage</div><div class="value">${formData.eclairage || '-'}</div>
+                        <div class="label">Lever du soleil</div><div class="value">${formData.lever_soleil || '-'}</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">Population / Voisinage</div><div class="value">${formData.population || '-'}</div>
+                        <div class="label">Faune / Animaux</div><div class="value">${formData.faune_animaux || '-'}</div>
+                        <div class="label">Cadre Juridique</div><div class="value">${formData.cadre_juridique || '-'}</div>
+                    </div>
+                </div>
+                <div class="grid" style="margin-top: 10px;">
+                    <div class="card">
+                        <div class="label">Accès Principal</div><div class="value">${formData.acces_principal || '-'}</div>
+                    </div>
+                    <div class="card">
+                        <div class="label">Cheminement Initial</div><div class="value">${formData.cheminement_initial || '-'}</div>
+                    </div>
                 </div>
                 <h2>4. MISSION</h2><div class="card" style="border-left: 5px solid ${colors.accent}; padding-left: 20px;"><div class="value" style="font-size: 1.4em; font-weight: bold; font-family: 'Inter', sans-serif;">${formData.missions_psig || '-'}</div></div>
             </div>
@@ -579,7 +599,12 @@ const PDFEngineV2 = {
         // --- PAGE 4: EXÉCUTION ---
         pages += `
             <div class="pdf-page">
-                <h2>5. EXÉCUTION</h2><div class="label">Idée de Manœuvre / Action</div><div class="value">${formData.action_body_text || '-'}</div>
+                <h2>5. EXÉCUTION</h2>
+                <div style="display: flex; gap: 20px; margin-bottom: 10px;">
+                    <div><span class="label">Date d'exécution</span><span class="value monospaced">${formData.date_execution || '-'}</span></div>
+                    <div><span class="label">Heure H</span><span class="value monospaced" style="font-size:1.2em; font-weight:bold; color:${colors.accent};">${formData.heure_execution || '-'}</span></div>
+                </div>
+                <div class="label">Idée de Manœuvre / Action</div><div class="value">${formData.action_body_text || '-'}</div>
                 <div class="grid">
                     <div class="card"><h3>Chronologie Prévisionnelle</h3><table><thead><tr><th style="width:80px;">Heure</th><th>Événement</th></tr></thead><tbody>
                         ${(formData.time_events || []).length > 0 ? formData.time_events.map(ev => `<tr><td class="monospaced">${ev.hour || ''}</td><td><strong>${ev.type || ''}</strong> : ${ev.description || ''}</td></tr>`).join('') : '<tr><td colspan="2">N/A</td></tr>'}
@@ -620,176 +645,168 @@ const PDFEngineV2 = {
                 </div>
                 <div class="card no-break"><h3>Ordre de Pénétration</h3><div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     ${(formData.ordre_penetration_order || []).length > 0 ? formData.ordre_penetration_order.map((m, i) => `<div style="border: 1px solid ${colors.accent}; border-radius: 4px; padding: 10px 15px; font-size: 1.2em; font-weight: bold; background: ${colors.header};"><span style="font-size: 0.8em; color: ${colors.textMuted}; display: block;">${i + 1}</span> ${m}</div>`).join('') : '-'}
-                </div><div style="margin-top: 15px; font-weight: bold;">PLACE DU CHEF : <span style="color:${colors.accent}">${formData.place_chef_gen || '-'}</span></div></div>
+                </div><div style="margin-top: 15px; font-weight: bold;">PLACE DU CHEF : <span style="color:${colors.accent}">${formData.place_chef || '-'}</span></div></div>
             </div>
         `;
 
-        // BLOCS ZMSPCP
-        (formData.zmspcp_blocks || []).forEach(block => {
-            const cellGroups = regroupByCell(block.members || []);
-            pages += `
-                <div class="pdf-page"><h2>Articulation : ZMSPCP - ${block.title || '-'}</h2><div class="grid">
-                    <div class="card"><h3>ZMSPCP</h3>
-                        <div class="label">Z zone</div><div class="value">${block.zone || '-'}</div>
-                        <div class="label">M mission</div><div class="value">${block.mission || '-'}</div>
-                        <div class="label">S secteur</div><div class="value">${block.secteur || '-'}</div>
-                        <div class="label">P points particuliers</div><div class="value">${block.points_particuliers || '-'}</div>
-                        <div class="label">C conduite à tenir</div><div class="value">${block.cat || '-'}</div>
-                    </div>
-                    <div class="card"><h3>Composition par Cellule</h3>
-                        ${Object.entries(cellGroups).map(([cell, items]) => `
-                            <div class="cell-group">
-                                <div class="cell-name">${cell}</div>
-                                <div class="cell-members">${items.map(m => `<span class="badge">${m}</span>`).join('')}</div>
-                            </div>
-                        `).join('')}
-                        <div style="margin-top: 10px;"><span class="label">Place du Chef</span> ${block.place_chef || '-'}</div>
-                    </div>
-                </div></div>
-            `;
-            const blockPhotos = [
-                ...(formData.dynamic_photos?.['photo_bapteme_' + block.id] || []),
-                ...(formData.dynamic_photos?.['photo_empl_ao_' + block.id] || [])
-            ];
-            pages += renderGallery(blockPhotos, `ZMSPCP : ${block.title || '-'}`);
-        });
+        // --- BLOCS ARTICULATION GROUPÉS PAR INDEX (MOICP[i] + ZMSPCP[i] + EFFRAC[i]) ---
+        // Les photo_bapteme_* sont extraites et regroupées dans une section dédiée après la boucle
+        const moicpBlocks = formData.moicp_blocks || [];
+        const zmspcpBlocks = formData.zmspcp_blocks || [];
+        const effracBlocks = formData.effraction_blocks || [];
+        const maxBlocks = Math.max(moicpBlocks.length, zmspcpBlocks.length, effracBlocks.length);
 
-        // BLOCS MOICP
-        (formData.moicp_blocks || []).forEach(block => {
-            const cellGroups = regroupByCell(block.members || []);
-            pages += `
-                <div class="pdf-page"><h2>Articulation : MOICP - ${block.title || '-'}</h2><div class="grid">
-                    <div class="card"><h3>MOICP</h3>
-                        <div class="label">M mission</div><div class="value">${block.mission || '-'}</div>
-                        <div class="label">O objectif</div><div class="value">${block.objectif || '-'}</div>
-                        <div class="label">I itinéraire</div><div class="value">${block.itineraire || '-'}</div>
-                        <div class="label">P points particuliers</div><div class="value">${block.points_particuliers || '-'}</div>
-                        <div class="label">C conduite à tenir</div><div class="value">${block.cat || '-'}</div>
-                    </div>
-                    <div class="card"><h3>Composition par Cellule</h3>
-                        ${Object.entries(cellGroups).map(([cell, items]) => `
-                            <div class="cell-group">
-                                <div class="cell-name">${cell}</div>
-                                <div class="cell-members">${items.map(m => `<span class="badge">${m}</span>`).join('')}</div>
-                            </div>
-                        `).join('')}
-                        <div style="margin-top: 10px;"><span class="label">Place du Chef</span> ${block.place_chef || '-'}</div>
-                    </div>
-                </div></div>
-            `;
-            const photoItin = formData.dynamic_photos?.['photo_itin_int_' + block.id] || [];
-            const photoEmpl = formData.dynamic_photos?.['photo_itin_ext_' + block.id] || [];
-            const blockPhotos = [...photoItin, ...photoEmpl];
-
-            pages += renderGallery(blockPhotos, `MOICP : ${block.title || '-'}`);
-        });
-
-        // BLOCS EFFRACTION (ORDRE FINAL ARTICULATION)
-        (formData.effraction_blocks || []).forEach(block => {
-            const photoMeta = formData.dynamic_photos?.['photo_effrac_' + block.id]?.[0];
-            const doorPhotoSrc = photoMeta ? photosBase64[photoMeta.id] : null;
-            const tools = photoMeta ? JSON.parse(photoMeta.tools || '[]') : [];
-
-            pages += `
-                <div class="pdf-page">
-                    <h2>Articulation : EFFRACTION - ${block.title || '-'}</h2>
-                    <div style="display: flex; gap: 15px; align-items: start;">
-                        ${doorPhotoSrc ? `
-                            <div style="width: 75mm; border: 2px solid ${colors.accent}; border-radius: 12px; overflow: visible; flex-shrink: 0; position: relative; background: ${colors.bgCard}; shadow: 0 4px 15px rgba(0,0,0,0.2);">
-                                <img src="${doorPhotoSrc}" style="width: 100%; display: block;">
-                                <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 10px; background: rgba(0,0,0,0.8); border-top: 1px solid ${colors.accent}; border-radius: 0 0 10px 10px;">
-                                    ${tools.length > 0 ? tools.map(t => `<span class="tool-badge" style="padding: 3px 8px; font-size: 9pt; white-space: normal;">${t}</span>`).join('') : '<span style="color:#fff; font-size: 9pt; font-weight:bold;">CARACTÉRISTIQUES PORTE</span>'}
+        for (let i = 0; i < maxBlocks; i++) {
+            // --- MOICP[i] ---
+            const moicpBlock = moicpBlocks[i];
+            if (moicpBlock) {
+                const cellGroups = regroupByCell(moicpBlock.members || []);
+                pages += `
+                    <div class="pdf-page"><h2>Articulation : MOICP - ${moicpBlock.title || '-'}</h2><div class="grid">
+                        <div class="card"><h3>MOICP</h3>
+                            <div class="label">M mission</div><div class="value">${moicpBlock.mission || '-'}</div>
+                            <div class="label">O objectif</div><div class="value">${moicpBlock.objectif || '-'}</div>
+                            <div class="label">I itinéraire</div><div class="value">${moicpBlock.itineraire || '-'}</div>
+                            <div class="label">P points particuliers</div><div class="value">${moicpBlock.points_particuliers || '-'}</div>
+                            <div class="label">C conduite à tenir</div><div class="value">${moicpBlock.cat || '-'}</div>
+                        </div>
+                        <div class="card"><h3>Composition par Cellule</h3>
+                            ${Object.entries(cellGroups).map(([cell, items]) => `
+                                <div class="cell-group">
+                                    <div class="cell-name">${cell}</div>
+                                    <div class="cell-members">${items.map(m => `<span class="badge">${m}</span>`).join('')}</div>
                                 </div>
-                            </div>
-                        ` : ''}
-                        <div style="flex: 1;">
-                            <div class="card" style="padding: 10px;">
-                                <h3>Caractéristiques Techniques</h3>
-                                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 0.9em;">
-                                    <div><span class="label">Structure</span> ${block.structure || '-'}</div>
-                                    <div><span class="label">Serrurerie</span> ${block.serrurerie || '-'}</div>
-                                    <div><span class="label">Environnement</span> ${block.environnement || '-'}</div>
-                                    <div><span class="label">Bâti à Bâti</span> ${block.bati_a_bati || '-'} mm</div>
-                                    <div><span class="label">Dormant à Dormant</span> ${block.dormant_a_dormant || '-'} mm</div>
-                                    <div><span class="label">Prof. Linteaux</span> ${block.prof_linteaux || '-'} mm</div>
-                                    <hr style="grid-column: span 2; border: 0; border-top: 1px dashed ${colors.border}; margin: 5px 0;">
-                                    <div><span class="label">H. Porte</span> ${block.h_porte || '-'}</div>
-                                    <div><span class="label">H. Marche</span> ${block.h_marche || '-'}</div>
-                                    <div style="grid-column: span 2;"><span class="label">Prof. Bâti</span> ${block.prof_bati || '-'}</div>
+                            `).join('')}
+                            <div style="margin-top: 10px;"><span class="label">Place du Chef</span> ${moicpBlock.place_chef || '-'}</div>
+                        </div>
+                    </div></div>
+                `;
+                // Photos MOICP: Extérieur d'abord, puis Intérieur
+                const photoExt = formData.dynamic_photos?.['photo_itin_ext_' + moicpBlock.id] || [];
+                const photoInt = formData.dynamic_photos?.['photo_itin_int_' + moicpBlock.id] || [];
+                pages += renderGallery([...photoExt, ...photoInt], `MOICP : ${moicpBlock.title || '-'}`);
+            }
+
+            // --- ZMSPCP[i] — sans photos bapteme (traitées séparément) ---
+            const zmspcpBlock = zmspcpBlocks[i];
+            if (zmspcpBlock) {
+                const cellGroups = regroupByCell(zmspcpBlock.members || []);
+                pages += `
+                    <div class="pdf-page"><h2>Articulation : ZMSPCP - ${zmspcpBlock.title || '-'}</h2><div class="grid">
+                        <div class="card"><h3>ZMSPCP</h3>
+                            <div class="label">Z zone</div><div class="value">${zmspcpBlock.zone || '-'}</div>
+                            <div class="label">M mission</div><div class="value">${zmspcpBlock.mission || '-'}</div>
+                            <div class="label">S secteur</div><div class="value">${zmspcpBlock.secteur || '-'}</div>
+                            <div class="label">P points particuliers</div><div class="value">${zmspcpBlock.points_particuliers || '-'}</div>
+                            <div class="label">C conduite à tenir</div><div class="value">${zmspcpBlock.cat || '-'}</div>
+                        </div>
+                        <div class="card"><h3>Composition par Cellule</h3>
+                            ${Object.entries(cellGroups).map(([cell, items]) => `
+                                <div class="cell-group">
+                                    <div class="cell-name">${cell}</div>
+                                    <div class="cell-members">${items.map(m => `<span class="badge">${m}</span>`).join('')}</div>
+                                </div>
+                            `).join('')}
+                            <div style="margin-top: 10px;"><span class="label">Place du Chef</span> ${zmspcpBlock.place_chef || '-'}</div>
+                        </div>
+                    </div></div>
+                `;
+                // Photos Emplacement AO uniquement (bapteme traité séparément)
+                const empl_ao = formData.dynamic_photos?.['photo_empl_ao_' + zmspcpBlock.id] || [];
+                pages += renderGallery(empl_ao, `ZMSPCP : ${zmspcpBlock.title || '-'} (Emplacement AO)`);
+            }
+
+            // --- EFFRAC[i] ---
+            const effracBlock = effracBlocks[i];
+            if (effracBlock) {
+                const photoMeta = formData.dynamic_photos?.['photo_effrac_' + effracBlock.id]?.[0];
+                const doorPhotoSrc = photoMeta ? photosBase64[photoMeta.id] : null;
+                const tools = photoMeta ? JSON.parse(photoMeta.tools || '[]') : [];
+                pages += `
+                    <div class="pdf-page">
+                        <h2>Articulation : EFFRACTION - ${effracBlock.title || '-'}</h2>
+                        <div style="display: flex; gap: 15px; align-items: start;">
+                            ${doorPhotoSrc ? `
+                                <div style="width: 75mm; max-height: 90mm; border: 2px solid ${colors.accent}; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: #000; display:flex; align-items:center; justify-content:center;">
+                                    <img src="${doorPhotoSrc}" style="max-width: 100%; max-height: 90mm; width: auto; height: auto; display: block;">
+                                    <div style="position:absolute; bottom:0; left:0; right:0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 10px; background: rgba(0,0,0,0.8); border-top: 1px solid ${colors.accent};">
+                                        ${tools.length > 0 ? tools.map(t => `<span class="tool-badge" style="padding: 3px 8px; font-size: 9pt;">${t}</span>`).join('') : '<span style="color:#fff; font-size: 9pt; font-weight:bold;">CARACTÉRISTIQUES PORTE</span>'}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            <div style="flex: 1;">
+                                <div class="card" style="padding: 10px;">
+                                    <h3>Caractéristiques Techniques</h3>
+                                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 0.9em;">
+                                        <div><span class="label">Structure</span> ${effracBlock.structure || '-'}</div>
+                                        <div><span class="label">Serrurerie</span> ${effracBlock.serrurerie || '-'}</div>
+                                        <div><span class="label">Environnement</span> ${effracBlock.environnement || '-'}</div>
+                                        <div><span class="label">Bâti à Bâti</span> ${effracBlock.bati_a_bati || '-'} mm</div>
+                                        <div><span class="label">Dormant à Dormant</span> ${effracBlock.dormant_a_dormant || '-'} mm</div>
+                                        <div><span class="label">Prof. Linteaux</span> ${effracBlock.prof_linteaux || '-'} mm</div>
+                                        <hr style="grid-column: span 2; border: 0; border-top: 1px dashed ${colors.border}; margin: 5px 0;">
+                                        <div><span class="label">H. Porte</span> ${effracBlock.h_porte || '-'}</div>
+                                        <div><span class="label">H. Marche</span> ${effracBlock.h_marche || '-'}</div>
+                                        <div style="grid-column: span 2;"><span class="label">Prof. Bâti</span> ${effracBlock.prof_bati || '-'}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                        <div class="card" style="margin-top: 15px;">
+                            <h3>Hypothèses d'Effraction</h3>
+                            <table style="font-size: 0.85em; table-layout: auto;">
+                                <thead><tr><th>Hypothèse</th><th>Technique / Moyen</th><th>Dégagement</th><th>Assaut</th></tr></thead>
+                                <tbody>
+                                    ${(effracBlock.hypotheses || []).length > 0 ? effracBlock.hypotheses.map(h => `
+                                        <tr>
+                                            <td style="font-weight: bold; color:${colors.accent}">${h.title || h.id}</td>
+                                            <td>${h.effrac || '-'}</td>
+                                            <td>${h.degag || '-'}</td>
+                                            <td>${h.assaut || '-'}</td>
+                                        </tr>
+                                    `).join('') : '<tr><td colspan="4">Aucune hypothèse saisie</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    
-                    <div class="card" style="margin-top: 15px;">
-                        <h3>Hypothèses d'Effraction</h3>
-                        <table style="font-size: 0.85em; table-layout: auto;">
-                            <thead>
-                                <tr>
-                                    <th>Hypothèse</th>
-                                    <th>Technique / Moyen</th>
-                                    <th>Dégagement</th>
-                                    <th>Assaut</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${(block.hypotheses || []).length > 0 ? block.hypotheses.map(h => `
-                                    <tr>
-                                        <td style="font-weight: bold; color:${colors.accent}">${h.title || h.id}</td>
-                                        <td>${h.effrac || '-'}</td>
-                                        <td>${h.degag || '-'}</td>
-                                        <td>${h.assaut || '-'}</td>
-                                    </tr>
-                                `).join('') : '<tr><td colspan="4">Aucune hypothèse saisie</td></tr>'}
-                            </tbody>
-                        </table>
+                `;
+                const allEffracPhotos = formData.dynamic_photos?.['photo_effrac_' + effracBlock.id] || [];
+                pages += renderGallery(allEffracPhotos, `Effraction : ${effracBlock.title || '-'}`);
+            }
+        }
+
+        // --- SECTION DÉDIÉE : BAPTÊME TERRAIN (toutes ZMSPCP réunies dans l'ordre) ---
+        const allBaptemePhotos = [];
+        zmspcpBlocks.forEach(block => {
+            const bPhotos = formData.dynamic_photos?.['photo_bapteme_' + block.id] || [];
+            bPhotos.forEach(p => allBaptemePhotos.push({ ...p, _sectionTitle: `Baptême Terrain — ${block.title || '-'}` }));
+        });
+        if (allBaptemePhotos.length > 0) {
+            pages += renderGallery(allBaptemePhotos, 'BAPTÊME TERRAIN');
+        }
+
+        // --- PAGE: CONDUITES GÉNÉRALES / NO-GO / LIAISON ---
+        const hasCatPage = formData.cat_generales || formData.no_go || formData.cat_liaison;
+        if (hasCatPage) {
+            pages += `
+                <div class="pdf-page">
+                    <h2>8. CONDUITES À TENIR GÉNÉRALES</h2>
+                    <div class="grid">
+                        <div class="card" style="border-left: 4px solid ${colors.accent};">
+                            <h3>CAT Générales</h3>
+                            <div class="value" style="white-space: pre-wrap;">${formData.cat_generales || '-'}</div>
+                        </div>
+                        <div class="card" style="border-left: 4px solid ${colors.danger};">
+                            <h3 style="color: ${colors.danger};">Conditions de Désengagement (NO-GO)</h3>
+                            <div class="value" style="color:${colors.danger}; font-weight:bold; white-space: pre-wrap;">${formData.no_go || '-'}</div>
+                        </div>
+                    </div>
+                    <div class="card" style="margin-top: 10px; border-left: 4px solid ${colors.warning};">
+                        <h3>Liaison</h3>
+                        <div class="value" style="white-space: pre-wrap;">${formData.cat_liaison || '-'}</div>
                     </div>
                 </div>
             `;
-            // On inclut TOUTES les photos dans la galerie, même si la première est déjà en vignette
-            const blockPhotos = formData.dynamic_photos?.['photo_effrac_' + block.id] || [];
-            pages += renderGallery(blockPhotos, `Effraction : ${block.title || '-'}`);
-        });
-
-        // --- SECTION DE RATTRAPAGE: PHOTOS ORPHELINES ---
-        const renderedPhotoIds = new Set();
-        // Marquer toutes les photos déjà traitées
-        if (formData.adversaries) {
-            formData.adversaries.forEach(adv => {
-                (formData.dynamic_photos?.[`photo_main_${adv.id}`] || []).forEach(p => renderedPhotoIds.add(p.id));
-                (formData.dynamic_photos?.[`photo_extra_${adv.id}`] || []).forEach(p => renderedPhotoIds.add(p.id));
-                (formData.dynamic_photos?.[`photo_renforts_${adv.id}`] || []).forEach(p => renderedPhotoIds.add(p.id));
-            });
-        }
-        (formData.zmspcp_blocks || []).forEach(b => {
-            (formData.dynamic_photos?.['photo_bapteme_' + b.id] || []).forEach(p => renderedPhotoIds.add(p.id));
-            (formData.dynamic_photos?.['photo_empl_ao_' + b.id] || []).forEach(p => renderedPhotoIds.add(p.id));
-        });
-        (formData.moicp_blocks || []).forEach(b => {
-            (formData.dynamic_photos?.['photo_itin_int_' + b.id] || []).forEach(p => renderedPhotoIds.add(p.id));
-            (formData.dynamic_photos?.['photo_itin_ext_' + b.id] || []).forEach(p => renderedPhotoIds.add(p.id));
-        });
-        (formData.effraction_blocks || []).forEach(b => {
-            (formData.dynamic_photos?.['photo_effrac_' + b.id] || []).forEach(p => renderedPhotoIds.add(p.id));
-        });
-        // Marquer la logistique comme traitée
-        (formData.dynamic_photos?.['photo_container_transport_pr_preview_container'] || []).forEach(p => renderedPhotoIds.add(p.id));
-        (formData.dynamic_photos?.['photo_container_transport_domicile_preview_container'] || []).forEach(p => renderedPhotoIds.add(p.id));
-
-        // Collecter les orphelines (Baptême Global, Transports, etc.)
-        const orphanPhotos = [];
-        for (const key in formData.dynamic_photos) {
-            if (key === 'photo_logo_unite' || key === 'custom_bg_preview_container' || key === 'custom_pdf_background') continue;
-            formData.dynamic_photos[key].forEach(p => {
-                if (!renderedPhotoIds.has(p.id)) {
-                    orphanPhotos.push(p);
-                    renderedPhotoIds.add(p.id);
-                }
-            });
-        }
-
-        if (orphanPhotos.length > 0) {
-            pages += renderGallery(orphanPhotos, "AUTRES PRISES DE VUE (SITUATION/LOGISTIQUE)");
         }
 
         // --- PAGE PATRACDVR ---
@@ -803,7 +820,7 @@ const PDFEngineV2 = {
             // Calcul dynamique de la pagination pour séparer en deux si trop dense
             const hasDir = allMembers.some(m => m.dir && m.dir.trim() !== '');
             const hasLongEqpt = allMembers.some(m => [m.equipement, m.equipement2, m.grenades, m.tenue, m.gpb].join('').length > 40);
-            
+
             let MAX_MEMBERS_PER_PAGE = 12;
             if (hasDir || hasLongEqpt) {
                 // Si le tableau est lourd, on réduit les lignes pour ne pas écraser la hauteur lors du wrap textuel

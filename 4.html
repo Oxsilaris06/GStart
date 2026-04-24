@@ -2197,15 +2197,15 @@
             }
             .mobile-dock.horizontal {
                 flex-direction: row !important;
-                height: 60px !important;
+                height: 50px !important;
                 width: fit-content !important;
                 max-width: calc(100% - 20px) !important;
                 margin: auto auto 10px auto !important;
-                padding: 0 30px !important;
+                padding: 0 15px !important;
                 overflow-x: auto !important;
                 overflow-y: hidden !important;
                 justify-content: center !important;
-                border-radius: 30px !important;
+                border-radius: 25px !important;
             }
             #dock-left {
                 grid-column: 1 !important;
@@ -2238,11 +2238,15 @@
                 gap: 5px !important;
             }
             .vertical-slider {
-                appearance: slider-vertical !important; /* Webkit */
-                writing-mode: bt-lr; /* IE/Edge */
-                width: 20px !important;
-                height: 80px !important;
+                -webkit-appearance: slider-vertical !important;
+                appearance: slider-vertical !important;
+                writing-mode: vertical-lr !important;
+                direction: rtl !important;
+                width: 28px !important;
+                height: 90px !important;
                 margin: 0 !important;
+                cursor: ns-resize !important;
+                accent-color: var(--accent-blue) !important;
             }
             .color-picker.vertical {
                 display: flex !important;
@@ -2370,8 +2374,8 @@
                 display: flex !important;
                 justify-content: space-between !important;
                 width: 100% !important;
-                padding: 8px !important;
-                background: rgba(0, 0, 0, 0.2) !important;
+                padding: 10px !important;
+                background: rgba(0,0,0,0.2) !important;
                 border-radius: 12px !important;
                 gap: 5px !important;
             }
@@ -3879,3 +3883,4 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
 </body>
 
 </html>
+

@@ -673,7 +673,7 @@ const PDFEngineV2 = {
             </div>
         `;
 
-        // --- BLOCS ARTICULATION GROUPÉS PAR INDEX (MOICP[i] + ZMSPCP[i] + EFFRAC[i]) ---
+        // --- BLOCS ARTICULATION GROUPÉS PAR INDEX (ZMSPCP[i] + MOICP[i] + EFFRAC[i]) ---
         // Les photo_bapteme_* sont extraites et regroupées dans une section dédiée après la boucle
         const moicpBlocks = formData.moicp_blocks || [];
         const zmspcpBlocks = formData.zmspcp_blocks || [];
@@ -681,6 +681,35 @@ const PDFEngineV2 = {
         const maxBlocks = Math.max(moicpBlocks.length, zmspcpBlocks.length, effracBlocks.length);
 
         for (let i = 0; i < maxBlocks; i++) {
+            // --- ZMSPCP[i] — sans photos bapteme (traitées séparément) ---
+            const zmspcpBlock = zmspcpBlocks[i];
+            if (zmspcpBlock) {
+                const cellGroups = regroupByCell(zmspcpBlock.members || []);
+                pages += `
+                    <div class="pdf-page"><h2>Articulation : ZMSPCP - ${zmspcpBlock.title || '-'}</h2><div class="grid">
+                        <div class="card"><h3>ZMSPCP</h3>
+                            <div class="label">Z zone</div><div class="value">${zmspcpBlock.zone || '-'}</div>
+                            <div class="label">M mission</div><div class="value">${zmspcpBlock.mission || '-'}</div>
+                            <div class="label">S secteur</div><div class="value">${zmspcpBlock.secteur || '-'}</div>
+                            <div class="label">P points particuliers</div><div class="value">${zmspcpBlock.points_particuliers || '-'}</div>
+                            <div class="label">C conduite à tenir</div><div class="value">${zmspcpBlock.cat || '-'}</div>
+                        </div>
+                        <div class="card"><h3>Composition par Cellule</h3>
+                            ${Object.entries(cellGroups).map(([cell, items]) => `
+                                <div class="cell-group">
+                                    <div class="cell-name">${cell}</div>
+                                    <div class="cell-members">${items.map(m => `<span class="badge">${m}</span>`).join('')}</div>
+                                </div>
+                            `).join('')}
+                            <div style="margin-top: 10px;"><span class="label">Place du Chef</span> ${zmspcpBlock.place_chef || '-'}</div>
+                        </div>
+                    </div></div>
+                `;
+                // Photos Emplacement AO uniquement (bapteme traité séparément)
+                const empl_ao = formData.dynamic_photos?.['photo_empl_ao_' + zmspcpBlock.id] || [];
+                pages += renderGallery(empl_ao, `ZMSPCP : ${zmspcpBlock.title || '-'} (Emplacement AO)`);
+            }
+
             // --- MOICP[i] ---
             const moicpBlock = moicpBlocks[i];
             if (moicpBlock) {
@@ -709,35 +738,6 @@ const PDFEngineV2 = {
                 const photoExt = formData.dynamic_photos?.['photo_itin_ext_' + moicpBlock.id] || [];
                 const photoInt = formData.dynamic_photos?.['photo_itin_int_' + moicpBlock.id] || [];
                 pages += renderGallery([...photoExt, ...photoInt], `MOICP : ${moicpBlock.title || '-'}`);
-            }
-
-            // --- ZMSPCP[i] — sans photos bapteme (traitées séparément) ---
-            const zmspcpBlock = zmspcpBlocks[i];
-            if (zmspcpBlock) {
-                const cellGroups = regroupByCell(zmspcpBlock.members || []);
-                pages += `
-                    <div class="pdf-page"><h2>Articulation : ZMSPCP - ${zmspcpBlock.title || '-'}</h2><div class="grid">
-                        <div class="card"><h3>ZMSPCP</h3>
-                            <div class="label">Z zone</div><div class="value">${zmspcpBlock.zone || '-'}</div>
-                            <div class="label">M mission</div><div class="value">${zmspcpBlock.mission || '-'}</div>
-                            <div class="label">S secteur</div><div class="value">${zmspcpBlock.secteur || '-'}</div>
-                            <div class="label">P points particuliers</div><div class="value">${zmspcpBlock.points_particuliers || '-'}</div>
-                            <div class="label">C conduite à tenir</div><div class="value">${zmspcpBlock.cat || '-'}</div>
-                        </div>
-                        <div class="card"><h3>Composition par Cellule</h3>
-                            ${Object.entries(cellGroups).map(([cell, items]) => `
-                                <div class="cell-group">
-                                    <div class="cell-name">${cell}</div>
-                                    <div class="cell-members">${items.map(m => `<span class="badge">${m}</span>`).join('')}</div>
-                                </div>
-                            `).join('')}
-                            <div style="margin-top: 10px;"><span class="label">Place du Chef</span> ${zmspcpBlock.place_chef || '-'}</div>
-                        </div>
-                    </div></div>
-                `;
-                // Photos Emplacement AO uniquement (bapteme traité séparément)
-                const empl_ao = formData.dynamic_photos?.['photo_empl_ao_' + zmspcpBlock.id] || [];
-                pages += renderGallery(empl_ao, `ZMSPCP : ${zmspcpBlock.title || '-'} (Emplacement AO)`);
             }
 
             // --- EFFRAC[i] ---

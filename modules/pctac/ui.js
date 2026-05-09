@@ -124,6 +124,13 @@ export const UI = {
             });
         }
         this.renderCustomPaxOptions();
+
+        const openCreatePaxBtn = document.getElementById('openCreatePaxBtn');
+        if (openCreatePaxBtn) {
+            openCreatePaxBtn.onclick = () => this.showCreatePaxModal();
+        }
+
+        this.initColorPalettes();
     },
 
     /**
@@ -244,6 +251,10 @@ export const UI = {
         document.getElementById('createPaxModal').style.display = 'block';
         document.getElementById('new_pax_name').value = '';
         document.getElementById('new_pax_name').focus();
+        
+        // Sélectionner la première couleur par défaut
+        const firstColor = document.querySelector('#new_pax_color_palette .color-swatch');
+        if (firstColor) firstColor.click();
     },
 
     hideCreatePaxModal() {

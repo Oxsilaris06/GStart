@@ -629,6 +629,36 @@
             box-shadow: 0 0 15px var(--accent-glow);
         }
 
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+            padding: 5px;
+        }
+
+        .color-swatch {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            display: block;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.15);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .color-swatch.selected {
+            border: 3px solid #fff;
+            transform: scale(1.2);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+        }
+
         /* Modal / Lightbox */
         .modal-backdrop {
             position: fixed;
@@ -913,8 +943,10 @@
                     <div class="form-row" style="grid-template-columns: 100px 1fr 1fr 1fr;">
                         <div style="grid-row: span 2;">
                             <label>Photo</label>
-                            <div id="adv_photo_preview" style="width: 100%; height: 100px; border: 1px solid var(--border-glass); border-radius: var(--radius-sm); margin-bottom: 5px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: rgba(0,0,0,0.2);">
-                                <span class="material-symbols-outlined" style="font-size: 30px; color: var(--text-muted);">person</span>
+                            <div id="adv_photo_preview"
+                                style="width: 100%; height: 100px; border: 1px solid var(--border-glass); border-radius: var(--radius-sm); margin-bottom: 5px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: rgba(0,0,0,0.2);">
+                                <span class="material-symbols-outlined"
+                                    style="font-size: 30px; color: var(--text-muted);">person</span>
                             </div>
                             <label class="custom-file-upload" for="adv_photo" style="padding: 5px; height: auto;">
                                 <span class="material-symbols-outlined">add_a_photo</span>
@@ -961,8 +993,10 @@
                     <div class="form-row" style="grid-template-columns: 100px 1fr 1fr 1fr;">
                         <div style="grid-row: span 2;">
                             <label>Photo</label>
-                            <div id="hostage_photo_preview" style="width: 100%; height: 100px; border: 1px solid var(--border-glass); border-radius: var(--radius-sm); margin-bottom: 5px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: rgba(0,0,0,0.2);">
-                                <span class="material-symbols-outlined" style="font-size: 30px; color: var(--text-muted);">person_off</span>
+                            <div id="hostage_photo_preview"
+                                style="width: 100%; height: 100px; border: 1px solid var(--border-glass); border-radius: var(--radius-sm); margin-bottom: 5px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: rgba(0,0,0,0.2);">
+                                <span class="material-symbols-outlined"
+                                    style="font-size: 30px; color: var(--text-muted);">person_off</span>
                             </div>
                             <label class="custom-file-upload" for="hostage_photo" style="padding: 5px; height: auto;">
                                 <span class="material-symbols-outlined">add_a_photo</span>
@@ -1029,8 +1063,8 @@
         <!-- VUE : PHOTOS -->
         <div id="view-photos" class="tab-content-view">
             <div class="log-entry-form">
-                <h3 style="margin-bottom: 15px;"><span class="material-symbols-outlined">add_a_photo</span> Galerie
-                    Tactique</h3>
+                <h3 style="margin-bottom: 15px;"><span class="material-symbols-outlined">add_a_photo</span> Dashboard
+                    Opération</h3>
                 <form id="photo-form" class="form-row"
                     style="grid-template-columns: 1fr 1fr 60px auto; align-items: end;">
                     <div><label>Titre</label><input type="text" id="photo_title" placeholder="Description courte"></div>
@@ -1068,19 +1102,36 @@
     <!-- MODALS -->
     <div class="modal-backdrop" id="modalBackdrop"></div>
 
-    <div class="modal" id="createPaxModal">
-        <h3>Nouvel Intervenant</h3>
-        <div style="margin: 20px 0;">
-            <label>Nom / Unité</label>
-            <input type="text" id="new_pax_name" placeholder="Ex: GIGN - EQUIPE 1">
+    <div class="modal" id="createPaxModal" style="max-height: 90vh; overflow-y: auto;">
+        <div
+            style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid var(--border-glass); padding-bottom: 10px;">
+            <span class="material-symbols-outlined" style="color: var(--accent-blue);">person_add</span>
+            <h3 style="margin: 0;">Nouvel Intervenant</h3>
         </div>
-        <label>Couleur Tactique</label>
-        <div class="color-palette" id="new_pax_color_palette"
-            style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;"></div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="margin-bottom: 8px;">Nom / Unité</label>
+            <input type="text" id="new_pax_name" placeholder="Ex: GIGN - EQUIPE 1" style="font-size: 1em;">
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="margin-bottom: 8px;">Couleur </label>
+            <div class="color-palette" id="new_pax_color_palette"
+                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(32px, 1fr)); gap: 10px; padding: 5px;">
+            </div>
+        </div>
+
         <input type="hidden" id="new_pax_color_val" value="#800000">
-        <div style="display: flex; gap: 10px;">
-            <button class="add-btn" id="confirmCreatePaxBtn">Créer</button>
-            <button class="add-btn" id="cancelCreatePaxBtn" style="background: var(--bg-input);">Annuler</button>
+
+        <div style="display: flex; gap: 12px; margin-top: 10px;">
+            <button class="add-btn" id="confirmCreatePaxBtn" style="flex: 2; height: 45px;">
+                <span class="material-symbols-outlined"
+                    style="font-size: 20px; vertical-align: middle; margin-right: 5px;">check_circle</span>
+                CRÉER
+            </button>
+            <button class="add-btn" id="cancelCreatePaxBtn" style="flex: 1; background: var(--bg-input); height: 45px;">
+                ANNULER
+            </button>
         </div>
     </div>
 

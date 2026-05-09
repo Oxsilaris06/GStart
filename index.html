@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <link rel="manifest" href="manifest.json">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OI - ADI </title>
+    <link rel="icon" href="favicon.ico" sizes="any" type="image/png">
+    <link rel="icon" href="favicon.ico" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="favicon.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One:wght@400&display=swap" rel="stylesheet">
+    <!-- Utilisation des Material Symbols Outlined -->
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+            <link rel="stylesheet" href="src/styles/main.css">
+</head>
+
+<body class="dark-mode">
+
+    <input type="file" id="sessionFileInput" accept=".json" style="display: none;">
+    <input type="file" id="jsonConfigInput" accept=".json" style="display: none;">
+    <dialog id="presentationModal">
+        <div id="presentation-content">
+        </div>
+        <div class="modal-actions-pdf">
+            <button id="downloadPdfBtn" type="button" class="wizard-nav-btn">
+                Télécharger le PDF <span class="material-symbols-outlined"
+                    style="font-size: 1.2em;">picture_as_pdf</span>
+            </button>
+            <button id="closePresentationModalBtn" type="button" class="wizard-nav-btn"
+                style="background-color: var(--danger-red); color: white;">
+                Fermer
+            </button>
+        </div>
+    </dialog>
+
+    <dialog id="resetOptionsModal">
+        <div class="modal-form">
+            <h3>Réinitialisation</h3>
+            <div class="modal-content"
+                style="text-align: center; display: flex; flex-direction: column; gap: 20px; justify-content: center;">
+                <p>Que souhaitez-vous réinitialiser ?</p>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button type="button" id="resetPageBtn" class="wizard-nav-btn"
+                        style="background-color: var(--accent-blue); min-width: 120px; color: white;">Page
+                        Active</button>
+                    <button type="button" id="resetAllBtn" class="wizard-nav-btn"
+                        style="background-color: var(--danger-red); min-width: 120px; color: white;">Tout</button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="cancelResetBtn">Annuler</button>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog id="quickEditModal">
+        <div class="modal-form">
+            <h3 id="quick_modal_title">Édition rapide</h3>
+            <div id="quick_modal_content" class="modal-content"></div>
+            <div class="modal-actions">
+                <button type="button" id="quick_modal_closeBtn">Fermer</button>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog id="annotationModal">
+        <div class="annotation-wrapper">
+            <!-- Zone d'affichage de l'image (Canvas) -->
+            <div class="annotation-canvas-container">
+                <canvas id="annotationCanvas"></canvas>
+            </div>
+            
+            <!-- Barre d'outils (Située en bas par défaut via Flex) -->
+            <div class="annotation-toolbar">
+                <!-- 1. Sélecteur de couleur -->
+                <div class="color-picker">
+                    <div class="color-circle active" style="background:#c0392b" onclick="setAnnotationColor('#c0392b', this)"></div>
+                    <div class="color-circle" style="background:#2ecc71" onclick="setAnnotationColor('#2ecc71', this)"></div>
+                    <div class="color-circle" style="background:#3498db" onclick="setAnnotationColor('#3498db', this)"></div>
+                    <div class="color-circle" style="background:#f1c40f" onclick="setAnnotationColor('#f1c40f', this)"></div>
+                    <div class="color-circle" style="background:#ffffff; border:1px solid #777;" onclick="setAnnotationColor('#ffffff', this)"></div>
+                </div>
+
+                <!-- 2. Outils Contextuels (Affichés dynamiquement) -->
+                <div id="contextual_tools">
+                    <div class="toolbar-contextual-tools">
+                        <div class="tool-settings-group">
+                            <label for="rotation_input">Rotation</label>
+                            <div style="display: flex; gap: 4px; align-items: center;">
+                                <button type="button" class="tool-btn icon-only" onclick="document.getElementById('rotation_input').stepDown(15); document.getElementById('rotation_input').dispatchEvent(new Event('change'))" title="-15°"><span class="material-symbols-outlined">rotate_left</span></button>
+                                <input type="number" id="rotation_input" min="0" max="360" step="1" value="0">
+                                <button type="button" class="tool-btn icon-only" onclick="document.getElementById('rotation_input').stepUp(15); document.getElementById('rotation_input').dispatchEvent(new Event('change'))" title="+15°"><span class="material-symbols-outlined">rotate_right</span></button>
+                            </div>
+                        </div>
+                        <div class="tool-settings-group">
+                            <label for="resize_w">Largeur</label>
+                            <input type="range" id="resize_w" min="20" max="800" step="5">
+                        </div>
+                        <div class="tool-settings-group">
+                            <label for="resize_h">Hauteur</label>
+                            <input type="range" id="resize_h" min="20" max="800" step="5">
+                        </div>
+                        <div class="tool-settings-group">
+                            <label for="stroke_width_edit">Trait</label>
+                            <input type="range" id="stroke_width_edit" min="1" max="20" value="5">
+                        </div>
+                        <div id="text_size_control" class="tool-settings-group" style="display: none;">
+                            <label for="text_size_edit">Taille</label>
+                            <input type="range" id="text_size_edit" min="10" max="200" step="5" value="30">
+                        </div>
+                        
+                        <div id="zone_settings" class="tool-settings-group" style="display: none;">
+                            <label for="circle_text">Nom Zone</label>
+                            <input type="text" id="circle_text" value="Zone" style="width: 80px; height: 24px;">
+                            <label for="circle_opacity" style="margin-top: 5px;">Transp.</label>
+                            <input type="range" id="circle_opacity" min="0.1" max="1" step="0.1" value="0.5">
+                        </div>
+                        
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <button id="edit_text_btn" class="tool-btn compact" title="Modifier le texte"><span class="material-symbols-outlined">text_fields</span></button>
+                            <button id="delete_btn" class="tool-btn compact" style="background-color: var(--danger-red); color: white;" title="Supprimer l'objet"><span class="material-symbols-outlined">delete</span></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Barre d'outils de dessin -->
+                <div class="toolbar-main-tools">
+                    <button id="tool_move" class="tool-btn active"><span class="material-symbols-outlined">pan_tool</span>Bouger</button>
+                    <button id="tool_location" class="tool-btn"><span class="material-symbols-outlined">pin_drop</span>Zone</button>
+                    <button id="tool_arrow" class="tool-btn"><span class="material-symbols-outlined">north_east</span>Axe</button>
+                    <button id="tool_box" class="tool-btn"><span class="material-symbols-outlined">crop_square</span>Box</button>
+                    <button id="tool_text" class="tool-btn"><span class="material-symbols-outlined">title</span>Texte</button>
+                    <button id="tool_member" class="tool-btn"><span class="material-symbols-outlined">badge</span>Membre</button>
+                </div>
+
+                <!-- 4. Actions Finales -->
+                <div class="annotation-actions">
+                    <button id="tool_reset" class="tool-btn" style="color: var(--danger-red);"><span class="material-symbols-outlined">delete_sweep</span>Reset</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="annotation_cancel" class="add-btn" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-primary);">Annuler</button>
+                        <button id="annotation_save" class="add-btn" style="background-color: #27ae60; color: white;"><span class="material-symbols-outlined">save</span>Valider</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <div class="container">
+        <a href="4.html" id="beta-button">BETA</a>
+        <h1>Générateur d'OI</h1>
+
+        <ul class="wizard-progress">
+            <li class="wizard-progress-step" onclick="goToStep(0)"><span class="material-symbols-outlined"
+                    style="font-size: 1.2em; margin-right: 5px;">info</span>1. Situation</li>
+            <li class="wizard-progress-step" onclick="goToStep(1)"><span class="material-symbols-outlined"
+                    style="font-size: 1.2em; margin-right: 5px;">person_search</span>2. Adversaire</li>
+            <li class="wizard-progress-step" onclick="goToStep(2)"><span class="material-symbols-outlined"
+                    style="font-size: 1.2em; margin-right: 5px;">landscape</span>3. Environnement</li>
+            <li class="wizard-progress-step" onclick="goToStep(3)"><span class="material-symbols-outlined"
+                    style="font-size: 1.2em; margin-right: 5px;">flag</span>4. Mission</li>
+            <li class="wizard-progress-step" onclick="goToStep(4)"><span class="material-symbols-outlined"
+                    style="font-size: 1.2em; margin-right: 5px;">schedule</span>5. Exécution</li>
+            <li class="wizard-progress-step" onclick="goToStep(5)"><span class="material-symbols-outlined"
+                    style="font-size: 1.2em; margin-right: 5px;">route</span>6. Articulation</li>
+            <li class="wizard-progress-step" onclick="goToStep(6)"><span class="material-symbols-outlined"
+                    style="font-size: 1.2em; margin-right: 5px;">directions_car</span>7. PATRACDVR</li>
+            <li class="wizard-progress-step" onclick="goToStep(7)"><span class="material-symbols-outlined"
+                    style="font-size: 1.2em; margin-right: 5px;">check_circle</span>8. Finalisation</li>
+        </ul>
+
+        <form id="oi-form">
+            <div class="wizard-content">
+                <div class="wizard-step">
+                    <h2>1. Situation</h2>
+                    <label for="date_op">Date de l'opération:</label><input type="date" id="date_op">
+                    <label for="situation_generale">1.1 Générale:</label><textarea id="situation_generale"></textarea>
+                    <label for="situation_particuliere">1.2 Particulière:</label><textarea
+                        id="situation_particuliere"></textarea>
+                </div>
+
+                <div class="wizard-step">
+                    <h2>2. Adversaire(s)</h2>
+                    <div id="adversaries_container"></div>
+                    <button type="button" class="add-btn" onclick="addAdversary()" style="margin-top: 10px; width: 100%; justify-content: center; font-weight: bold; background-color: var(--accent-blue);">
+                        <span class="material-symbols-outlined">person_add</span> Créer Adversaire
+                </div>
+
+                <div class="wizard-step">
+                    <h2>3. Environnement</h2>
+                    <label>Ami(e)s (Unités en soutien):</label><input type="text" id="amies">
+                    <label>Terrain / Météo:</label><input type="text" id="terrain_info">
+                    <label>Éclairage:</label><input type="text" id="eclairage">
+                    <label>Lever du soleil (Heure prévisionnelle):</label><input type="time" id="lever_soleil">
+                    <label>Population:</label><input type="text" id="population">
+                    <label>Faune / Animaux:</label><input type="text" id="faune_animaux">
+                    <label>Accès Principal:</label><textarea id="acces_principal" rows="2"></textarea>
+                    <label>Cheminement initial:</label><textarea id="cheminement_initial" rows="2"></textarea>
+                    <label for="cadre_juridique">Cadre juridique:</label><input type="text" id="cadre_juridique">
+                </div>
+
+                <div class="wizard-step">
+                    <h2>4. Mission du PSIG</h2>
+                    <textarea id="missions_psig" rows="8">
+
+INTERPELLER L'OBJECTIF.
+
+ASSISTER LORS DE LA PERQUISITION.
+
+CONDUITE AU LIEU DE GAV.</textarea>
+                </div>
+
+                <div class="wizard-step">
+                    <h2>5. Exécution</h2>
+                    <label for="date_execution">Date d'exécution:</label><input type="date" id="date_execution">
+                    <label for="heure_execution">Heure d'exécution (H):</label><input type="time" id="heure_execution"
+                        value="06:00">
+                    <label for="action_body_text">Corps de la mission (Exécution):</label>
+                    <textarea id="action_body_text" rows="4">En vue d'appréhender le(s) mis en cause et empêcher la déperdition des preuves,
+Je veux, le (date) à partir de (heure), pour une action (type d'action) investir le domicile
+présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui-ci.</textarea>
+                    <h3>Chronologie</h3>
+                    <div id="time_events_container"></div><button type="button" class="add-btn"
+                        onclick="addTimeEvent()">➕</button>
+                    <h3>Hypothèses</h3>
+                    <div id="hypotheses_container"></div>
+                    <button type="button" class="add-btn" onclick="addHypothesis()" style="margin-top: 10px; width: 100%; justify-content: center; font-weight: bold; background-color: var(--bg-interactive);">
+                        <span class="material-symbols-outlined">add_box</span> Créer Hypothèse
+                    </button>
+
+                    <h3 style="margin-top: 20px;">📷 Cheminement</h3>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button type="button" class="add-btn" style="flex: 1; justify-content: center;" onclick="document.getElementById('photo_container_transport_pr_input').click()">
+                            📷 Transport PSIG → PR
+                        </button>
+                        <input type="file" id="photo_container_transport_pr_input" class="photo-input" style="display:none" accept="image/*" multiple 
+                            onchange="handleFileChange(this, 'photo_container_transport_pr_preview_container', false)">
+                        
+                        <button type="button" class="add-btn" style="flex: 1; justify-content: center;" onclick="document.getElementById('photo_container_transport_domicile_input').click()">
+                            📷 Transport PR → Domicile/LE
+                        </button>
+                        <input type="file" id="photo_container_transport_domicile_input" class="photo-input" style="display:none" accept="image/*" multiple 
+                            onchange="handleFileChange(this, 'photo_container_transport_domicile_preview_container', false)">
+                    </div>
+                    <div id="photo_container_transport_pr_preview_container" class="image-preview-container"></div>
+                    <div id="photo_container_transport_domicile_preview_container" class="image-preview-container"></div>
+                </div>
+
+                <div class="wizard-step">
+                    <h2>6. Articulation (MOIPC/ZMSPCP)</h2>
+                    <label for="place_chef">Place du Chef (Générale):</label><input type="text" id="place_chef">
+
+                    <!-- Ordre de la rame VL -->
+                    <div class="collapsible-container">
+                        <div class="collapsible-header">
+                            <h3><span class="material-symbols-outlined" style="vertical-align: middle;">directions_car</span> Ordre de la rame VL</h3>
+                            <span class="material-symbols-outlined">expand_more</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <p style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 10px;">
+                                Glissez les véhicules pour définir l'ordre de la rame. Mis à jour automatiquement depuis le PATRACDVR.
+                            </p>
+                            <div id="rame_vl_container" class="rame-vl-zone">
+                                <p style="color: var(--text-muted); font-style: italic;">Aucun VL dans le PATRACDVR.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ordre colonne de progression -->
+                    <div class="collapsible-container">
+                        <div class="collapsible-header">
+                            <h3><span class="material-symbols-outlined" style="vertical-align: middle;">trending_flat</span> Ordre de la colonne de progression</h3>
+                            <span class="material-symbols-outlined">expand_more</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <p style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 10px;">
+                                Par défaut : India 1 → India X. Glissez pour modifier l'ordre. Ne modifie pas la cellule du membre.
+                            </p>
+                            <div id="colonne_progression_container" class="order-zone">
+                                <p style="color: var(--text-muted); font-style: italic;">Aucun membre India dans le PATRACDVR.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ordre de pénétration -->
+                    <div class="collapsible-container">
+                        <div class="collapsible-header">
+                            <h3><span class="material-symbols-outlined" style="vertical-align: middle;">login</span> Ordre de pénétration</h3>
+                            <span class="material-symbols-outlined">expand_more</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <p style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 10px;">
+                                Par défaut : même ordre que la colonne. Glissez pour modifier. Ne modifie pas la cellule du membre.
+                            </p>
+                            <div id="ordre_penetration_container" class="order-zone">
+                                <p style="color: var(--text-muted); font-style: italic;">Aucun membre India dans le PATRACDVR.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Blocs MOICP dynamiques -->
+                    <h3 style="margin-top: 25px; color: var(--accent-blue); border-bottom: 2px solid var(--accent-blue); padding-bottom: 8px;">
+                        <span class="material-symbols-outlined" style="vertical-align: middle;">shield</span> MOICP — Équipes d'Intervention
+                    </h3>
+                    <div id="moicp_container"></div>
+                    <button type="button" class="add-btn" id="addMoicpBtn" style="margin-top: 10px; background: var(--accent-blue); color: white; display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-outlined">add_box</span> Créer MOICP
+                    </button>
+
+                    <!-- Blocs ZMSPCP dynamiques -->
+                    <h3 style="margin-top: 25px; color: var(--moicp-zmspcp-purple, #8e44ad); border-bottom: 2px solid var(--moicp-zmspcp-purple, #8e44ad); padding-bottom: 8px;">
+                        <span class="material-symbols-outlined" style="vertical-align: middle;">visibility</span> ZMSPCP — Appui / Observation
+                    </h3>
+                    <div id="zmspcp_container"></div>
+                    <button type="button" class="add-btn" id="addZmspcpBtn" style="margin-top: 10px; background: var(--moicp-zmspcp-purple, #8e44ad); color: white; display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-outlined">add_box</span> Créer ZMSPCP
+                    </button>
+
+                    <!-- Cellule Effraction dynamiques -->
+                    <h3 style="margin-top: 25px; color: var(--effraction-gold); border-bottom: 2px solid var(--effraction-gold); padding-bottom: 8px;">
+                        <span class="material-symbols-outlined" style="vertical-align: middle;">hardware</span> 
+                        Cellule Effraction
+                    </h3>
+                    <div id="effraction_container"></div>
+                    <button type="button" class="add-btn" id="addEffractionBtn" style="margin-top: 10px; background: var(--effraction-gold); color: white; display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-outlined">add_box</span> Ajouter Cellule Effraction
+                    </button>
+                </div>
+
+                <div class="wizard-step">
+                    <h2>7. PATRACDVR</h2>
+                    <div
+                        style="margin-bottom: 20px; padding: 15px; border: 1px solid var(--border-color); border-radius: 5px;">
+
+                        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;">
+                            <button type="button" id="importJsonConfigBtn" class="patracdvr-member-btn"
+                                title="Importer Configuration Membres" style="flex-grow: 1; max-width: 150px;">
+                                <span class="material-symbols-outlined">upload_file</span> Importer JSON
+                            </button>
+                            <button type="button" id="resetPatracdvrBtn" class="patracdvr-member-btn"
+                                title="Réinitialiser PATRACDVR" style="flex-grow: 1; max-width: 150px;">
+                                <span class="material-symbols-outlined">delete_forever</span> Réinitialiser
+                            </button>
+                            <button type="button" class="patracdvr-member-btn"
+                                onclick="window.location.href='patracdvr.html'" title="Paramètres"
+                                style="flex-grow: 1; max-width: 150px;">
+                                <span class="material-symbols-outlined">settings</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="quickEditPanel" style="display:none;">
+                        <div class="member-info-header">
+                            <h4 style="margin: 0;">Membre: <span id="selectedMemberTrigramme"
+                                    style="font-size: 1.1em; font-weight: bold;">Aucun</span></h4>
+                            <div style="flex-grow: 1; margin-left: 15px;">
+                                <label for="quick_edit_trigramme_input"
+                                    style="font-size: 0.8em; margin-bottom: 2px;">Modifier Trigramme:</label>
+                                <input type="text" id="quick_edit_trigramme_input" placeholder="Nouveau trigramme"
+                                    style="padding: 8px; margin-bottom: 0; min-height: 38px; font-size: 1em;">
+                            </div>
+                        </div>
+
+                        <!-- NOUVEAU: Champ DIR Radio -->
+                        <div
+                            style="margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                            <label for="quick_edit_dir_input" style="color:var(--accent-blue);">DIR (CANAL):</label>
+                            <input type="text" id="quick_edit_dir_input" placeholder="Ex: 42, 101..."
+                                style="margin-bottom: 0;">
+                        </div>
+
+                        <div class="quick-edit-content"></div>
+                        <div class="quick-edit-buttons">
+                            <button type="button" id="saveQuickEditBtn" class="add-btn">Sauvegarder les
+                                changements</button>
+                        </div>
+                    </div>
+
+                    <h4 style="margin-top: 20px;">Ajouter un VL ou un PAX</h4>
+                    <div id="vehicle_creation_buttons"
+                        style=" display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;">
+                        <button type="button" class="add-btn add-vehicle-btn" id="addManualVehicleBtn">➕ Ajouter VL</button>
+                        <button type="button" class="add-btn add-vehicle-btn add-pax-btn" id="addManualMemberBtn">➕ Ajouter PAX</button>
+                    </div>
+
+                    <h4 style="margin-top: 20px;">Composition des véhicules (Cliquer sur le nom pour renommer)</h4>
+                    <div id="patracdvr_container"></div>
+
+                    <h4 style="margin-top: 20px;">Personnel à attribuer</h4>
+                    <div id="unassigned_members_container"></div>
+
+                    <div id="trashCan" class="mt-4">
+                        <span class="material-symbols-outlined">auto_delete</span>
+                        JETER ICI pour supprimer définitivement le membre.
+                    </div>
+                </div>
+
+                <div class="wizard-step">
+                    <h2>8. Finalisation & Conduites à tenir</h2>
+
+                    <!-- FOND PDF PERSONNALISÉ (Déplacé ici) -->
+                    <div class="collapsible-container">
+                        <div class="collapsible-header">
+                            <h3>Fond PDF Personnalisé</h3>
+                            <span class="material-symbols-outlined">expand_more</span>
+                        </div>
+                        <div class="collapsible-content" style="display: flex; flex-direction: column; gap: 15px;">
+                            <p>Vous pouvez remplacer le fond par défaut (Grille Tactique) par une image de votre choix.</p>
+                            <div style="display: flex; gap: 10px;">
+                                <button type="button" class="add-btn" onclick="document.getElementById('custom_bg_input').click()">📂 Choisir Image</button>
+                                <button type="button" class="remove-btn" onclick="removeCustomBackground()">🗑️ Rétablir Défaut</button>
+                            </div>
+                            <input type="file" id="custom_bg_input" class="photo-input" style="display:none" accept="image/jpeg, image/png, image/jpg" onchange="handleCustomBackgroundChange(this)">
+                            <div id="custom_bg_preview_container" class="image-preview-container" style="margin-top: 10px;"></div>
+                        </div>
+                    </div>
+
+                    <h3>Conduites à tenir (CAT) Générales</h3>
+                    <textarea id="cat_generales" rows="6">- Si rébellion, user du strict niveau de force nécessaire
+- Si retranché, alerter en mesure de se ré-articuler
+- Si tente de fuir, alerter en mesure de jalonner/interpeller
+- UDA : Article L435-1 du CSI + légitime défense</textarea>
+
+                    <h3>NO GO</h3>
+                    <textarea id="no_go" rows="3" placeholder="Saisir les conditions de désengagement..."></textarea>
+                    <h3>Liaison</h3>
+                    <textarea id="cat_liaison" rows="4">TOM: 
+DIR: 
+Gestuelle et visuelle entre les éléments INDIA</textarea>
+
+                    <p style="text-align:center; margin-top: 20px;">Vérifiez les points de cohérence avant de générer
+                        l'Ordre Initial.</p>
+
+                    <div
+                        style="border: 1px solid var(--border-color); padding: 15px; border-radius: 5px; margin-top: 20px;">
+                        <h3>Vérification des Données Critiques</h3>
+                        <div id="coherence_alerts_container">
+                            <div class="coherence-alert"
+                                style="color:var(--text-secondary); background-color:var(--bg-interactive);"><span
+                                    class="material-symbols-outlined">info</span> Cliquez sur "Aperçu" pour lancer la
+                                vérification de cohérence.</div>
+                        </div>
+                        <div id="recap_finalisation" style="margin-top: 15px;">
+                        </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                        <button class="wizard-nav-btn" id="previewBtn" type="button">Aperçu (Mode Présentation) <span
+                                class="material-symbols-outlined" style="font-size: 1.2em;">visibility</span></button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="wizard-nav">
+            <button class="wizard-nav-btn" id="prevBtn" type="button">Précédent</button>
+            <button class="wizard-nav-btn" id="nextBtn" type="button">Suivant</button>
+        </div>
+        <footer id="main-footer">
+            © G/ Maheux
+        </footer>
+    </div>
+
+    <!-- Dock Flottant (Ajout) -->
+    <div class="dock-menu" id="dockMenu">
+        <div class="dock-menu-item" id="dockToggleBtn" title="Réduire/Agrandir">
+            <span class="material-symbols-outlined">expand_more</span>
+        </div>
+
+        <a href="pctac.html" class="dock-menu-item" id="pctacLink" title="Accéder à PCTAC">
+            <span class="material-symbols-outlined">alt_route</span>
+        </a>
+
+        <div class="dock-menu-item" id="importSessionBtn" title="Importer Session (Fichier)">
+            <span class="material-symbols-outlined">file_upload</span>
+        </div>
+        <div class="dock-menu-item" id="exportSessionBtn" title="Exporter Session (Fichier)">
+            <span class="material-symbols-outlined">file_download</span>
+        </div>
+        <div class="dock-menu-item" id="resetMenuBtn" title="Réinitialiser">
+            <span class="material-symbols-outlined">restart_alt</span>
+        </div>
+
+        <div class="dock-menu-item" id="darkModeToggle" title="Changer le thème">
+            <span class="material-symbols-outlined" id="darkModeIcon">nightlight</span>
+        </div>
+        <div class="dock-menu-item" id="fullscreenToggle" title="Plein écran">
+            <span class="material-symbols-outlined" id="fullscreenIcon">fullscreen</span>
+        </div>
+    </div>
+
+
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.0.10/marked.min.js"></script>
+    <script>
+        if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+            navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW register failed:', err));
+        }
+    </script>
+    <!-- MODAL OUTILS EFFRACTION -->
+    <div id="effractionToolsModal" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--effraction-gold); display: flex; align-items: center; gap: 10px;">
+                <span class="material-symbols-outlined">hardware</span> Configuration des Outils
+            </h2>
+            <p style="font-size: 0.9em; color: var(--text-secondary);">Sélectionnez les outils préconisés pour cette photo.</p>
+            
+            <div id="tools_sections_container">
+                <h4 style="margin-top: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Hydraulique</h4>
+                <div class="effrac-tool-grid" data-category="hydraulique">
+                    <button type="button" class="effrac-tool-btn" data-tool="HDR50">HDR50</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="DOOR">DOOR</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="OP71">OP71</button>
+                </div>
+
+                <h4 style="margin-top: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Mécanique</h4>
+                <div class="effrac-tool-grid" data-category="mecanique">
+                    <button type="button" class="effrac-tool-btn" data-tool="Multy Pry">Multy Pry</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="Multi Sledge">Multi Sledge</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="Mini Ram">Mini Ram</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="Bélier lourd">Bélier lourd</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="Pied de biche">Pied de biche</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="Pince Monseigneur">Pince Monseigneur</button>
+                </div>
+
+                <h4 style="margin-top: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Autres</h4>
+                <div class="effrac-tool-grid" data-category="autres">
+                    <button type="button" class="effrac-tool-btn" data-tool="Pass PTT">Pass PTT</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="VIGIK">VIGIK</button>
+                    <button type="button" class="effrac-tool-btn" data-tool="Double clé">Double clé</button>
+                </div>
+
+                <h4 style="margin-top: 20px;">Outil Nouveau / Autre :</h4>
+                <input type="text" id="effrac_other_tools" placeholder="Saisir d'autres outils..." style="width:100%">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" class="remove-btn" onclick="document.getElementById('effractionToolsModal').style.display='none'">Annuler</button>
+                <button type="button" class="add-btn" style="background: var(--success-green); color: white;" onclick="saveEffractionTools()">Valider</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL SELECTION DE MEMBRE POUR ANNOTATION -->
+    <dialog id="memberSelectionModalCanvas" style="padding: 0; background: transparent; border: none; overflow: visible; z-index: 2000; margin: auto;">
+        <div class="modal-content" style="max-width: 400px;">
+            <h2 style="color: var(--accent-blue); display: flex; align-items: center; gap: 10px;">
+                <span class="material-symbols-outlined">badge</span> Sélectionner un Membre
+            </h2>
+            <div id="member_canvas_list" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; max-height: 50vh; overflow-y: auto;">
+                <!-- Liste générée dynamiquement -->
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" class="remove-btn" onclick="document.getElementById('memberSelectionModalCanvas').close()">Annuler</button>
+            </div>
+        </div>
+    </dialog>
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+    <!-- App Entry -->
+    <script type="module" src="src/js/app.js"></script>
+</body>
+
+</html>

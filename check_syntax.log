@@ -1,0 +1,28 @@
+CHECKING modules/dessin.js
+CHECKING modules/drag.js
+CHECKING modules/formulaires.js
+CHECKING modules/init.js
+/home/nico/Bureau/GStart-main/modules/init.js:212
+        ) {
+        ^
+
+SyntaxError: Unexpected token ')'
+    at wrapSafe (node:internal/modules/cjs/loader:1637:18)
+    at checkSyntax (node:internal/main/check_syntax:78:3)
+
+Node.js v22.22.2
+CHECKING modules/medias.js
+CHECKING modules/navigation.js
+CHECKING modules/outils.js
+CHECKING modules/patrac.js
+/home/nico/Bureau/GStart-main/modules/patrac.js:114
+function updateMemberButtonVisuals(btn) {
+^^^^^^^^
+
+SyntaxError: Unexpected token 'function'
+    at wrapSafe (node:internal/modules/cjs/loader:1637:18)
+    at checkSyntax (node:internal/main/check_syntax:78:3)
+
+Node.js v22.22.2
+CHECKING modules/presentation.js
+CHECKING modules/shared_components.js

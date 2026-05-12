@@ -21,19 +21,19 @@ export const PHOTO_CATEGORIES = [
     { id: 'all', label: 'Toutes' }
 ];
 
-// Couleurs pour le mode libre (Pax Libre)
+// Couleurs pour le mode libre (Pax Libre) - Couleurs distinctes des boutons natifs
 export const FREE_MODE_COLORS = [
-    { hex: '#800000', name: 'Bordeaux' },       
-    { hex: '#B87333', name: 'Cuivre' },         
-    { hex: '#FFDB58', name: 'Jaune Moutarde' }, 
-    { hex: '#A3D900', name: 'Vert Lime' },      
-    { hex: '#00FFFF', name: 'Cyan' },           
-    { hex: '#000080', name: 'Bleu Marine' },    
-    { hex: '#FF69B4', name: 'Rose Vif' },       
-    { hex: '#FF8C00', name: 'Orange Foncée' },  
-    { hex: '#8A2BE2', name: 'Bleu Violet' },    
-    { hex: '#008080', name: 'Sarcelle' },       
-    { hex: '#C0C0C0', name: 'Argent' },         
+    { hex: '#a855f7', name: 'Violet' },       
+    { hex: '#ec4899', name: 'Rose' },         
+    { hex: '#f97316', name: 'Orange' }, 
+    { hex: '#8b4513', name: 'Marron' },    
+    { hex: '#db2777', name: 'Framboise' },    
+    { hex: '#0ea5e9', name: 'Bleu Ocean' },       
+    { hex: '#6366f1', name: 'Indigo' },         
+    { hex: '#d946ef', name: 'Fuchsia' },
+    { hex: '#84cc16', name: 'Lime' },
+    { hex: '#14b8a6', name: 'Teal' },
+    { hex: '#f43f5e', name: 'Rose Rouge' },
     { hex: '#ffffff', name: 'Blanc' }           
 ];
 
@@ -44,6 +44,7 @@ export const PDF_PAX_COLORS = {
     'Civil': { text: 'Civil/Otage', color: '#f1c40f', fontColor: '#000000' }, 
     'Inter': { text: 'Inter', color: '#3498db', fontColor: '#ffffff' },
     'Nego': { text: 'Nego', color: '#2ecc71', fontColor: '#000000' },
+    'Oscar': { text: 'Oscar', color: '#10b981', fontColor: '#000000' },
     'Autre': { text: 'Autre', color: '#2d2d2d', fontColor: '#e0e0e0' }
 };
 

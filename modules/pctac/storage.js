@@ -69,6 +69,9 @@ export const Storage = {
             localStorage.setItem(key, JSON.stringify(data));
         } catch (e) {
             console.error(`Erreur de sauvegarde collection ${key}:`, e);
+            if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                alert("Mémoire saturée ! Impossible d'enregistrer plus de photos. Veuillez supprimer des anciennes photos ou réinitialiser les données via le dock.");
+            }
         }
     },
 

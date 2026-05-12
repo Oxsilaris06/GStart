@@ -105,8 +105,8 @@ export const UI = {
     initPaxModeAndColors() {
         this.initColorPalettes();
         if (this.elements.paxSelectContainer) {
-            // On attache les événements aux boutons statiques qui n'ont pas encore d'événements
-            this.elements.paxSelectContainer.querySelectorAll('.pax-select-option').forEach(btn => {
+            // On attache les événements aux boutons statiques
+            this.elements.paxSelectContainer.querySelectorAll('.pax-select-option:not(.custom):not(#openCreatePaxBtn)').forEach(btn => {
                 const key = btn.dataset.pax;
                 if (!key) return;
                 
@@ -116,7 +116,15 @@ export const UI = {
                     if (this.elements.paxInput) this.elements.paxInput.dataset.customColor = '';
                     if (this.elements.paxModeInput) this.elements.paxModeInput.value = 'standard';
                     
-                    this.elements.paxSelectContainer.querySelectorAll('.pax-select-option').forEach(b => b.classList.remove('selected'));
+                    // Désélectionner TOUS les boutons (natifs et customs)
+                    this.elements.paxSelectContainer.querySelectorAll('.pax-select-option').forEach(b => {
+                        b.classList.remove('selected');
+                        // Réinitialiser les styles inline des boutons custom
+                        if (b.classList.contains('custom')) {
+                            b.style.background = '';
+                            b.style.color = '';
+                        }
+                    });
                     btn.classList.add('selected');
                 };
                 
@@ -273,20 +281,39 @@ export const UI = {
             span.className = 'pax-select-option custom';
             span.textContent = pax.name;
             span.dataset.pax = pax.name;
-            span.style.borderLeft = `4px solid ${pax.color}`;
-            span.onclick = () => {
+            
+            const selectCustom = () => {
                 this.elements.paxInput.value = pax.name;
                 this.elements.paxInput.dataset.lastSelected = pax.name;
                 this.elements.paxInput.dataset.customColor = pax.color;
                 this.elements.paxModeInput.value = 'free';
-                container.querySelectorAll('.pax-select-option').forEach(b => b.classList.remove('selected'));
+                
+                container.querySelectorAll('.pax-select-option').forEach(b => {
+                    b.classList.remove('selected');
+                    if (b.classList.contains('custom')) {
+                        b.style.background = '';
+                        b.style.color = '';
+                    }
+                });
+                
                 span.classList.add('selected');
+                span.style.background = pax.color;
+                span.style.color = this.getContrastYIQ(pax.color);
             };
+
+            span.onclick = selectCustom;
             span.oncontextmenu = (e) => { e.preventDefault(); this.deleteCustomPax(pax.id); };
+            
             let timer;
             span.ontouchstart = () => { timer = setTimeout(() => this.deleteCustomPax(pax.id), 800); };
             span.ontouchend = () => clearTimeout(timer);
-            if (this.elements.paxInput && this.elements.paxInput.value === pax.name) span.classList.add('selected');
+            
+            if (this.elements.paxInput && this.elements.paxInput.value === pax.name) {
+                span.classList.add('selected');
+                span.style.background = pax.color;
+                span.style.color = this.getContrastYIQ(pax.color);
+            }
+            
             container.insertBefore(span, addBtn);
         });
     },
@@ -588,42 +615,39 @@ export const UI = {
     handleAdversaryPhotoUpdate() {
         const id = document.getElementById('edit_adv_id').value;
         const fileInput = document.getElementById('edit_adv_photo_input');
-        if (!fileInput.files[0]) return alert("Veuillez sélectionner une photo");
+        const dataUrl = fileInput.dataset.compressedBase64;
+        
+        if (!dataUrl) return alert("Veuillez sélectionner une photo");
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const dataUrl = e.target.result;
+        // 1. Update Adversary Collection
+        const advList = Storage.loadCollection('pcTacAdversaries');
+        const adv = advList.find(a => a.id === id);
+        if (adv) {
+            adv.photo = dataUrl;
+            Storage.saveCollection('pcTacAdversaries', advList);
             
-            // 1. Update Adversary Collection
-            const advList = Storage.loadCollection('pcTacAdversaries');
-            const adv = advList.find(a => a.id === id);
-            if (adv) {
-                adv.photo = dataUrl;
-                Storage.saveCollection('pcTacAdversaries', advList);
-                
-                // 2. Sync to Photos Collection (if not already there or update existing)
-                const photoList = Storage.loadCollection('pcTacPhotos');
-                const photoSyncId = id + "_sync";
-                let photo = photoList.find(p => p.id === photoSyncId);
-                if (photo) {
-                    photo.data = dataUrl;
-                } else {
-                    photoList.push({
-                        id: photoSyncId,
-                        title: `${adv.nom} ${adv.prenom}`,
-                        data: dataUrl,
-                        category: 'neutralized',
-                        status: 'active'
-                    });
-                }
-                Storage.saveCollection('pcTacPhotos', photoList);
+            // 2. Sync to Photos Collection (if not already there or update existing)
+            const photoList = Storage.loadCollection('pcTacPhotos');
+            const photoSyncId = id + "_sync";
+            let photo = photoList.find(p => p.id === photoSyncId);
+            if (photo) {
+                photo.data = dataUrl;
+            } else {
+                photoList.push({
+                    id: photoSyncId,
+                    title: `${adv.nom} ${adv.prenom}`,
+                    data: dataUrl,
+                    category: 'neutralized',
+                    status: 'active'
+                });
             }
-            
-            this.hideEditAdversaryModal();
-            this.renderAdversaries();
-            fileInput.value = '';
-        };
-        reader.readAsDataURL(fileInput.files[0]);
+            Storage.saveCollection('pcTacPhotos', photoList);
+        }
+        
+        this.hideEditAdversaryModal();
+        this.renderAdversaries();
+        fileInput.value = '';
+        delete fileInput.dataset.compressedBase64;
     }
 };
 

@@ -2,6 +2,7 @@ import { Storage } from './storage.js';
 import { UI } from './ui.js';
 import { LogManager } from './logManager.js';
 import { PdfExport } from './pdfExport.js';
+import { Utils } from './utils.js';
 import { CUSTOM_PAX_KEY, ADVERSARIES_KEY, HOSTAGES_KEY, FRIENDS_KEY, PHOTOS_KEY } from './config.js';
 
 /**
@@ -184,20 +185,21 @@ document.addEventListener('DOMContentLoaded', () => {
     ['adv_photo', 'hostage_photo'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            el.addEventListener('change', (e) => {
+            el.addEventListener('change', async (e) => {
                 const file = e.target.files[0];
                 if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        el.dataset.base64 = ev.target.result;
+                    try {
+                        const compressedData = await Utils.compressImage(file, 800, 800, 0.7);
+                        el.dataset.base64 = compressedData;
                         // Mise à jour de la miniature dans le formulaire
                         const previewId = id === 'adv_photo' ? 'adv_photo_preview' : 'hostage_photo_preview';
                         const preview = document.getElementById(previewId);
                         if (preview) {
-                            preview.innerHTML = `<img src="${ev.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                            preview.innerHTML = `<img src="${compressedData}" style="width: 100%; height: 100%; object-fit: cover;">`;
                         }
-                    };
-                    reader.readAsDataURL(file);
+                    } catch (err) {
+                        console.error("Erreur de compression:", err);
+                    }
                 }
             });
         }
@@ -205,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Formulaire Photo spécifique
     if (UI.elements.photoForm) {
-        UI.elements.photoForm.addEventListener('submit', (e) => {
+        UI.elements.photoForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const title = document.getElementById('photo_title').value.trim();
             const fileInput = document.getElementById('photo_file');
@@ -213,16 +215,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const category = categorySelect ? categorySelect.value : 'other';
             if (!title || !fileInput.files[0]) return alert("Titre et fichier requis");
 
-            const reader = new FileReader();
-            reader.onload = (event) => {
+            try {
+                const compressedData = await Utils.compressImage(fileInput.files[0], 1024, 1024, 0.7);
                 const list = Storage.loadCollection(PHOTOS_KEY);
-                list.push({ id: Date.now().toString(), title, data: event.target.result, category, status: 'active' });
+                list.push({ id: Date.now().toString(), title, data: compressedData, category, status: 'active' });
                 Storage.saveCollection(PHOTOS_KEY, list);
                 document.getElementById('photo_title').value = '';
                 fileInput.value = '';
                 UI.renderPhotos();
-            };
-            reader.readAsDataURL(fileInput.files[0]);
+            } catch (err) {
+                console.error("Erreur de compression/sauvegarde:", err);
+                alert("Erreur lors de l'ajout de la photo. Il est possible que la mémoire soit pleine.");
+            }
         });
     }
 
@@ -277,14 +281,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const editAdvPhotoInput = document.getElementById('edit_adv_photo_input');
     if (editAdvPhotoInput) {
-        editAdvPhotoInput.onchange = (e) => {
+        editAdvPhotoInput.onchange = async (e) => {
             const file = e.target.files[0];
             if (file) {
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    document.getElementById('edit_adv_preview').innerHTML = `<img src="${ev.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`;
-                };
-                reader.readAsDataURL(file);
+                try {
+                    const compressedData = await Utils.compressImage(file, 800, 800, 0.7);
+                    document.getElementById('edit_adv_preview').innerHTML = `<img src="${compressedData}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    editAdvPhotoInput.dataset.compressedBase64 = compressedData;
+                } catch (err) {
+                    console.error("Erreur de compression:", err);
+                }
             }
         };
     }

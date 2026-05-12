@@ -64,7 +64,8 @@
             --bg-input: rgba(255, 255, 255, 0.6);
             --border-glass: rgba(0, 0, 0, 0.1);
             --text-main: #1e293b;
-            --text-muted: #0f172a; /* Noir/Sombre au lieu de gris */
+            --text-muted: #0f172a;
+            /* Noir/Sombre au lieu de gris */
             --accent-blue: #0f4c9c;
         }
 
@@ -176,7 +177,7 @@
 
         .main-tab-bar {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             background: rgba(0, 0, 0, 0.4);
             border: 1px solid var(--border-glass);
             margin-bottom: 20px;
@@ -293,7 +294,8 @@
         }
 
         .pax-select-option {
-            flex: 1 0 auto; /* Permet de grandir mais ne rétrécit pas en dessous du contenu */
+            flex: 1 0 auto;
+            /* Permet de grandir mais ne rétrécit pas en dessous du contenu */
             padding: 10px 15px;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--border-glass);
@@ -303,8 +305,10 @@
             font-size: 0.85em;
             color: var(--text-muted);
             font-weight: bold;
-            min-width: 85px; /* Minimum pour "Adversaire" */
-            white-space: nowrap; /* Évite les retours à la ligne moches dans le bouton */
+            min-width: 85px;
+            /* Minimum pour "Adversaire" */
+            white-space: nowrap;
+            /* Évite les retours à la ligne moches dans le bouton */
         }
 
         .pax-select-option.selected {
@@ -830,7 +834,7 @@
             }
 
             .main-tab-bar {
-                grid-template-columns: repeat(5, 1fr);
+                grid-template-columns: repeat(6, 1fr);
                 gap: 2px;
                 padding: 2px;
             }
@@ -893,14 +897,17 @@
                 <span class="material-symbols-outlined">photo_library</span>
                 <span>Photos</span>
             </button>
+            <button class="tab-btn" data-view="view-liens">
+                <span class="material-symbols-outlined">link</span>
+                <span>Liens</span>
+            </button>
         </nav>
 
         <!-- VUE : MAIN COURANTE -->
         <div id="view-main-courante" class="tab-content-view active">
             <div class="log-entry-form">
                 <form id="log-form">
-                    <div class="form-row"
-                        style="grid-template-columns: auto 1fr; align-items: end; gap: 15px;">
+                    <div class="form-row" style="grid-template-columns: auto 1fr; align-items: end; gap: 15px;">
                         <div style="width: 120px;">
                             <label>Heure</label>
                             <input type="time" id="heure_input" required style="width: 100%; min-width: 110px;">
@@ -1110,6 +1117,80 @@
                 <!-- Rendu dynamique via UI.renderPhotos -->
             </div>
             <div id="photo-board" class="photo-grid"></div>
+        </div>
+
+        <!-- VUE : LIENS EXTERNES -->
+        <div id="view-liens" class="tab-content-view">
+            <div class="liens-layout" style="display: flex; gap: 20px; min-height: 500px;">
+                <!-- Section Carto (Dashboard) -->
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 15px;">
+                    <div
+                        style="background: var(--bg-glass); padding: 30px; border-radius: var(--radius-md); border: 1px solid var(--border-glass); flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+                        <div style="margin-bottom: 30px;">
+                            <span class="material-symbols-outlined"
+                                style="font-size: 64px; color: var(--accent-blue); opacity: 0.8;">map</span>
+                            <h2 style="margin-top: 15px; font-family: var(--font-title); letter-spacing: 2px;">OUTILS
+                                CARTOGRAPHIQUES</h2>
+                            <p style="color: var(--text-muted); max-width: 400px; margin: 10px auto;">Accès aux outils
+                                de géolocalisation et de visualisation de zone en onglets séparés pour une performance
+                                optimale.</p>
+                        </div>
+
+                        <div
+                            style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 600px;">
+                            <a href="https://www.google.com/maps/d/u/0/?hl=fr" target="_blank" class="add-log-btn"
+                                style="text-decoration: none; height: 120px; flex-direction: column; gap: 10px; font-size: 1.1em; background: rgba(59, 130, 246, 0.1); border-color: var(--accent-blue);">
+                                <span class="material-symbols-outlined" style="font-size: 32px;">location_on</span>
+                                <span>OUVRIR GOOGLE MAPS</span>
+                            </a>
+                            <a href="https://earth.google.com/web" target="_blank" class="add-log-btn"
+                                style="text-decoration: none; height: 120px; flex-direction: column; gap: 10px; font-size: 1.1em; background: rgba(34, 197, 94, 0.1); border-color: var(--ao-green);">
+                                <span class="material-symbols-outlined" style="font-size: 32px;">public</span>
+                                <span>OUVRIR GOOGLE EARTH</span>
+                            </a>
+                        </div>
+
+                        <div
+                            style="margin-top: 40px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); border-left: 4px solid var(--civil-yellow); text-align: left; max-width: 600px;">
+                            <small style="color: var(--text-muted);">
+                                <span class="material-symbols-outlined"
+                                    style="font-size: 14px; vertical-align: middle;">info</span>
+                                Note : L'affichage direct via Iframe est restreint par Google pour des raisons de
+                                sécurité. L'ouverture en onglet séparé garantit l'accès à toutes les fonctionnalités
+                                (calques, 3D, Street View).
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section Com (Sidebar) -->
+                <div style="width: 250px; display: flex; flex-direction: column; gap: 15px;">
+                    <div
+                        style="background: var(--bg-glass); padding: 25px; border-radius: var(--radius-md); border: 1px solid var(--border-glass); height: 100%; display: flex; flex-direction: column;">
+                        <div
+                            style="display: flex; align-items: center; gap: 8px; margin-bottom: 25px; border-bottom: 1px solid var(--border-glass); padding-bottom: 15px;">
+                            <span class="material-symbols-outlined" style="color: var(--ao-green);">hub</span>
+                            <h4 style="margin: 0; font-family: var(--font-ui); letter-spacing: 1px;">COMMUNICATION</h4>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <a href="https://www.tchap.gouv.fr/#/welcome" target="_blank" class="add-log-btn"
+                                style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 1em; height: 60px;">
+                                <span class="material-symbols-outlined">chat</span> TCHAP
+                            </a>
+                            <a href="https://web.whatsapp.com/" target="_blank" class="add-log-btn"
+                                style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 1em; height: 60px; background: #25D366; border-color: #128C7E;">
+                                <span class="material-symbols-outlined">forum</span> WHATSAPP
+                            </a>
+                        </div>
+
+                        <div
+                            style="margin-top: auto; padding-top: 30px; font-size: 0.85em; color: var(--text-muted); text-align: center; font-family: var(--font-data); line-height: 1.4;">
+                            <p>Liens externes hors réseau tactique sécurisé.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <footer style="text-align: center; color: var(--text-muted); font-size: 0.8em; margin-top: 40px;">© PC Tac by G/

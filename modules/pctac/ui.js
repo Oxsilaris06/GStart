@@ -22,7 +22,6 @@ export const UI = {
             paxCustomColorInput: document.getElementById('pax_custom_color_input'),
             freePaxInput: document.getElementById('free_pax_input'),
             lieuInput: document.getElementById('lieu_input'),
-            fenetrePorteInput: document.getElementById('fenetre_porte_input'),
             remarquesInput: document.getElementById('remarques_input'),
             paxSelectContainer: document.getElementById('pax_select_container'),
             suggestionsBox: document.getElementById('pax_suggestions'),
@@ -184,9 +183,8 @@ export const UI = {
                     </div>
                 </td>
                 <td style="width: 15%;"><span class="pax-cell" style="background-color: ${paxColor}; color: ${paxFontColor};">${paxText}</span></td>
-                <td style="width: 20%;">${entry.lieu}</td>
-                <td style="width: 20%;">${entry.fenetrePorte}</td>
-                <td style="width: 30%;">${entry.remarques}</td>
+                <td style="width: 35%;">${entry.lieu}</td>
+                <td style="width: 35%;">${entry.remarques}</td>
             `;
         });
     },
@@ -231,7 +229,6 @@ export const UI = {
         document.getElementById('edit_id').value = id;
         document.getElementById('edit_heure').value = entry.heure;
         document.getElementById('edit_lieu').value = entry.lieu || '';
-        document.getElementById('edit_fp').value = entry.fenetrePorte || '';
         document.getElementById('edit_remarques').value = entry.remarques || '';
         document.getElementById('modalBackdrop').style.display = 'block';
         document.getElementById('editModal').style.display = 'block';

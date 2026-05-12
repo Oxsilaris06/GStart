@@ -900,7 +900,7 @@
             <div class="log-entry-form">
                 <form id="log-form">
                     <div class="form-row"
-                        style="grid-template-columns: auto 1fr auto auto; align-items: end; gap: 15px;">
+                        style="grid-template-columns: auto 1fr; align-items: end; gap: 15px;">
                         <div style="width: 120px;">
                             <label>Heure</label>
                             <input type="time" id="heure_input" required style="width: 100%; min-width: 110px;">
@@ -921,18 +921,13 @@
                             <input type="hidden" id="pax_mode_input" value="standard">
                             <input type="hidden" id="pax_custom_color_input" value="#800000">
                         </div>
-                        <div style="width: 180px;">
-                            <label>Lieu</label>
-                            <textarea id="lieu_input" placeholder="Lieu" rows="1"
-                                style="resize: vertical; min-height: 45px; padding-top: 12px;"></textarea>
-                        </div>
-                        <div style="width: 150px;">
-                            <label>Fenêtre/Porte</label>
-                            <textarea id="fenetre_porte_input" placeholder="F/P" rows="1"
-                                style="resize: vertical; min-height: 45px; padding-top: 12px;"></textarea>
-                        </div>
                     </div>
-                    <div>
+                    <div style="margin-top: 15px;">
+                        <label>Localisation</label>
+                        <textarea id="lieu_input" placeholder="Localisation" rows="1"
+                            style="resize: vertical; min-height: 45px; padding-top: 12px;"></textarea>
+                    </div>
+                    <div style="margin-top: 15px;">
                         <label>Remarques</label>
                         <textarea id="remarques_input" rows="2" placeholder="Saisir un compte-rendu..."></textarea>
                     </div>
@@ -947,8 +942,7 @@
                         <tr>
                             <th style="width: 10%;">Heure</th>
                             <th style="width: 15%;">Pax</th>
-                            <th style="width: 20%;">Lieu</th>
-                            <th style="width: 15%;">F/P</th>
+                            <th style="width: 35%;">Localisation</th>
                             <th>Remarques</th>
                         </tr>
                     </thead>
@@ -1179,12 +1173,9 @@
     <div class="modal" id="editModal">
         <h3>Modifier l'entrée</h3>
         <input type="hidden" id="edit_id">
-        <div class="form-row" style="grid-template-columns: 1fr 1fr; margin-top: 15px;">
+        <div class="form-row" style="grid-template-columns: 1fr 2fr; margin-top: 15px;">
             <div><label>Heure</label><input type="time" id="edit_heure"></div>
-            <div><label>Lieu</label><input type="text" id="edit_lieu"></div>
-        </div>
-        <div class="form-row">
-            <div><label>Fenêtre/Porte</label><input type="text" id="edit_fp"></div>
+            <div><label>Localisation</label><input type="text" id="edit_lieu"></div>
         </div>
         <div>
             <label>Remarques</label>

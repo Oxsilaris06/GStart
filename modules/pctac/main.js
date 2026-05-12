@@ -51,14 +51,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 paxColor: UI.elements.paxInput.dataset.customColor || UI.elements.paxCustomColorInput.value,
                 heure: UI.elements.heureInput.value,
                 lieu: UI.elements.lieuInput.value,
-                fenetrePorte: UI.elements.fenetrePorteInput.value,
                 remarques: UI.elements.remarquesInput.value
             };
             const newEntry = LogManager.addEntry(formData);
             if (newEntry) {
                 UI.renderLogTable(Storage.loadLogData());
                 UI.elements.remarquesInput.value = '';
-                UI.elements.fenetrePorteInput.value = '';
                 UI.elements.remarquesInput.focus();
                 UI.updateTimeInput(true);
             }

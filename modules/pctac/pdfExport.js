@@ -114,8 +114,8 @@ export const PdfExport = {
 
             // --- 1. MAIN COURANTE ---
             addNewPage("MAIN COURANTE - JOURNAL D'INTERVENTION");
-            const colWidths = [50, 70, 100, 100, 195]; // Heure, Pax, Lieu, Porte, Remarques
-            const headers = ["Heure", "Pax", "Lieu", "Porte/Fen", "Remarques"];
+            const colWidths = [50, 70, 150, 245]; // Heure, Pax, Localisation, Remarques
+            const headers = ["Heure", "Pax", "Localisation", "Remarques"];
 
             const drawTableHeader = () => {
                 context.currentPage.drawRectangle({
@@ -132,7 +132,7 @@ export const PdfExport = {
             drawTableHeader();
 
             for (const entry of logData) {
-                const remarksLines = wrapText(entry.remarques, colWidths[4] - 10, font, 9);
+                const remarksLines = wrapText(entry.remarques, colWidths[3] - 10, font, 9);
                 const rowHeight = Math.max(1, remarksLines.length) * context.lineHeight + 10;
 
                 if (context.y - rowHeight < context.margin) {
@@ -159,10 +159,8 @@ export const PdfExport = {
                 context.currentPage.drawText(pText.substring(0, 12), { x: currentX, y: context.y, size: 8, font: fontBold, color: pdfRgb(1,1,1) });
                 currentX += colWidths[1];
 
-                context.currentPage.drawText((entry.lieu || '').substring(0, 15), { x: currentX, y: context.y, size: 9, font, color: themeColors.text });
+                context.currentPage.drawText((entry.lieu || '').substring(0, 25), { x: currentX, y: context.y, size: 9, font, color: themeColors.text });
                 currentX += colWidths[2];
-                context.currentPage.drawText((entry.fenetrePorte || '').substring(0, 15), { x: currentX, y: context.y, size: 9, font, color: themeColors.text });
-                currentX += colWidths[3];
 
                 remarksLines.forEach((line, idx) => {
                     context.currentPage.drawText(line, { x: currentX, y: context.y - (idx * context.lineHeight), size: 9, font, color: themeColors.text });

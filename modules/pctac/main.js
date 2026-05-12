@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 paxColor: UI.elements.paxInput.dataset.customColor || UI.elements.paxCustomColorInput.value,
                 heure: UI.elements.heureInput.value,
                 lieu: UI.elements.lieuInput.value,
+                freePax: UI.elements.freePaxInput ? UI.elements.freePaxInput.value : '',
                 remarques: UI.elements.remarquesInput.value
             };
             const newEntry = LogManager.addEntry(formData);

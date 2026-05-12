@@ -12,7 +12,7 @@ export const LogManager = {
      * @returns {Object|null} La nouvelle entrée ou null si invalide
      */
     addEntry(data) {
-        const { mode, pax, freePax, paxColor, heure, lieu, fenetrePorte, remarques } = data;
+        const { mode, pax, freePax, paxColor, heure, lieu, remarques } = data;
         
         let paxName, paxColorHex;
 
@@ -25,7 +25,7 @@ export const LogManager = {
             }
         } else {
             // Si c'est un mode free (intervenant personnalisé ou saisie libre)
-            paxName = pax || freePax.trim() || 'Pax Libre';
+            paxName = pax || (freePax || '').trim() || 'Pax Libre';
             paxColorHex = paxColor;
             if (!paxName) {
                 alert("Veuillez donner un nom à l'intervenant.");
@@ -44,9 +44,8 @@ export const LogManager = {
             pax: paxName, 
             paxMode: mode,
             paxColor: paxColorHex,
-            lieu: lieu.trim(),
-            fenetrePorte: fenetrePorte.trim(),
-            remarques: remarques.trim(),
+            lieu: (lieu || '').trim(),
+            remarques: (remarques || '').trim(),
         };
 
         const logData = Storage.loadLogData();
@@ -90,7 +89,6 @@ export const LogManager = {
                 paxMode: entry.paxMode || (PDF_PAX_COLORS[entry.pax] ? 'standard' : 'free'),
                 paxColor: entry.paxColor || (entry.paxMode === 'free' ? FREE_MODE_COLORS[0].hex : undefined),
                 lieu: entry.lieu || '',
-                fenetrePorte: entry.fenetrePorte || '',
                 remarques: entry.remarques || '',
             }));
             const currentLogs = Storage.loadLogData();

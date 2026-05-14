@@ -27,7 +27,8 @@ const ENTITY_COLORS = {
     friend: '#3b82f6'  // Inter / bleu
 };
 
-// Style satellite ESRI World Imagery — pas de clé API, pas de tracking
+// Style satellite ESRI World Imagery + modèle d'élévation (DEM) AWS Open Data
+// Tout sans clé API, sans tracking. Le DEM ne sert qu'au relief 3D (setTerrain).
 const RASTER_STYLE = {
     version: 8,
     sources: {
@@ -37,6 +38,21 @@ const RASTER_STYLE = {
             tileSize: 256,
             maxzoom: 19,
             attribution: 'Tiles © Esri'
+        },
+        'terrain-dem': {
+            type: 'raster-dem',
+            tiles: ['https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'],
+            encoding: 'terrarium',
+            tileSize: 256,
+            maxzoom: 15,
+            attribution: 'Elevation © AWS Terrain Tiles'
+        },
+        // Tuiles vectorielles OpenFreeMap — sans clé API. On n'en exploite que
+        // la couche "building" pour l'extrusion 3D ; le reste n'est pas rendu.
+        openfreemap: {
+            type: 'vector',
+            url: 'https://tiles.openfreemap.org/planet',
+            attribution: '© OpenFreeMap © OpenStreetMap'
         }
     },
     layers: [{ id: 'satellite', type: 'raster', source: 'satellite' }]
@@ -53,6 +69,7 @@ export const PlanMap = {
     drawPreviewLayerIds: ['plan-draw-preview-fill', 'plan-draw-preview-line'],
     history: [],     // pile d'états {shapes} avant chaque modif
     redoStack: [],   // états annulés réutilisables via redo
+    is3D: false,     // mode relief 3D actif
 
     init() {
         if (this.initialized) return;
@@ -65,12 +82,22 @@ export const PlanMap = {
             style: RASTER_STYLE,
             center: savedView.center,
             zoom: savedView.zoom,
+            pitch: savedView.pitch || 0,
+            bearing: savedView.bearing || 0,
             preserveDrawingBuffer: true // requis pour la capture screenshot
         });
-        this.map.addControl(new maplibregl.NavigationControl(), 'top-left');
+        // NavigationControl avec boussole + bouton pitch visualisé
+        this.map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
         this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right');
 
         this.map.on('moveend', () => this._saveView());
+        this.map.on('pitchend', () => this._saveView());
+        this.map.on('rotateend', () => this._saveView());
+
+        // Restaurer le relief 3D si la vue sauvegardée était inclinée
+        if (savedView.is3D) {
+            this.map.on('load', () => this._enable3D(false));
+        }
         this.map.on('click', (e) => this._onMapClick(e));
 
         // Drag-to-draw (mousedown / move / up) — souris ET tactile
@@ -102,7 +129,6 @@ export const PlanMap = {
         // Quand la vue passe de display:none → block, maplibre a besoin d'un resize
         setTimeout(() => this.map && this.map.resize(), 50);
         this._renderPins();
-        this._renderEntitiesPanel();
     },
 
     _loadView() {
@@ -118,32 +144,105 @@ export const PlanMap = {
         const c = this.map.getCenter();
         localStorage.setItem(VIEW_KEY, JSON.stringify({
             center: [c.lng, c.lat],
-            zoom: this.map.getZoom()
+            zoom: this.map.getZoom(),
+            pitch: this.map.getPitch(),
+            bearing: this.map.getBearing(),
+            is3D: this.is3D
         }));
+    },
+
+    /** Bascule 2D <-> 3D relief */
+    _toggle3D() {
+        if (this.is3D) this._disable3D();
+        else this._enable3D(true);
+    },
+
+    /** Active le relief 3D (terrain DEM + ciel + inclinaison caméra).
+     *  @param {boolean} animate - true = ease vers le pitch, false = restauration directe */
+    _enable3D(animate = true) {
+        if (!this.map) return;
+        try {
+            this.map.setTerrain({ source: 'terrain-dem', exaggeration: 1.4 });
+        } catch (e) {
+            console.error('[PlanMap] setTerrain échec:', e);
+            alert('Relief 3D indisponible (réseau ?). Les tuiles d\'élévation AWS sont peut-être bloquées.');
+            return;
+        }
+        // Ciel atmosphérique (si supporté par la version MapLibre)
+        try {
+            if (typeof this.map.setSky === 'function') {
+                this.map.setSky({
+                    'sky-color': '#7ab8e6',
+                    'sky-horizon-blend': 0.6,
+                    'horizon-color': '#dfeefc',
+                    'horizon-fog-blend': 0.6,
+                    'fog-color': '#cfd8e0',
+                    'fog-ground-blend': 0.4
+                });
+            }
+        } catch (e) { /* ciel optionnel, on ignore */ }
+
+        // Afficher les bâtiments 3D
+        try {
+            if (this.map.getLayer('buildings-3d')) {
+                this.map.setLayoutProperty('buildings-3d', 'visibility', 'visible');
+            }
+        } catch (e) { /* couche absente si init échouée */ }
+
+        this.is3D = true;
+        const fab = document.getElementById('plan_btn_3d');
+        if (fab) fab.classList.add('active');
+
+        if (animate) {
+            // Si la vue est à plat, on incline à 60° pour révéler le relief
+            const targetPitch = this.map.getPitch() < 20 ? 60 : this.map.getPitch();
+            this.map.easeTo({ pitch: targetPitch, duration: 900 });
+        }
+        this._saveView();
+    },
+
+    _disable3D() {
+        if (!this.map) return;
+        try { this.map.setTerrain(null); } catch (e) {}
+        try { if (typeof this.map.setSky === 'function') this.map.setSky(null); } catch (e) {}
+        try {
+            if (this.map.getLayer('buildings-3d')) {
+                this.map.setLayoutProperty('buildings-3d', 'visibility', 'none');
+            }
+        } catch (e) {}
+        this.is3D = false;
+        const fab = document.getElementById('plan_btn_3d');
+        if (fab) fab.classList.remove('active');
+        this.map.easeTo({ pitch: 0, bearing: 0, duration: 900 });
+        this._saveView();
     },
 
     _bindUi() {
         const searchInput = document.getElementById('plan_address_input');
         const searchBtn = document.getElementById('plan_search_btn');
-        const togglePanelBtn = document.getElementById('plan_toggle_panel_btn');
-        const closePanelBtn = document.getElementById('plan_close_panel_btn');
-        const freePinBtn = document.getElementById('plan_free_pin_btn');
-        const freePinConfirm = document.getElementById('freePinConfirmBtn');
-        const freePinCancel = document.getElementById('freePinCancelBtn');
 
         if (searchBtn) searchBtn.onclick = () => this._searchAddress();
         if (searchInput) searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { e.preventDefault(); this._searchAddress(); }
         });
 
-        if (togglePanelBtn) togglePanelBtn.onclick = () => this._toggleEntitiesPanel();
-        if (closePanelBtn) closePanelBtn.onclick = () => this._toggleEntitiesPanel(false);
+        // --- Toolbar unifiée : 4 FABs ---
+        const btn3d = document.getElementById('plan_btn_3d');
+        if (btn3d) btn3d.onclick = () => this._toggle3D();
 
-        if (freePinBtn) freePinBtn.onclick = () => this._openFreePinModal();
+        const captureBtn = document.getElementById('plan_btn_capture');
+        if (captureBtn) captureBtn.onclick = () => this._takeScreenshot();
 
-        const screenshotBtn = document.getElementById('plan_screenshot_btn');
-        if (screenshotBtn) screenshotBtn.onclick = () => this._takeScreenshot();
-        if (freePinCancel) freePinCancel.onclick = () => this._closeFreePinModal();
+        const pingBtn = document.getElementById('plan_btn_ping');
+        if (pingBtn) pingBtn.onclick = () => this._openPingModal();
+
+        const drawBtn = document.getElementById('plan_btn_draw');
+        if (drawBtn) drawBtn.onclick = () => this._toggleDrawDock();
+
+        // --- Modale Ping hybride ---
+        const pingClose = document.getElementById('pingModalCloseBtn');
+        if (pingClose) pingClose.onclick = () => this._closePingModal();
+        const freePinConfirm = document.getElementById('freePinConfirmBtn');
         if (freePinConfirm) freePinConfirm.onclick = () => this._armFreePinPlacement();
 
         // Sélecteur de couleur OTAN dans la modale
@@ -206,16 +305,35 @@ export const PlanMap = {
         }
     },
 
-    _toggleEntitiesPanel(force) {
-        const panel = document.getElementById('plan_entities_panel');
-        if (!panel) return;
-        const shouldShow = force === undefined ? panel.style.display !== 'block' : force;
-        panel.style.display = shouldShow ? 'block' : 'none';
-        if (shouldShow) this._renderEntitiesPanel();
+    /** Ouvre/ferme le dock de dessin réductible */
+    _toggleDrawDock(force) {
+        const dock = document.getElementById('plan_draw_dock');
+        const fab = document.getElementById('plan_btn_draw');
+        if (!dock) return;
+        const shouldOpen = force === undefined ? !dock.classList.contains('open') : force;
+        dock.classList.toggle('open', shouldOpen);
+        if (fab) fab.classList.toggle('active', shouldOpen);
+        // Fermer le dock désactive l'outil de dessin en cours
+        if (!shouldOpen && this.drawTool) this._setTool(null);
     },
 
-    _renderEntitiesPanel() {
-        const list = document.getElementById('plan_entities_list');
+    _openPingModal() {
+        document.getElementById('modalBackdrop').style.display = 'block';
+        document.getElementById('pingModal').style.display = 'block';
+        document.getElementById('free_pin_label').value = '';
+        const veh = document.getElementById('free_pin_is_vehicle');
+        if (veh) veh.checked = false;
+        this._renderPingEntities();
+    },
+
+    _closePingModal() {
+        document.getElementById('modalBackdrop').style.display = 'none';
+        document.getElementById('pingModal').style.display = 'none';
+    },
+
+    /** Rend la liste des entités existantes (Adv/Otage/Ami) dans la modale Ping */
+    _renderPingEntities() {
+        const list = document.getElementById('ping_entities_list');
         if (!list) return;
 
         const pins = this._loadPins();
@@ -235,8 +353,8 @@ export const PlanMap = {
                         const label = `${it.nom || ''} ${it.prenom || ''}`.trim() || it.unite || '(sans nom)';
                         return `
                             <div class="plan-entity-item" data-kind="${kind}" data-id="${it.id}"
-                                 style="display: flex; align-items: center; gap: 6px; padding: 5px 6px; border-radius: 4px; cursor: ${placed ? 'default' : 'pointer'}; background: ${placed ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.03)'}; border-left: 3px solid ${color}; opacity: ${placed ? 0.6 : 1};">
-                                <span style="flex: 1; font-size: 0.85em;">${label}</span>
+                                 style="display: flex; align-items: center; gap: 6px; padding: 8px 8px; border-radius: 4px; cursor: ${placed ? 'default' : 'pointer'}; background: ${placed ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.03)'}; border-left: 3px solid ${color}; opacity: ${placed ? 0.6 : 1};">
+                                <span style="flex: 1; font-size: 0.9em;">${label}</span>
                                 <span style="font-size: 0.7em; color: var(--text-muted);">${placed ? 'placé' : 'à placer'}</span>
                             </div>
                         `;
@@ -245,10 +363,12 @@ export const PlanMap = {
             `;
         };
 
-        list.innerHTML =
+        const html =
             block('Adversaires', adversaries, 'adv', ENTITY_COLORS.adv) +
             block('Otages', hostages, 'host', ENTITY_COLORS.host) +
             block('Amis / Unités', friends, 'friend', ENTITY_COLORS.friend);
+
+        list.innerHTML = html || '<div style="color: var(--text-muted); font-size: 0.85em; padding: 6px;">Aucune entité créée. Ajoute des adversaires/otages/amis dans leurs onglets respectifs, ou crée un point libre ci-dessous.</div>';
 
         list.querySelectorAll('.plan-entity-item').forEach(el => {
             el.onclick = () => {
@@ -257,21 +377,10 @@ export const PlanMap = {
                 if (placedIds.has(`${kind}:${id}`)) return;
                 this.pendingFreePin = null;
                 this.pendingEntityPin = { kind, id };
+                this._closePingModal();
                 this._showHint(`Clique sur la carte pour placer "${el.querySelector('span').textContent.trim()}"`);
             };
         });
-    },
-
-    _openFreePinModal() {
-        document.getElementById('modalBackdrop').style.display = 'block';
-        document.getElementById('freePinModal').style.display = 'block';
-        document.getElementById('free_pin_label').value = '';
-        document.getElementById('free_pin_label').focus();
-    },
-
-    _closeFreePinModal() {
-        document.getElementById('modalBackdrop').style.display = 'none';
-        document.getElementById('freePinModal').style.display = 'none';
     },
 
     _armFreePinPlacement() {
@@ -283,7 +392,7 @@ export const PlanMap = {
         if (!label) return alert('Libellé requis');
         this.pendingEntityPin = null;
         this.pendingFreePin = { label, color, kind };
-        this._closeFreePinModal();
+        this._closePingModal();
         this._showHint(`Clique sur la carte pour placer "${label}"`);
     },
 
@@ -320,14 +429,12 @@ export const PlanMap = {
         pins.push(pin);
         this._savePins(pins);
         this._renderPins();
-        this._renderEntitiesPanel();
     },
 
     _removePin(id) {
         const pins = this._loadPins().filter(p => p.id !== id);
         this._savePins(pins);
         this._renderPins();
-        this._renderEntitiesPanel();
     },
 
     _loadPins() {
@@ -482,6 +589,29 @@ export const PlanMap = {
     // ============================================================
 
     _initDrawingLayers() {
+        // --- Bâtiments 3D (extrusion OpenStreetMap via OpenFreeMap) ---
+        // Masqués par défaut, activés avec le mode 3D. Ajoutés en premier
+        // pour rester sous les dessins/annotations.
+        try {
+            this.map.addLayer({
+                id: 'buildings-3d',
+                type: 'fill-extrusion',
+                source: 'openfreemap',
+                'source-layer': 'building',
+                minzoom: 13,
+                layout: { visibility: 'none' },
+                paint: {
+                    'fill-extrusion-color': '#c2cad2',
+                    // hauteur réelle si connue, sinon fallback 6 m
+                    'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 6],
+                    'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                    'fill-extrusion-opacity': 0.85
+                }
+            });
+        } catch (e) {
+            console.error('[PlanMap] couche bâtiments 3D échec:', e);
+        }
+
         // Source "committed" (dessins persistés)
         this.map.addSource('plan-shapes-src', {
             type: 'geojson',
@@ -843,11 +973,11 @@ export const PlanMap = {
         const mapContainer = document.getElementById('plan_map').parentElement;
         if (!mapContainer) return;
 
-        // Éléments à masquer temporairement
+        // Éléments à masquer temporairement (toolbar, dock, légende, FABs, hint)
         const toHide = [
-            document.getElementById('plan_draw_toolbar'),
+            document.getElementById('plan_unified_toolbar'),
+            document.getElementById('plan_draw_dock'),
             document.getElementById('plan_legend'),
-            document.getElementById('plan_entities_panel'),
             document.getElementById('plan_hint')
         ].filter(Boolean);
         const memo = toHide.map(el => el.style.display);

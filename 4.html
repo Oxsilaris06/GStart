@@ -22,6 +22,9 @@
     <!-- Utilisation des Material Symbols Outlined -->
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <!-- MapLibre GL — cartographie OI (satellite + relief 3D, sans clé API) -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script>
         // Log Interceptor with Persistance (V6.6)
         (function() {
@@ -43,16 +46,35 @@
             const originalWarn = console.warn;
             const originalError = console.error;
             
+            // Écriture localStorage débounce : on n'écrit plus à CHAQUE appel
+            // console (coûteux : JSON.stringify de 500 entrées + setItem synchrone,
+            // catastrophique pendant la génération PDF où les libs loggent en masse).
+            let __logFlushTimer = null;
+            const flushCapturedLogs = () => {
+                __logFlushTimer = null;
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(window.__capturedLogs)); } catch (e) {}
+            };
+            const scheduleLogFlush = () => {
+                if (__logFlushTimer) return;
+                __logFlushTimer = setTimeout(flushCapturedLogs, 1500);
+            };
+            const safeStringify = (a) => {
+                if (typeof a !== 'object' || a === null) return String(a);
+                try { return JSON.stringify(a); } catch (e) { return '[objet non sérialisable]'; }
+            };
             const formatLog = (args, type) => {
                 const timestamp = new Date().toLocaleTimeString();
-                const logEntry = `[${timestamp}] [${type.toUpperCase()}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}`;
+                const logEntry = `[${timestamp}] [${type.toUpperCase()}] ${args.map(safeStringify).join(' ')}`;
                 window.__capturedLogs.push(logEntry);
-                
+
                 // Keep only last 500 logs
                 if (window.__capturedLogs.length > MAX_LOGS) window.__capturedLogs.shift();
-                
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(window.__capturedLogs));
+
+                scheduleLogFlush();
             };
+            // Flush garanti avant fermeture / mise en arrière-plan de la page
+            window.addEventListener('pagehide', flushCapturedLogs);
+            window.addEventListener('beforeunload', flushCapturedLogs);
 
             console.log = (...args) => { formatLog(args, 'log'); originalLog.apply(console, args); };
             console.warn = (...args) => { formatLog(args, 'warn'); originalWarn.apply(console, args); };
@@ -3047,10 +3069,230 @@
             position: relative;
         }
 
-        .modal-content > div[style*="overflow-y: auto"], 
+        .modal-content > div[style*="overflow-y: auto"],
         .modal-content .tools-sections-container {
             overflow-y: auto;
             flex: 1;
+        }
+
+        /* ==================== CARTOGRAPHIE OI (MapLibre) ==================== */
+        #cartographyModal {
+            padding: 0;
+            border: none;
+            width: 100vw;
+            height: 100vh;
+            max-width: 100vw;
+            max-height: 100vh;
+            background: var(--bg-body);
+            overflow: hidden;
+        }
+
+        #cartographyModal::backdrop {
+            background: rgba(0, 0, 0, 0.6);
+        }
+
+        #oi_carto_map_wrap {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        #oi_carto_map {
+            position: absolute;
+            inset: 0;
+        }
+
+        .oi-carto-toolbar {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 12;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .oi-carto-fab {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--bg-container);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-lg);
+            transition: transform 0.15s, background 0.2s;
+        }
+
+        .oi-carto-fab:hover {
+            transform: scale(1.08);
+        }
+
+        .oi-carto-fab:active {
+            transform: scale(0.95);
+        }
+
+        .oi-carto-fab.active {
+            background: var(--accent-blue);
+            color: #fff;
+        }
+
+        .oi-carto-fab .material-symbols-outlined {
+            font-size: 26px;
+        }
+
+        .oi-carto-fab.close-fab {
+            background: var(--danger-bg);
+            color: var(--danger-red);
+            border-color: var(--danger-red);
+        }
+
+        #oi_carto_search_panel {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 74px;
+            max-width: 480px;
+            z-index: 11;
+            display: none;
+            background: var(--bg-container);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 10px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        #oi_carto_search_panel.open {
+            display: block;
+        }
+
+        .oi-carto-search-hint {
+            font-size: 0.72em;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .oi-carto-search-result {
+            padding: 6px 8px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.85em;
+        }
+
+        .oi-carto-search-result:hover {
+            background: var(--accent-glow);
+        }
+
+        /* Dock dessin réductible — bande verticale compacte, à gauche des FABs */
+        #oi_carto_draw_dock {
+            position: absolute;
+            top: 12px;
+            right: 74px;
+            z-index: 11;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            background: var(--bg-container);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 6px;
+            box-shadow: var(--shadow-lg);
+            max-height: calc(100% - 24px);
+            overflow-y: auto;
+        }
+
+        #oi_carto_draw_dock.open {
+            display: flex;
+        }
+
+        .oi-carto-draw-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-primary);
+            padding: 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .oi-carto-draw-btn:hover {
+            background: var(--bg-interactive);
+        }
+
+        .oi-carto-draw-btn .material-symbols-outlined {
+            font-size: 22px;
+        }
+
+        #oi_carto_draw_colors {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 4px;
+            width: 48px;
+        }
+
+        .oi-carto-draw-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .oi-carto-dock-sep {
+            height: 1px;
+            width: 80%;
+            background: var(--border-color);
+            margin: 1px 0;
+        }
+
+        #oi_carto_hint {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 13;
+            display: none;
+            background: var(--accent-blue);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85em;
+            box-shadow: var(--shadow-lg);
+            cursor: pointer;
+        }
+
+        #oi_carto_hint.show {
+            display: block;
+        }
+
+        .oi-carto-ping-section {
+            margin-bottom: 14px;
+        }
+
+        .oi-carto-ping-section label {
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .oi-carto-ping-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .oi-carto-fab {
+                width: 46px;
+                height: 46px;
+            }
         }
     </style>
 </head>
@@ -3538,15 +3780,15 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                     </div>
 
                     <h3 style="margin-top: 25px;">Conduites à tenir (CAT) Générales</h3>
-                    <textarea id="cat_generales" rows="6">- Si rébellion, user du strict niveau de force nécessaire
+                    <textarea id="cat_generales" rows="6" oninput="syncDomToStore()">- Si rébellion, user du strict niveau de force nécessaire
 - Si retranché, alerter en mesure de se ré-articuler
 - Si tente de fuir, alerter en mesure de jalonner/interpeller
 - UDA : Article L435-1 du CSI + légitime défense</textarea>
 
                     <h3>NO GO</h3>
-                    <textarea id="no_go" rows="3" placeholder="Saisir les conditions de désengagement..."></textarea>
+                    <textarea id="no_go" rows="3" placeholder="Saisir les conditions de désengagement..." oninput="syncDomToStore()"></textarea>
                     <h3>Liaison</h3>
-                    <textarea id="cat_liaison" rows="4">TOM: 
+                    <textarea id="cat_liaison" rows="4" oninput="syncDomToStore()">TOM: 
 DIR: 
 Gestuelle et visuelle entre les éléments INDIA</textarea>
 
@@ -3592,6 +3834,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             <span class="material-symbols-outlined">alt_route</span>
         </a>
 
+        <div class="dock-menu-item" id="cartographyBtn" title="Cartographie (préparation mission)">
+            <span class="material-symbols-outlined">map</span>
+        </div>
+
         <div class="dock-menu-item" id="importSessionBtn" title="Importer Session (Fichier)">
             <span class="material-symbols-outlined">file_upload</span>
         </div>
@@ -3608,7 +3854,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         <div class="dock-menu-item" id="fullscreenToggle" title="Plein écran">
             <span class="material-symbols-outlined" id="fullscreenIcon">fullscreen</span>
         </div>
-        <input type="file" id="sessionFileInput" accept=".json" style="display: none;">
     </div>
 
 
@@ -3638,6 +3883,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
     <script src="modules/drag.js"></script>
     <script src="modules/dessin.js"></script>
     <script src="modules/shared.js"></script>
+    <script src="modules/oi_cartographie.js"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
@@ -3946,6 +4192,195 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             <span class="material-symbols-outlined" style="font-size:18px;">delete</span> Supprimer
         </button>
     </div>
+    <!-- ==================== CARTOGRAPHIE OI (MapLibre) ==================== -->
+    <dialog id="cartographyModal">
+        <div id="oi_carto_map_wrap">
+            <div id="oi_carto_map"></div>
+
+            <!-- Bandeau d'indication (placement de point en attente) -->
+            <div id="oi_carto_hint" title="Cliquer pour annuler"></div>
+
+            <!-- Bandeau de recherche adresse normalisée / coordonnées GPS -->
+            <div id="oi_carto_search_panel">
+                <div style="display: flex; gap: 6px;">
+                    <input type="text" id="oi_carto_address_input"
+                        placeholder="Adresse ou coordonnées GPS (lat, lng)" style="flex: 1;">
+                    <button type="button" id="oi_carto_search_btn" class="add-btn"
+                        style="width: auto; padding: 8px 12px;">
+                        <span class="material-symbols-outlined">search</span>
+                    </button>
+                    <button type="button" id="oi_carto_search_close" class="add-btn"
+                        style="width: auto; padding: 8px 10px; background: var(--bg-interactive); border: 1px solid var(--border-color); color: var(--text-primary);">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <div id="oi_carto_search_results"
+                    style="margin-top: 6px; max-height: 200px; overflow-y: auto;"></div>
+                <div class="oi-carto-search-hint">Ex&nbsp;: «&nbsp;12 rue de la Paix, Paris&nbsp;» ou
+                    «&nbsp;48.8566, 2.3522&nbsp;»</div>
+            </div>
+
+            <!-- Toolbar verticale : Recherche / Pin / Dessin / 3D / Plein écran / Fermer -->
+            <div class="oi-carto-toolbar">
+                <button type="button" id="oi_carto_btn_search" class="oi-carto-fab"
+                    title="Recherche adresse / coordonnées GPS">
+                    <span class="material-symbols-outlined">search</span>
+                </button>
+                <button type="button" id="oi_carto_btn_ping" class="oi-carto-fab"
+                    title="Ajouter un point (membre ou pin OI)">
+                    <span class="material-symbols-outlined">add_location</span>
+                </button>
+                <button type="button" id="oi_carto_btn_draw" class="oi-carto-fab" title="Outils de dessin">
+                    <span class="material-symbols-outlined">draw</span>
+                </button>
+                <button type="button" id="oi_carto_btn_capture" class="oi-carto-fab"
+                    title="Capture de la carte (télécharger ou exporter vers un champ photo)">
+                    <span class="material-symbols-outlined">photo_camera</span>
+                </button>
+                <button type="button" id="oi_carto_btn_labels" class="oi-carto-fab"
+                    title="Afficher / masquer les libellés des pins">
+                    <span class="material-symbols-outlined">label</span>
+                </button>
+                <button type="button" id="oi_carto_btn_3d" class="oi-carto-fab"
+                    title="Basculer vue 2D / 3D relief">
+                    <span class="material-symbols-outlined">deployed_code</span>
+                </button>
+                <button type="button" id="oi_carto_btn_fullscreen" class="oi-carto-fab" title="Plein écran">
+                    <span class="material-symbols-outlined">fullscreen</span>
+                </button>
+                <button type="button" id="oi_carto_btn_close" class="oi-carto-fab close-fab"
+                    title="Fermer la cartographie">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <!-- Dock dessin réductible (ouvert via le FAB Dessin) -->
+            <div id="oi_carto_draw_dock">
+                <button type="button" class="oi-carto-draw-btn" data-tool="line" title="Tracer un trait">
+                    <span class="material-symbols-outlined">timeline</span>
+                </button>
+                <button type="button" class="oi-carto-draw-btn" data-tool="rectangle"
+                    title="Tracer un rectangle">
+                    <span class="material-symbols-outlined">crop_square</span>
+                </button>
+                <button type="button" class="oi-carto-draw-btn" data-tool="circle" title="Tracer un cercle">
+                    <span class="material-symbols-outlined">circle</span>
+                </button>
+                <div class="oi-carto-dock-sep"></div>
+                <div id="oi_carto_draw_colors">
+                    <button type="button" class="oi-carto-draw-color" data-color="#ef4444" title="Rouge"
+                        style="background:#ef4444;"></button>
+                    <button type="button" class="oi-carto-draw-color" data-color="#eab308" title="Jaune"
+                        style="background:#eab308;"></button>
+                    <button type="button" class="oi-carto-draw-color" data-color="#3b82f6" title="Bleu"
+                        style="background:#3b82f6;"></button>
+                    <button type="button" class="oi-carto-draw-color" data-color="#22c55e" title="Vert"
+                        style="background:#22c55e;"></button>
+                    <button type="button" class="oi-carto-draw-color" data-color="#ffffff" title="Blanc"
+                        style="background:#ffffff;"></button>
+                </div>
+                <div class="oi-carto-dock-sep"></div>
+                <button type="button" id="oi_carto_draw_undo" class="oi-carto-draw-btn"
+                    title="Annuler (Ctrl+Z)">
+                    <span class="material-symbols-outlined">undo</span>
+                </button>
+                <button type="button" id="oi_carto_draw_redo" class="oi-carto-draw-btn"
+                    title="Rétablir (Ctrl+Y)">
+                    <span class="material-symbols-outlined">redo</span>
+                </button>
+                <div class="oi-carto-dock-sep"></div>
+                <button type="button" id="oi_carto_draw_clear" class="oi-carto-draw-btn"
+                    title="Effacer tous les dessins" style="color: var(--danger-red);">
+                    <span class="material-symbols-outlined">delete_sweep</span>
+                </button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Modale d'ajout de point cartographie : pins membres / cyno / véhicules / rassemblement -->
+    <dialog id="oi_carto_ping_modal"
+        style="padding: 0; background: transparent; border: none; overflow: visible; z-index: 3000; margin: auto;">
+        <div class="modal-content" style="max-width: 480px;">
+            <h2 style="color: var(--accent-blue); display: flex; align-items: center; gap: 10px;">
+                <span class="material-symbols-outlined">add_location</span> Ajouter un point
+            </h2>
+
+            <input type="text" id="oi_carto_pin_label"
+                placeholder="Libellé personnalisé (appliqué aux pins génériques)" style="margin-top: 14px;">
+
+            <div style="overflow-y: auto; margin-top: 14px; padding-right: 4px;">
+                <div class="oi-carto-ping-section">
+                    <label><span class="material-symbols-outlined"
+                            style="font-size:18px; vertical-align:middle;">local_police</span> Membres PATRACDVR</label>
+                    <div id="oi_carto_member_list" class="oi-carto-ping-list"></div>
+                </div>
+                <div class="oi-carto-ping-section">
+                    <label><span class="material-symbols-outlined"
+                            style="font-size:18px; vertical-align:middle;">pets</span> Cyno</label>
+                    <div id="oi_carto_cyno_list" class="oi-carto-ping-list"></div>
+                </div>
+                <div class="oi-carto-ping-section">
+                    <label><span class="material-symbols-outlined"
+                            style="font-size:18px; vertical-align:middle;">directions_car</span> Rame VL — véhicule de la
+                        force</label>
+                    <div id="oi_carto_ramevl_list" class="oi-carto-ping-list"></div>
+                </div>
+                <div class="oi-carto-ping-section">
+                    <label><span class="material-symbols-outlined"
+                            style="font-size:18px; vertical-align:middle;">directions_car</span> VL Target — véhicule
+                        adverse</label>
+                    <div id="oi_carto_vltarget_list" class="oi-carto-ping-list"></div>
+                </div>
+                <div class="oi-carto-ping-section">
+                    <label><span class="material-symbols-outlined"
+                            style="font-size:18px; vertical-align:middle;">groups</span> Rassemblement</label>
+                    <div id="oi_carto_rassemblement_list" class="oi-carto-ping-list"></div>
+                </div>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 0.85em; margin-top: 12px;">
+                Après sélection, cliquez sur la carte pour placer le point.
+            </p>
+            <div style="display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                <button type="button" class="remove-btn" id="oi_carto_clear_pins">
+                    <span class="material-symbols-outlined"
+                        style="font-size:18px; vertical-align:middle;">delete_sweep</span>
+                    Supprimer tous les pins
+                </button>
+                <button type="button" class="remove-btn" id="oi_carto_ping_cancel">Annuler</button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Modale de capture cartographie : téléchargement ou export vers un champ photo -->
+    <dialog id="oi_carto_capture_modal"
+        style="padding: 0; background: transparent; border: none; overflow: visible; z-index: 3000; margin: auto;">
+        <div class="modal-content" style="max-width: 460px;">
+            <h2 style="color: var(--accent-blue); display: flex; align-items: center; gap: 10px;">
+                <span class="material-symbols-outlined">photo_camera</span> Capture de la carte
+            </h2>
+
+            <button type="button" class="add-btn" id="oi_carto_capture_download" style="margin-top: 16px;">
+                <span class="material-symbols-outlined">download</span> Télécharger la capture (PNG)
+            </button>
+
+            <div style="border-top: 1px solid var(--border-color); margin: 18px 0;"></div>
+
+            <label>Exporter la capture vers un champ photo de l'OI</label>
+            <select id="oi_carto_capture_target" style="margin-top: 6px;"></select>
+            <button type="button" class="add-btn" id="oi_carto_capture_export" style="margin-top: 10px;">
+                <span class="material-symbols-outlined">add_photo_alternate</span> Exporter vers ce champ
+            </button>
+
+            <p style="color: var(--text-muted); font-size: 0.85em; margin-top: 12px;">
+                La capture est ajoutée comme photo dans le champ choisi (avec compression standard de l'OI).
+            </p>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="remove-btn" id="oi_carto_capture_cancel">Fermer</button>
+            </div>
+        </div>
+    </dialog>
+
     <!-- Modale de Chargement PDF (V6.10) -->
     <div id="pdfLoadingModal">
         <div class="pdf-loading-card">

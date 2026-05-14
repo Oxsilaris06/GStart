@@ -5,6 +5,11 @@
  * Moteur de rendu PDF et Aperçu basé sur HTML.
  */
 
+// Parse JSON tolérant : retourne le fallback si la donnée est corrompue
+function safeJsonParse(str, fallback) {
+    try { return JSON.parse(str); } catch (e) { console.warn('[PDF] JSON corrompu ignoré:', e); return fallback; }
+}
+
 const PDFEngineV2 = {
     // --- CONFIGURATION ---
     options: {
@@ -34,11 +39,20 @@ const PDFEngineV2 = {
             // 1. Collecter les données
             const data = await this.collectAllData();
 
-            // 2. Générer le HTML
-            const htmlContent = this.generateHTML(data, true); // true = mode preview
+            // 2. Générer le HTML (on respecte le format choisi pour un aperçu fidèle)
+            const is169 = (window.pdfOutputFormat === '16:9');
+            const pageOpts = is169 ? { pageW: 338, pageH: 190.125 } : { pageW: 297, pageH: 210 };
+            const htmlContent = this.generateHTML(data, true, pageOpts);
 
             // 3. Injecter
             presentationContent.innerHTML = htmlContent;
+
+            // 4. Anti-débordement : ajuste chaque page pour un aperçu fidèle au PDF
+            const pages = Array.from(presentationContent.querySelectorAll('.pdf-page'));
+            const imgs = presentationContent.querySelectorAll('img');
+            await Promise.all(Array.from(imgs).map(img => (img.complete ? Promise.resolve() : img.decode().catch(() => {}))));
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            pages.forEach((pageEl, idx) => this._fitPageToBudget(pageEl, idx));
         } catch (error) {
             console.error("Preview Error:", error);
             presentationContent.innerHTML = '<div style="color:red; padding: 20px;">Erreur lors de la génération de l\'aperçu.</div>';
@@ -138,6 +152,9 @@ const PDFEngineV2 = {
 
                 await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+                // Anti-débordement : ajuste le contenu pour qu'il rentre dans la page
+                this._fitPageToBudget(pageEl, i);
+
                 // Capture de la page
                 const canvas = await html2canvasLib(pageEl, {
                     scale: 2,
@@ -194,7 +211,7 @@ const PDFEngineV2 = {
                             if (blob) {
                                 let finalBlob = blob;
                                 // Fusion des annotations si présentes
-                                const annotations = JSON.parse(photoMeta.annotations || '[]');
+                                const annotations = safeJsonParse(photoMeta.annotations || '[]', []);
                                 if (annotations.length > 0 && typeof createAnnotatedImageBlob === 'function') {
                                     console.log(`🎨 Fusion annotations pour ${photoMeta.id}...`);
                                     try {
@@ -241,6 +258,56 @@ const PDFEngineV2 = {
     },
 
     /**
+     * Anti-débordement d'une page PDF.
+     * Mesure la hauteur réelle du contenu en flux ; s'il dépasse la hauteur
+     * disponible de la page, enveloppe le contenu et applique un scale()
+     * pour le faire rentrer (jamais en dessous de MIN_SCALE — au-delà on
+     * journalise un avertissement). Les éléments en position absolue
+     * (filigrane, pied de page) sont laissés en place et non mis à l'échelle.
+     * Idempotent : un 2e appel sur la même page ne refait pas le wrapping.
+     * @param {HTMLElement} pageEl - l'élément .pdf-page
+     * @param {number} pageIndex - index de la page (pour le message d'avertissement)
+     * @returns {boolean} true si la page a dû être réduite
+     */
+    _fitPageToBudget(pageEl, pageIndex) {
+        if (!pageEl) return false;
+        const MIN_SCALE = 0.62;
+
+        let inner = pageEl.querySelector(':scope > .pdf-page-fit');
+        if (!inner) {
+            inner = document.createElement('div');
+            inner.className = 'pdf-page-fit';
+            inner.style.cssText = 'display:flex; flex-direction:column; width:100%; flex-shrink:0; transform-origin: top left;';
+            // Déplacer uniquement le contenu EN FLUX dans le wrapper ;
+            // on laisse les éléments absolus (filigrane, footer) en place.
+            Array.from(pageEl.childNodes).forEach(node => {
+                if (node.nodeType === 1) {
+                    const pos = getComputedStyle(node).position;
+                    if (pos === 'absolute' || pos === 'fixed') return;
+                }
+                inner.appendChild(node);
+            });
+            pageEl.appendChild(inner);
+        }
+
+        const cs = getComputedStyle(pageEl);
+        const padV = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+        const avail = pageEl.clientHeight - padV;
+        const needed = inner.scrollHeight;
+
+        if (avail > 0 && needed > avail + 1) {
+            const scale = Math.max(MIN_SCALE, avail / needed);
+            inner.style.transform = `scale(${scale})`;
+            inner.style.width = (100 / scale) + '%';
+            if (scale <= MIN_SCALE + 0.001) {
+                console.warn(`[PDF] Page ${pageIndex + 1} : contenu très dense (réduit à ${Math.round(scale * 100)}%). Envisagez d'alléger ou de scinder ce bloc.`);
+            }
+            return true;
+        }
+        return false;
+    },
+
+    /**
      * @param {Boolean} isPreview Si true, adapte le CSS pour un affichage web sans marges mm strictes.
      */
     generateHTML(data, isPreview = false, pageOptions = {}) {
@@ -267,7 +334,7 @@ const PDFEngineV2 = {
         };
 
         const pageStyle = isPreview
-            ? `width: 100%; max-width: 1000px; margin: 0 auto 40px auto; min-height: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border-radius: 12px;`
+            ? `width: 100%; max-width: 1000px; margin: 0 auto 30px auto; aspect-ratio: ${PAGE_W_MM} / ${PAGE_H_MM}; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border-radius: 12px;`
             : `width: ${PAGE_W_MM}mm; height: ${PAGE_H_MM}mm; page-break-after: always;`;
         // En 16:9, on réduit légèrement les marges pour maximiser le contenu
         const pagePadding = PAGE_W_MM > 300 ? '10mm 16mm' : '15mm 20mm';
@@ -478,7 +545,7 @@ const PDFEngineV2 = {
             let galleryPages = '';
 
             photoMetas.forEach((p, idx) => {
-                const tools = JSON.parse(p.tools || '[]');
+                const tools = safeJsonParse(p.tools || '[]', []);
 
                 // Calcul du ratio pour l'image
                 const imgSrc = photosBase64[p.id] || '';
@@ -745,7 +812,7 @@ const PDFEngineV2 = {
             if (effracBlock) {
                 const photoMeta = formData.dynamic_photos?.['photo_effrac_' + effracBlock.id]?.[0];
                 const doorPhotoSrc = photoMeta ? photosBase64[photoMeta.id] : null;
-                const tools = photoMeta ? JSON.parse(photoMeta.tools || '[]') : [];
+                const tools = photoMeta ? safeJsonParse(photoMeta.tools || '[]', []) : [];
                 const EFFRAC_TOP_H = is169 ? '65mm' : '75mm';
 
                 pages += `

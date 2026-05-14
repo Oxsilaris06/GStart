@@ -220,13 +220,24 @@ export const PlanMap = {
     _bindUi() {
         const searchInput = document.getElementById('plan_address_input');
         const searchBtn = document.getElementById('plan_search_btn');
+        const searchClose = document.getElementById('plan_search_close');
 
         if (searchBtn) searchBtn.onclick = () => this._searchAddress();
         if (searchInput) searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { e.preventDefault(); this._searchAddress(); }
         });
+        if (searchClose) searchClose.onclick = () => this._toggleSearchPanel(false);
 
-        // --- Toolbar unifiée : 4 FABs ---
+        // --- Toolbar unifiée : 6 FABs ---
+        const btnSearch = document.getElementById('plan_btn_search');
+        if (btnSearch) btnSearch.onclick = () => this._toggleSearchPanel();
+
+        const btnFs = document.getElementById('plan_btn_fullscreen');
+        if (btnFs) btnFs.onclick = () => this._toggleFullscreen();
+        // Maintenir l'icône à jour quel que soit le déclencheur (FAB ou touche Échap)
+        ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev =>
+            document.addEventListener(ev, () => this._updateFullscreenIcon()));
+
         const btn3d = document.getElementById('plan_btn_3d');
         if (btn3d) btn3d.onclick = () => this._toggle3D();
 
@@ -268,6 +279,60 @@ export const PlanMap = {
         }
     },
 
+    /** Passe le conteneur de carte en plein écran (ou en sort) */
+    _toggleFullscreen() {
+        const container = document.getElementById('plan_map').parentElement;
+        if (!container) return;
+        const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+        if (!fsEl) {
+            const req = container.requestFullscreen || container.webkitRequestFullscreen;
+            if (req) req.call(container);
+        } else {
+            const exit = document.exitFullscreen || document.webkitExitFullscreen;
+            if (exit) exit.call(document);
+        }
+    },
+
+    _updateFullscreenIcon() {
+        const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+        const active = !!fsEl;
+        const btn = document.getElementById('plan_btn_fullscreen');
+        if (btn) {
+            btn.classList.toggle('active', active);
+            const icon = btn.querySelector('.material-symbols-outlined');
+            if (icon) icon.textContent = active ? 'fullscreen_exit' : 'fullscreen';
+        }
+        // La taille du conteneur a changé → MapLibre doit recalculer
+        if (this.map) setTimeout(() => this.map.resize(), 60);
+    },
+
+    /** Ouvre/ferme le bandeau de recherche */
+    _toggleSearchPanel(force) {
+        const panel = document.getElementById('plan_search_panel');
+        const fab = document.getElementById('plan_btn_search');
+        if (!panel) return;
+        const shouldOpen = force === undefined ? !panel.classList.contains('open') : force;
+        panel.classList.toggle('open', shouldOpen);
+        if (fab) fab.classList.toggle('active', shouldOpen);
+        if (shouldOpen) {
+            const input = document.getElementById('plan_address_input');
+            if (input) input.focus();
+        }
+    },
+
+    /** Détecte une saisie de coordonnées GPS décimales "lat, lng" (sép. , ; ou espace).
+     *  Retourne {lat, lng} ou null. */
+    _parseGps(str) {
+        const m = str.match(/^\s*(-?\d{1,3}(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:[.,]\d+)?)\s*$/);
+        if (!m) return null;
+        // Gère la virgule décimale française : on remplace seulement si pas de séparateur ambigu
+        const lat = parseFloat(m[1].replace(',', '.'));
+        const lng = parseFloat(m[2].replace(',', '.'));
+        if (isNaN(lat) || isNaN(lng)) return null;
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+        return { lat, lng };
+    },
+
     async _searchAddress() {
         const input = document.getElementById('plan_address_input');
         const resultsBox = document.getElementById('plan_search_results');
@@ -275,6 +340,19 @@ export const PlanMap = {
         const q = input.value.trim();
         if (!q) return;
 
+        // 1) Coordonnées GPS directes → on centre immédiatement
+        const gps = this._parseGps(q);
+        if (gps) {
+            this.map.flyTo({ center: [gps.lng, gps.lat], zoom: 17, speed: 1.4 });
+            resultsBox.innerHTML = `
+                <div class="plan-search-result" style="padding: 8px; border-bottom: 1px solid var(--border-glass); display: flex; align-items: center; gap: 6px;">
+                    <span class="material-symbols-outlined" style="font-size: 16px; color: var(--ao-green);">my_location</span>
+                    Point GPS centré : ${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}
+                </div>`;
+            return;
+        }
+
+        // 2) Sinon, géocodage d'adresse via Nominatim
         resultsBox.innerHTML = '<em style="color: var(--text-muted);">Recherche…</em>';
         try {
             const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`;
@@ -961,9 +1039,17 @@ export const PlanMap = {
     },
 
     /**
-     * Capture haute qualité de la carte avec ses annotations (pins, dessins,
-     * boussole MapLibre) MAIS sans la légende ni la toolbar de dessin.
-     * Utilise html2canvas (DOM + WebGL combinés) avec scale 2 pour qualité retina.
+     * Capture haute qualité de la carte avec ses annotations.
+     *
+     * Approche robuste (fonctionne aussi en plein écran) :
+     *  1. Base = canvas WebGL natif de MapLibre (tuiles, terrain, bâtiments,
+     *     dessins) — toujours aux dimensions correctes quel que soit l'état.
+     *  2. Overlay = markers DOM (pins + libellés + boussole) via html2canvas,
+     *     en IGNORANT le canvas WebGL pour ne capturer que le DOM léger.
+     *  3. Composition des deux dans un canvas final → PNG.
+     *
+     * On ne capture donc jamais le conteneur entier via html2canvas (ce qui
+     * cassait en plein écran : taille écran × scale → canvas démesuré).
      */
     async _takeScreenshot() {
         if (typeof html2canvas === 'undefined') {
@@ -973,10 +1059,11 @@ export const PlanMap = {
         const mapContainer = document.getElementById('plan_map').parentElement;
         if (!mapContainer) return;
 
-        // Éléments à masquer temporairement (toolbar, dock, légende, FABs, hint)
+        // Éléments UI à masquer temporairement (on garde la boussole MapLibre)
         const toHide = [
             document.getElementById('plan_unified_toolbar'),
             document.getElementById('plan_draw_dock'),
+            document.getElementById('plan_search_panel'),
             document.getElementById('plan_legend'),
             document.getElementById('plan_hint')
         ].filter(Boolean);
@@ -987,15 +1074,32 @@ export const PlanMap = {
         this.map.triggerRepaint();
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-        let canvas;
+        let outCanvas;
         try {
-            canvas = await html2canvas(mapContainer, {
+            const glCanvas = this.map.getCanvas();
+            const w = glCanvas.width;   // dimensions pixel réelles (déjà × devicePixelRatio)
+            const h = glCanvas.height;
+
+            // Overlay DOM (markers, boussole) — html2canvas en ignorant tous les <canvas>
+            const dpr = w / glCanvas.clientWidth; // ratio réel appliqué par MapLibre
+            const overlay = await html2canvas(mapContainer, {
                 useCORS: true,
                 allowTaint: false,
-                scale: 2,
                 backgroundColor: null,
-                logging: false
+                logging: false,
+                scale: dpr,
+                width: glCanvas.clientWidth,
+                height: glCanvas.clientHeight,
+                ignoreElements: (el) => el.tagName === 'CANVAS'
             });
+
+            // Composition finale
+            outCanvas = document.createElement('canvas');
+            outCanvas.width = w;
+            outCanvas.height = h;
+            const ctx = outCanvas.getContext('2d');
+            ctx.drawImage(glCanvas, 0, 0, w, h);
+            ctx.drawImage(overlay, 0, 0, w, h);
         } catch (e) {
             console.error('[PlanMap] screenshot échec:', e);
             alert('Erreur lors de la capture : ' + e.message);
@@ -1005,7 +1109,7 @@ export const PlanMap = {
             toHide.forEach((el, i) => { el.style.display = memo[i] || ''; });
         }
 
-        canvas.toBlob((blob) => {
+        outCanvas.toBlob((blob) => {
             if (!blob) return;
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');

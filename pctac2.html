@@ -933,6 +933,32 @@
             margin: 1px 0;
         }
 
+        /* Bandeau de recherche (adresse + GPS) — ouvert via le FAB Recherche */
+        #plan_search_panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 70px;
+            z-index: 11;
+            display: none;
+            background: var(--bg-glass-heavy);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        #plan_search_panel.open {
+            display: block;
+        }
+
+        #plan_search_panel .plan-search-hint {
+            font-size: 0.72em;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
         @media (max-width: 768px) {
             /* Sur mobile, la carte prend plus de hauteur utile */
             #plan_legend {
@@ -1254,22 +1280,32 @@
 
         <!-- VUE : PLAN TACTIQUE (MapLibre) -->
         <div id="view-plan" class="tab-content-view">
-            <div class="log-entry-form" style="padding: 12px;">
-                <label>Recherche d'adresse</label>
-                <div style="display: flex; gap: 6px;">
-                    <input type="text" id="plan_address_input" placeholder="Ex: 12 rue de la Paix, Paris" style="flex: 1;">
-                    <button type="button" id="plan_search_btn" class="add-btn" style="width: auto; padding: 10px 16px;">
-                        <span class="material-symbols-outlined">search</span>
-                    </button>
-                </div>
-                <div id="plan_search_results" style="margin-top: 6px; max-height: 180px; overflow-y: auto; font-size: 0.85em;"></div>
-            </div>
-
-            <div style="position: relative; height: 70vh; min-height: 500px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-glass);">
+            <div style="position: relative; height: 78vh; min-height: 500px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-glass);">
                 <div id="plan_map" style="position: absolute; inset: 0;"></div>
 
-                <!-- Toolbar unifiée : 4 FABs (3D / Capture / Ping / Dessin) -->
+                <!-- Bandeau de recherche (adresse normalisée + coordonnées GPS) -->
+                <div id="plan_search_panel">
+                    <div style="display: flex; gap: 6px;">
+                        <input type="text" id="plan_address_input" placeholder="Adresse ou coordonnées GPS (lat, lng)" style="flex: 1;">
+                        <button type="button" id="plan_search_btn" class="add-btn" style="width: auto; padding: 8px 12px;">
+                            <span class="material-symbols-outlined">search</span>
+                        </button>
+                        <button type="button" id="plan_search_close" class="add-btn" style="width: auto; padding: 8px 10px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main);">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                    <div id="plan_search_results" style="margin-top: 6px; max-height: 200px; overflow-y: auto; font-size: 0.85em;"></div>
+                    <div class="plan-search-hint">Ex&nbsp;: «&nbsp;12 rue de la Paix, Paris&nbsp;» ou «&nbsp;48.8566, 2.3522&nbsp;»</div>
+                </div>
+
+                <!-- Toolbar unifiée : 6 FABs (Recherche / Plein écran / 3D / Capture / Ping / Dessin) -->
                 <div id="plan_unified_toolbar">
+                    <button type="button" id="plan_btn_search" class="plan-tool-fab" title="Recherche adresse / coordonnées GPS">
+                        <span class="material-symbols-outlined">search</span>
+                    </button>
+                    <button type="button" id="plan_btn_fullscreen" class="plan-tool-fab" title="Plein écran">
+                        <span class="material-symbols-outlined">fullscreen</span>
+                    </button>
                     <button type="button" id="plan_btn_3d" class="plan-tool-fab" title="Basculer vue 2D / 3D relief">
                         <span class="material-symbols-outlined">deployed_code</span>
                     </button>

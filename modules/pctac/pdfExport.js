@@ -1,4 +1,5 @@
 import { Storage } from './storage.js';
+import { ImageStore } from './imageStore.js';
 import { PDF_PAX_COLORS, PHOTO_CATEGORIES, FREE_MODE_COLORS } from './config.js';
 
 /**
@@ -14,12 +15,12 @@ export const PdfExport = {
             const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
             const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-            // Charger les données
+            // Charger les données (les photos sont stockées en IndexedDB, on les hydrate)
             const logData = Storage.loadLogData();
-            const adversaries = Storage.loadCollection('pcTacAdversaries');
-            const hostages = Storage.loadCollection('pcTacHostages');
+            const adversaries = await ImageStore.hydrate(Storage.loadCollection('pcTacAdversaries'), 'photo');
+            const hostages = await ImageStore.hydrate(Storage.loadCollection('pcTacHostages'), 'photo');
             const friends = Storage.loadCollection('pcTacFriends');
-            const photos = Storage.loadCollection('pcTacPhotos');
+            const photos = await ImageStore.hydrate(Storage.loadCollection('pcTacPhotos'), 'data');
 
             // Détection du thème
             const isDarkMode = document.body.classList.contains('dark-mode');
@@ -290,6 +291,46 @@ export const PdfExport = {
                     context.y = Math.min(y1, y2) - 30;
                 }
             }
+
+            // --- FOOTER : pagination + DIFFUSION RESTREINTE sur toutes les pages ---
+            const allPages = pdfDoc.getPages();
+            const totalPages = allPages.length;
+            const exportStamp = new Date().toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+            const footerColor = pdfRgb(0.55, 0.55, 0.55);
+            const restrictColor = pdfRgb(0.7, 0.15, 0.15);
+
+            allPages.forEach((page, idx) => {
+                const w = page.getWidth();
+                const pageNum = `Page ${idx + 1} / ${totalPages}`;
+                const numWidth = font.widthOfTextAtSize(pageNum, 8);
+                const restrict = 'DIFFUSION RESTREINTE';
+                const restrictWidth = fontBold.widthOfTextAtSize(restrict, 8);
+
+                // Ligne fine au-dessus du footer
+                page.drawLine({
+                    start: { x: context.margin, y: 22 },
+                    end: { x: w - context.margin, y: 22 },
+                    thickness: 0.3, color: themeColors.line, opacity: 0.5
+                });
+
+                // Gauche : mention DIFFUSION RESTREINTE
+                page.drawText(restrict, {
+                    x: context.margin, y: 10, size: 8, font: fontBold, color: restrictColor
+                });
+                // Centre : horodatage export
+                const center = `PC TAC — Export ${exportStamp}`;
+                const centerWidth = font.widthOfTextAtSize(center, 8);
+                page.drawText(center, {
+                    x: (w - centerWidth) / 2, y: 10, size: 8, font, color: footerColor
+                });
+                // Droite : pagination
+                page.drawText(pageNum, {
+                    x: w - context.margin - numWidth, y: 10, size: 8, font, color: footerColor
+                });
+
+                // Suppress 'restrictWidth' lint without affecting layout (réservé si bordure ajoutée plus tard)
+                void restrictWidth;
+            });
 
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });

@@ -22,6 +22,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 
+    <!-- MapLibre GL JS -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
     <style>
         /* --- THEME TACTICAL GLASS --- */
         /* --- THEME TACTICAL GLASS --- */
@@ -177,7 +181,7 @@
 
         .main-tab-bar {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
+            grid-template-columns: repeat(7, 1fr);
             background: rgba(0, 0, 0, 0.4);
             border: 1px solid var(--border-glass);
             margin-bottom: 20px;
@@ -834,7 +838,7 @@
             }
 
             .main-tab-bar {
-                grid-template-columns: repeat(6, 1fr);
+                grid-template-columns: repeat(7, 1fr);
                 gap: 2px;
                 padding: 2px;
             }
@@ -896,6 +900,10 @@
             <button class="tab-btn" data-view="view-photos">
                 <span class="material-symbols-outlined">photo_library</span>
                 <span>Photos</span>
+            </button>
+            <button class="tab-btn" data-view="view-plan">
+                <span class="material-symbols-outlined">map</span>
+                <span>Plan</span>
             </button>
             <button class="tab-btn" data-view="view-liens">
                 <span class="material-symbols-outlined">link</span>
@@ -1117,6 +1125,121 @@
                 <!-- Rendu dynamique via UI.renderPhotos -->
             </div>
             <div id="photo-board" class="photo-grid"></div>
+        </div>
+
+        <!-- VUE : PLAN TACTIQUE (MapLibre) -->
+        <div id="view-plan" class="tab-content-view">
+            <div class="log-entry-form" style="padding: 12px;">
+                <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <label>Recherche d'adresse</label>
+                        <div style="display: flex; gap: 6px;">
+                            <input type="text" id="plan_address_input" placeholder="Ex: 12 rue de la Paix, Paris" style="flex: 1;">
+                            <button type="button" id="plan_search_btn" class="add-btn" style="width: auto; padding: 10px 16px;">
+                                <span class="material-symbols-outlined">search</span>
+                            </button>
+                        </div>
+                        <div id="plan_search_results" style="margin-top: 6px; max-height: 180px; overflow-y: auto; font-size: 0.85em;"></div>
+                    </div>
+                    <button type="button" id="plan_free_pin_btn" class="add-btn" style="width: auto; padding: 10px 16px; background: var(--bg-input); border: 1px solid var(--border-glass);">
+                        <span class="material-symbols-outlined">add_location</span> Point libre
+                    </button>
+                    <button type="button" id="plan_toggle_panel_btn" class="add-btn" style="width: auto; padding: 10px 16px; background: var(--bg-input); border: 1px solid var(--border-glass);">
+                        <span class="material-symbols-outlined">list</span> Entités
+                    </button>
+                </div>
+            </div>
+
+            <div style="position: relative; height: 70vh; min-height: 500px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-glass);">
+                <div id="plan_map" style="position: absolute; inset: 0;"></div>
+
+                <!-- Toolbar de dessin (haut-gauche, sous les controls de zoom de MapLibre) -->
+                <div id="plan_draw_toolbar" style="position: absolute; top: 10px; left: 50px; display: flex; gap: 5px; background: var(--bg-glass-heavy); backdrop-filter: blur(10px); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 5px; z-index: 10; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+                    <button type="button" class="plan-draw-btn" data-tool="line" title="Tracer un trait" style="background: transparent; border: 1px solid transparent; color: var(--text-main); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 24px;">timeline</span>
+                    </button>
+                    <button type="button" class="plan-draw-btn" data-tool="rectangle" title="Tracer un rectangle" style="background: transparent; border: 1px solid transparent; color: var(--text-main); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 24px;">crop_square</span>
+                    </button>
+                    <button type="button" class="plan-draw-btn" data-tool="circle" title="Tracer un cercle" style="background: transparent; border: 1px solid transparent; color: var(--text-main); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 24px;">circle</span>
+                    </button>
+                    <div style="width: 1px; background: var(--border-glass); margin: 5px 2px;"></div>
+                    <!-- Color picker dessin -->
+                    <div id="plan_draw_color_picker" style="display: flex; gap: 4px; align-items: center; padding: 0 5px;">
+                        <button type="button" class="plan-draw-color" data-color="#ef4444" title="Rouge" style="width: 24px; height: 24px; border-radius: 50%; background: #ef4444; border: 2px solid #fff; cursor: pointer;"></button>
+                        <button type="button" class="plan-draw-color" data-color="#eab308" title="Jaune" style="width: 24px; height: 24px; border-radius: 50%; background: #eab308; border: 2px solid transparent; cursor: pointer;"></button>
+                        <button type="button" class="plan-draw-color" data-color="#3b82f6" title="Bleu" style="width: 24px; height: 24px; border-radius: 50%; background: #3b82f6; border: 2px solid transparent; cursor: pointer;"></button>
+                        <button type="button" class="plan-draw-color" data-color="#22c55e" title="Vert" style="width: 24px; height: 24px; border-radius: 50%; background: #22c55e; border: 2px solid transparent; cursor: pointer;"></button>
+                        <button type="button" class="plan-draw-color" data-color="#ffffff" title="Blanc" style="width: 24px; height: 24px; border-radius: 50%; background: #ffffff; border: 2px solid transparent; cursor: pointer;"></button>
+                    </div>
+                    <div style="width: 1px; background: var(--border-glass); margin: 5px 2px;"></div>
+                    <button type="button" id="plan_draw_undo" title="Annuler (Ctrl+Z)" style="background: transparent; border: 1px solid transparent; color: var(--text-main); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 24px;">undo</span>
+                    </button>
+                    <button type="button" id="plan_draw_redo" title="Rétablir (Ctrl+Y)" style="background: transparent; border: 1px solid transparent; color: var(--text-main); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 24px;">redo</span>
+                    </button>
+                    <div style="width: 1px; background: var(--border-glass); margin: 5px 2px;"></div>
+                    <button type="button" id="plan_draw_clear" title="Effacer tous les dessins" style="background: transparent; border: 1px solid transparent; color: var(--danger-red); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 24px;">delete_sweep</span>
+                    </button>
+                </div>
+
+                <!-- Panneau latéral entités -->
+                <div id="plan_entities_panel" style="position: absolute; top: 10px; right: 10px; width: 240px; max-height: calc(100% - 20px); background: var(--bg-glass-heavy); backdrop-filter: blur(10px); border: 1px solid var(--border-glass); border-radius: var(--radius-md); padding: 12px; overflow-y: auto; z-index: 10; display: none; box-shadow: 0 8px 30px rgba(0,0,0,0.4);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <strong style="font-family: var(--font-ui); letter-spacing: 1px; font-size: 0.85em;">ENTITÉS</strong>
+                        <button type="button" id="plan_close_panel_btn" style="background: none; border: none; color: var(--text-muted); cursor: pointer;">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                    <div id="plan_entities_list" style="display: flex; flex-direction: column; gap: 6px; font-size: 0.85em;"></div>
+                </div>
+
+                <!-- Légende OTAN -->
+                <div style="position: absolute; bottom: 10px; left: 10px; background: var(--bg-glass-heavy); backdrop-filter: blur(10px); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 0.9em; z-index: 10; display: flex; gap: 14px; align-items: center;">
+                    <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: var(--danger-red); display: inline-block;"></span>Adv</span>
+                    <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: var(--civil-yellow); display: inline-block;"></span>Otage</span>
+                    <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: var(--inter-blue); display: inline-block;"></span>Inter</span>
+                    <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: var(--ao-green); display: inline-block;"></span>Oscar</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modale point libre -->
+        <div class="modal" id="freePinModal">
+            <h3><span class="material-symbols-outlined" style="vertical-align: middle; color: var(--accent-blue);">add_location</span> Nouveau point libre</h3>
+            <div style="margin: 15px 0;">
+                <label>Libellé</label>
+                <input type="text" id="free_pin_label" placeholder="Ex: PC repli, point de regroupement...">
+            </div>
+            <div style="margin: 15px 0;">
+                <label>Type / Couleur OTAN</label>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="free_pin_color_select">
+                    <button type="button" class="pax-select-option" data-color="#ef4444" data-kind="Adv">Adv</button>
+                    <button type="button" class="pax-select-option" data-color="#eab308" data-kind="Otage">Otage</button>
+                    <button type="button" class="pax-select-option" data-color="#3b82f6" data-kind="Inter">Inter</button>
+                    <button type="button" class="pax-select-option" data-color="#22c55e" data-kind="Oscar">Oscar</button>
+                    <button type="button" class="pax-select-option" data-color="#94a3b8" data-kind="Inconnu">Inconnu</button>
+                </div>
+                <input type="hidden" id="free_pin_color" value="#3b82f6">
+                <input type="hidden" id="free_pin_kind" value="Inter">
+            </div>
+            <div style="margin: 15px 0;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="free_pin_is_vehicle" style="width: auto; margin: 0;">
+                    <span style="display: inline-flex; align-items: center; gap: 6px;">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">directions_car</span>
+                        Véhicule (l'icône change, la couleur reste)
+                    </span>
+                </label>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.85em;">Clique ensuite sur la carte pour placer le point.</p>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="add-btn" id="freePinConfirmBtn">Activer le placement</button>
+                <button class="add-btn" id="freePinCancelBtn" style="background: var(--bg-input);">Annuler</button>
+            </div>
         </div>
 
         <!-- VUE : LIENS EXTERNES -->

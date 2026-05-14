@@ -3,13 +3,22 @@ import { UI } from './ui.js';
 import { LogManager } from './logManager.js';
 import { PdfExport } from './pdfExport.js';
 import { Utils } from './utils.js';
+import { ImageStore } from './imageStore.js';
+import './planMap.js'; // expose window.PlanMap (utilisé par UI.switchMainView)
 import { CUSTOM_PAX_KEY, ADVERSARIES_KEY, HOSTAGES_KEY, FRIENDS_KEY, PHOTOS_KEY } from './config.js';
 
 /**
  * Point d'entrée principal du module PC TAC
  */
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Migration des photos base64 vers IndexedDB (s'exécute une seule fois)
+    try {
+        await ImageStore.migrateFromLocalStorage();
+    } catch (e) {
+        console.error('[PC TAC] migration IndexedDB échouée:', e);
+    }
+
     // Initialisation UI
     UI.initElements();
     UI.initPaxModeAndColors();
@@ -101,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
     forms.forEach(cfg => {
         const f = document.getElementById(cfg.id);
         if (f) {
-            f.addEventListener('submit', (e) => {
+            f.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const values = cfg.fields.map(id => {
                     const el = document.getElementById(id);
@@ -110,68 +119,78 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 
                 if (values.some(v => v && v.trim !== '')) {
-                    const list = Storage.loadCollection(cfg.key);
                     const itemId = Date.now().toString();
-                    list.push({ id: itemId, ...cfg.map(values) });
+                    const mapped = cfg.map(values);
+                    const photoData = mapped.photo;
+
+                    // L'image part en IndexedDB, on garde seulement un flag dans la collection
+                    if (photoData && typeof photoData === 'string' && photoData.startsWith('data:')) {
+                        try { await ImageStore.put(itemId, photoData); } catch (e) { console.error('[PC TAC] put image échec:', e); }
+                        delete mapped.photo;
+                        mapped.hasImage = true;
+                    }
+
+                    const list = Storage.loadCollection(cfg.key);
+                    list.push({ id: itemId, ...mapped });
                     Storage.saveCollection(cfg.key, list);
-                    
+
                     cfg.fields.forEach(id => {
                         const el = document.getElementById(id);
                         if (el.type === 'file') { el.value = ''; delete el.dataset.base64; }
                         else el.value = '';
                     });
+                    // Reset des aperçus miniatures
+                    ['adv_photo_preview', 'hostage_photo_preview'].forEach(pid => {
+                        const p = document.getElementById(pid);
+                        if (p) {
+                            const isAdv = pid === 'adv_photo_preview';
+                            p.innerHTML = `<span class="material-symbols-outlined" style="font-size: 30px; color: var(--text-muted);">${isAdv ? 'person' : 'person_off'}</span>`;
+                        }
+                    });
 
                     if (cfg.view === 'view-adversaires') {
-                        UI.renderAdversaries();
+                        await UI.renderAdversaries();
                         // Copie automatique vers Photos pour les adversaires
-                        const adversary = cfg.map(values);
-                        if (adversary.photo) {
-                            const photoList = Storage.loadCollection(PHOTOS_KEY);
+                        if (photoData) {
                             const syncId = itemId + "_sync";
+                            try { await ImageStore.put(syncId, photoData); } catch (e) { console.error('[PC TAC] put sync image échec:', e); }
+                            const photoList = Storage.loadCollection(PHOTOS_KEY);
                             photoList.push({
                                 id: syncId,
-                                title: `${adversary.nom} ${adversary.prenom}`,
-                                data: adversary.photo,
+                                title: `${mapped.nom} ${mapped.prenom}`,
                                 category: 'neutralized',
-                                status: 'active'
+                                status: 'active',
+                                hasImage: true
                             });
                             Storage.saveCollection(PHOTOS_KEY, photoList);
-                            UI.renderPhotos();
+                            await UI.renderPhotos();
                         }
                     }
                     if (cfg.view === 'view-otages') {
-                        UI.renderHostages();
+                        await UI.renderHostages();
                         // Copie automatique vers Photos pour les otages avec statut intelligent
-                        const hostage = cfg.map(values);
-                        if (hostage.photo) {
-                            const photoList = Storage.loadCollection(PHOTOS_KEY);
-                            
-                            // Logique de statut basée sur les blessures
-                            const b = (hostage.blessures || '').toLowerCase().trim();
-                            // Termes considérés comme "Sain / OK"
+                        if (photoData) {
+                            const b = (mapped.blessures || '').toLowerCase().trim();
                             const rasTerms = ['ras', '-', '/', 'rien', 'neant', 'néant', 'idemne', 'indemne', 'aucune', '0', 'ok'];
                             const isRas = rasTerms.some(term => b === term || b === term + '.');
-                            
+
                             let status = 'ok';
-                            // Si le champ est rempli et n'est pas RAS, ou s'il contient "inconnu" -> Préoccupant
-                            if ((b !== '' && !isRas) || b.includes('inconnu') || b === '?') {
-                                status = 'preoccupant';
-                            }
-                            
-                            // Priorité aux états graves
+                            if ((b !== '' && !isRas) || b.includes('inconnu') || b === '?') status = 'preoccupant';
                             if (b.includes('blesse') || b.includes('blessé') || b.includes('grave')) status = 'blesse';
                             if (b.includes('mort') || b.includes('dcd') || b.includes('decede') || b.includes('décédé')) status = 'dcd';
 
                             const syncId = itemId + "_sync";
+                            try { await ImageStore.put(syncId, photoData); } catch (e) { console.error('[PC TAC] put sync image échec:', e); }
+                            const photoList = Storage.loadCollection(PHOTOS_KEY);
                             photoList.push({
                                 id: syncId,
-                                title: `${hostage.nom} ${hostage.prenom}`,
-                                data: hostage.photo,
+                                title: `${mapped.nom} ${mapped.prenom}`,
                                 category: 'hostage',
-                                status: status
+                                status: status,
+                                hasImage: true
                             });
                             Storage.saveCollection(PHOTOS_KEY, photoList);
-                            UI.renderPhotos();
+                            await UI.renderPhotos();
                         }
                     }
                     if (cfg.view === 'view-amis') UI.renderFriends();
@@ -216,15 +235,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const compressedData = await Utils.compressImage(fileInput.files[0], 1024, 1024, 0.7);
+                const photoId = Date.now().toString();
+                await ImageStore.put(photoId, compressedData);
                 const list = Storage.loadCollection(PHOTOS_KEY);
-                list.push({ id: Date.now().toString(), title, data: compressedData, category, status: 'active' });
+                list.push({ id: photoId, title, category, status: 'active', hasImage: true });
                 Storage.saveCollection(PHOTOS_KEY, list);
                 document.getElementById('photo_title').value = '';
                 fileInput.value = '';
-                UI.renderPhotos();
+                await UI.renderPhotos();
             } catch (err) {
                 console.error("Erreur de compression/sauvegarde:", err);
-                alert("Erreur lors de l'ajout de la photo. Il est possible que la mémoire soit pleine.");
+                alert("Erreur lors de l'ajout de la photo.");
             }
         });
     }
@@ -235,11 +256,14 @@ document.addEventListener('DOMContentLoaded', () => {
         UI.renderLogTable(Storage.loadLogData());
     };
 
-    window.deleteCollectionItem = (key, id, viewId) => {
+    window.deleteCollectionItem = async (key, id, viewId) => {
         if (!confirm('Confirmer la suppression ?')) return;
         const list = Storage.loadCollection(key).filter(item => item.id !== id);
         Storage.saveCollection(key, list);
-        
+
+        // Nettoyer l'image dans IndexedDB
+        try { await ImageStore.delete(id); } catch (e) { console.error('[PC TAC] delete image échec:', e); }
+
         // Suppression en cascade pour les photos synchronisées
         if (viewId === 'view-adversaires' || viewId === 'view-otages') {
             const photoKey = 'pcTacPhotos';
@@ -247,12 +271,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const syncId = id + "_sync";
             const filteredPhotos = photos.filter(p => p.id !== syncId);
             Storage.saveCollection(photoKey, filteredPhotos);
+            try { await ImageStore.delete(syncId); } catch (e) { console.error('[PC TAC] delete sync échec:', e); }
         }
 
-        if (viewId === 'view-adversaires') UI.renderAdversaries();
-        if (viewId === 'view-otages') UI.renderHostages();
+        if (viewId === 'view-adversaires') await UI.renderAdversaries();
+        if (viewId === 'view-otages') await UI.renderHostages();
         if (viewId === 'view-amis') UI.renderFriends();
-        if (viewId === 'view-photos') UI.renderPhotos();
+        if (viewId === 'view-photos') await UI.renderPhotos();
     };
 
     const previewPdfBtn = document.getElementById('previewPdfDockBtn');
@@ -263,8 +288,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const confirmResetBtn = document.getElementById('confirmResetBtn');
     if (confirmResetBtn) {
-        confirmResetBtn.onclick = () => {
+        confirmResetBtn.onclick = async () => {
             Storage.clearAllData();
+            try { await ImageStore.clear(); } catch (e) { console.error('[PC TAC] clear IDB échec:', e); }
             UI.renderLogTable([]);
             UI.hideResetModal();
             location.reload();

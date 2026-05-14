@@ -1,5 +1,6 @@
 import { PDF_PAX_COLORS, FREE_MODE_COLORS, LONG_PRESS_DELAY, PHOTO_CATEGORIES } from './config.js';
 import { Storage } from './storage.js';
+import { ImageStore } from './imageStore.js';
 
 /**
  * Gestionnaire de l'interface utilisateur PC TAC
@@ -78,6 +79,9 @@ export const UI = {
         if (viewId === 'view-photos') {
             const lastFilter = localStorage.getItem('lastPhotoFilter') || 'all';
             this.renderPhotos(lastFilter);
+        }
+        if (viewId === 'view-plan' && window.PlanMap) {
+            window.PlanMap.refresh();
         }
         localStorage.setItem('lastView', viewId);
     },
@@ -315,8 +319,9 @@ export const UI = {
         });
     },
 
-    renderAdversaries() {
-        const list = Storage.loadCollection('pcTacAdversaries') || [];
+    async renderAdversaries() {
+        const raw = Storage.loadCollection('pcTacAdversaries') || [];
+        const list = await ImageStore.hydrate(raw, 'photo');
         const tbody = document.getElementById('adversary-table-body');
         if (!tbody) return;
         tbody.innerHTML = list.map(item => `
@@ -346,8 +351,9 @@ export const UI = {
         `).join('');
     },
 
-    renderHostages() {
-        const list = Storage.loadCollection('pcTacHostages') || [];
+    async renderHostages() {
+        const raw = Storage.loadCollection('pcTacHostages') || [];
+        const list = await ImageStore.hydrate(raw, 'photo');
         const tbody = document.getElementById('hostage-table-body');
         if (!tbody) return;
         tbody.innerHTML = list.map(item => `
@@ -387,11 +393,12 @@ export const UI = {
         `).join('');
     },
 
-    renderPhotos(filterCategory = 'all') {
-        const list = Storage.loadCollection('pcTacPhotos') || [];
+    async renderPhotos(filterCategory = 'all') {
+        const raw = Storage.loadCollection('pcTacPhotos') || [];
         const board = document.getElementById('photo-board');
         if (!board) return;
-        const filteredList = filterCategory === 'all' ? list : list.filter(item => item.category === filterCategory);
+        const preFiltered = filterCategory === 'all' ? raw : raw.filter(item => item.category === filterCategory);
+        const filteredList = await ImageStore.hydrate(preFiltered, 'data');
         
         // Mise à jour des boutons de filtre pour respecter l'ordre et le style
         const filterContainer = document.getElementById('photo-filter-container');
@@ -591,15 +598,16 @@ export const UI = {
         this.hideEditModal();
     },
 
-    showEditAdversaryModal(id) {
+    async showEditAdversaryModal(id) {
         const list = Storage.loadCollection('pcTacAdversaries');
         const item = list.find(adv => adv.id === id);
         if (!item) return;
-        
+
         document.getElementById('edit_adv_id').value = id;
         const preview = document.getElementById('edit_adv_preview');
-        preview.innerHTML = item.photo ? `<img src="${item.photo}" style="width: 100%; height: 100%; object-fit: cover;">` : '<span class="material-symbols-outlined" style="font-size: 48px; color: var(--text-muted);">person</span>';
-        
+        const existingPhoto = await ImageStore.get(id);
+        preview.innerHTML = existingPhoto ? `<img src="${existingPhoto}" style="width: 100%; height: 100%; object-fit: cover;">` : '<span class="material-symbols-outlined" style="font-size: 48px; color: var(--text-muted);">person</span>';
+
         document.getElementById('modalBackdrop').style.display = 'block';
         document.getElementById('editAdversaryModal').style.display = 'block';
     },
@@ -609,40 +617,44 @@ export const UI = {
         document.getElementById('editAdversaryModal').style.display = 'none';
     },
 
-    handleAdversaryPhotoUpdate() {
+    async handleAdversaryPhotoUpdate() {
         const id = document.getElementById('edit_adv_id').value;
         const fileInput = document.getElementById('edit_adv_photo_input');
         const dataUrl = fileInput.dataset.compressedBase64;
-        
+
         if (!dataUrl) return alert("Veuillez sélectionner une photo");
 
-        // 1. Update Adversary Collection
+        // 1. Update Adversary : image en IDB, flag dans la collection
         const advList = Storage.loadCollection('pcTacAdversaries');
         const adv = advList.find(a => a.id === id);
         if (adv) {
-            adv.photo = dataUrl;
+            await ImageStore.put(id, dataUrl);
+            delete adv.photo;
+            adv.hasImage = true;
             Storage.saveCollection('pcTacAdversaries', advList);
-            
-            // 2. Sync to Photos Collection (if not already there or update existing)
+
+            // 2. Sync vers Photos
             const photoList = Storage.loadCollection('pcTacPhotos');
             const photoSyncId = id + "_sync";
+            await ImageStore.put(photoSyncId, dataUrl);
             let photo = photoList.find(p => p.id === photoSyncId);
             if (photo) {
-                photo.data = dataUrl;
+                delete photo.data;
+                photo.hasImage = true;
             } else {
                 photoList.push({
                     id: photoSyncId,
                     title: `${adv.nom} ${adv.prenom}`,
-                    data: dataUrl,
                     category: 'neutralized',
-                    status: 'active'
+                    status: 'active',
+                    hasImage: true
                 });
             }
             Storage.saveCollection('pcTacPhotos', photoList);
         }
-        
+
         this.hideEditAdversaryModal();
-        this.renderAdversaries();
+        await this.renderAdversaries();
         fileInput.value = '';
         delete fileInput.dataset.compressedBase64;
     }

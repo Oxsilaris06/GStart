@@ -64,7 +64,8 @@ export const PlanMap = {
             container: 'plan_map',
             style: RASTER_STYLE,
             center: savedView.center,
-            zoom: savedView.zoom
+            zoom: savedView.zoom,
+            preserveDrawingBuffer: true // requis pour la capture screenshot
         });
         this.map.addControl(new maplibregl.NavigationControl(), 'top-left');
         this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right');
@@ -139,6 +140,9 @@ export const PlanMap = {
         if (closePanelBtn) closePanelBtn.onclick = () => this._toggleEntitiesPanel(false);
 
         if (freePinBtn) freePinBtn.onclick = () => this._openFreePinModal();
+
+        const screenshotBtn = document.getElementById('plan_screenshot_btn');
+        if (screenshotBtn) screenshotBtn.onclick = () => this._takeScreenshot();
         if (freePinCancel) freePinCancel.onclick = () => this._closeFreePinModal();
         if (freePinConfirm) freePinConfirm.onclick = () => this._armFreePinPlacement();
 
@@ -824,6 +828,65 @@ export const PlanMap = {
             coords.push([toDeg(lambda), toDeg(phi)]);
         }
         return coords;
+    },
+
+    /**
+     * Capture haute qualité de la carte avec ses annotations (pins, dessins,
+     * boussole MapLibre) MAIS sans la légende ni la toolbar de dessin.
+     * Utilise html2canvas (DOM + WebGL combinés) avec scale 2 pour qualité retina.
+     */
+    async _takeScreenshot() {
+        if (typeof html2canvas === 'undefined') {
+            alert('Librairie html2canvas indisponible (réseau ?)');
+            return;
+        }
+        const mapContainer = document.getElementById('plan_map').parentElement;
+        if (!mapContainer) return;
+
+        // Éléments à masquer temporairement
+        const toHide = [
+            document.getElementById('plan_draw_toolbar'),
+            document.getElementById('plan_legend'),
+            document.getElementById('plan_entities_panel'),
+            document.getElementById('plan_hint')
+        ].filter(Boolean);
+        const memo = toHide.map(el => el.style.display);
+        toHide.forEach(el => { el.style.display = 'none'; });
+
+        // Forcer un repaint pour que le canvas WebGL contienne la frame actuelle
+        this.map.triggerRepaint();
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        let canvas;
+        try {
+            canvas = await html2canvas(mapContainer, {
+                useCORS: true,
+                allowTaint: false,
+                scale: 2,
+                backgroundColor: null,
+                logging: false
+            });
+        } catch (e) {
+            console.error('[PlanMap] screenshot échec:', e);
+            alert('Erreur lors de la capture : ' + e.message);
+            return;
+        } finally {
+            // Restaurer l'UI
+            toHide.forEach((el, i) => { el.style.display = memo[i] || ''; });
+        }
+
+        canvas.toBlob((blob) => {
+            if (!blob) return;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            a.href = url;
+            a.download = `pctac-plan-${stamp}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }, 'image/png');
     },
 
     _showHint(msg) {

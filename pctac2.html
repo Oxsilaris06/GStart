@@ -1032,31 +1032,31 @@
 
         <!-- NAVIGATION PRINCIPALE -->
         <nav class="main-tab-bar">
-            <button class="tab-btn active" data-view="view-main-courante">
+            <button type="button" class="tab-btn active" data-view="view-main-courante">
                 <span class="material-symbols-outlined">description</span>
                 <span>Main Courante</span>
             </button>
-            <button class="tab-btn" data-view="view-adversaires">
+            <button type="button" class="tab-btn" data-view="view-adversaires">
                 <span class="material-symbols-outlined">groups</span>
                 <span>Adversaires</span>
             </button>
-            <button class="tab-btn" data-view="view-otages">
+            <button type="button" class="tab-btn" data-view="view-otages">
                 <span class="material-symbols-outlined">person_off</span>
                 <span>Otages</span>
             </button>
-            <button class="tab-btn" data-view="view-amis">
+            <button type="button" class="tab-btn" data-view="view-amis">
                 <span class="material-symbols-outlined">shield_person</span>
                 <span>Amis</span>
             </button>
-            <button class="tab-btn" data-view="view-photos">
+            <button type="button" class="tab-btn" data-view="view-photos">
                 <span class="material-symbols-outlined">photo_library</span>
                 <span>Photos</span>
             </button>
-            <button class="tab-btn" data-view="view-plan">
+            <button type="button" class="tab-btn" data-view="view-plan">
                 <span class="material-symbols-outlined">map</span>
                 <span>Plan</span>
             </button>
-            <button class="tab-btn" data-view="view-liens">
+            <button type="button" class="tab-btn" data-view="view-liens">
                 <span class="material-symbols-outlined">link</span>
                 <span>Liens</span>
             </button>
@@ -1136,18 +1136,18 @@
                                 <input type="file" id="adv_photo" accept="image/*" style="display: none;">
                             </label>
                         </div>
-                        <div><label>Nom</label><input type="text" id="adv_nom" placeholder="Nom"></div>
-                        <div><label>Prénom</label><input type="text" id="adv_prenom" placeholder="Prénom"></div>
-                        <div><label>D.N.</label><input type="text" id="adv_dob" placeholder="JJ/MM/AAAA"></div>
-                        <div><label>Lien Victimes</label><input type="text" id="adv_lien"
+                        <div><label for="adv_nom">Nom</label><input type="text" id="adv_nom" placeholder="Nom"></div>
+                        <div><label for="adv_prenom">Prénom</label><input type="text" id="adv_prenom" placeholder="Prénom"></div>
+                        <div><label for="adv_dob">D.N.</label><input type="text" id="adv_dob" placeholder="JJ/MM/AAAA"></div>
+                        <div><label for="adv_lien">Lien Victimes</label><input type="text" id="adv_lien"
                                 placeholder="Lien avec otages"></div>
-                        <div><label>Antécédents</label><input type="text" id="adv_antecedents"
+                        <div><label for="adv_antecedents">Antécédents</label><input type="text" id="adv_antecedents"
                                 placeholder="Fichage, passif..."></div>
-                        <div><label>Attitude</label><input type="text" id="adv_attitude"
+                        <div><label for="adv_attitude">Attitude</label><input type="text" id="adv_attitude"
                                 placeholder="Calme, nerveux..."></div>
-                        <div><label>Substance</label><input type="text" id="adv_substance"
+                        <div><label for="adv_substance">Substance</label><input type="text" id="adv_substance"
                                 placeholder="Alcool, stup..."></div>
-                        <div style="grid-column: span 2;"><label>Armes</label><input type="text" id="adv_arme"
+                        <div style="grid-column: span 2;"><label for="adv_arme">Armes</label><input type="text" id="adv_arme"
                                 placeholder="Type, calibre, position..."></div>
                     </div>
                     <button type="submit" class="add-btn">Enregistrer Adversaire</button>
@@ -1186,14 +1186,14 @@
                                 <input type="file" id="hostage_photo" accept="image/*" style="display: none;">
                             </label>
                         </div>
-                        <div><label>Nom</label><input type="text" id="hostage_nom" placeholder="Nom"></div>
-                        <div><label>Prénom</label><input type="text" id="hostage_prenom" placeholder="Prénom"></div>
-                        <div><label>D.N.</label><input type="text" id="hostage_dob" placeholder="JJ/MM/AAAA"></div>
-                        <div><label>Lien Adversaire</label><input type="text" id="hostage_lien"
+                        <div><label for="hostage_nom">Nom</label><input type="text" id="hostage_nom" placeholder="Nom"></div>
+                        <div><label for="hostage_prenom">Prénom</label><input type="text" id="hostage_prenom" placeholder="Prénom"></div>
+                        <div><label for="hostage_dob">D.N.</label><input type="text" id="hostage_dob" placeholder="JJ/MM/AAAA"></div>
+                        <div><label for="hostage_lien">Lien Adversaire</label><input type="text" id="hostage_lien"
                                 placeholder="Lien avec ravisseur"></div>
-                        <div><label>État</label><input type="text" id="hostage_etat" placeholder="Conscient, choc...">
+                        <div><label for="hostage_etat">État</label><input type="text" id="hostage_etat" placeholder="Conscient, choc...">
                         </div>
-                        <div style="grid-column: span 2;"><label>Blessures</label><input type="text"
+                        <div style="grid-column: span 2;"><label for="hostage_blessure">Blessures</label><input type="text"
                                 id="hostage_blessure" placeholder="Localisation, gravité..."></div>
                     </div>
                     <button type="submit" class="add-btn">Enregistrer Otage</button>
@@ -1219,11 +1219,11 @@
                 <h3><span class="material-symbols-outlined">shield_person</span> Amis ou Groupe</h3>
                 <form id="friend-form" class="form-row"
                     style="grid-template-columns: 1fr 1fr 1fr 1fr 1fr auto; align-items: end; margin-top: 15px;">
-                    <div><label>Nom</label><input type="text" id="friend_nom"></div>
-                    <div><label>Prénom</label><input type="text" id="friend_prenom"></div>
-                    <div><label>Unité</label><input type="text" id="friend_unite"></div>
-                    <div><label>TPH</label><input type="text" id="friend_tph"></div>
-                    <div><label>Mission</label><input type="text" id="friend_mission"></div>
+                    <div><label for="friend_nom">Nom</label><input type="text" id="friend_nom"></div>
+                    <div><label for="friend_prenom">Prénom</label><input type="text" id="friend_prenom"></div>
+                    <div><label for="friend_unite">Unité</label><input type="text" id="friend_unite"></div>
+                    <div><label for="friend_tph">TPH</label><input type="text" id="friend_tph"></div>
+                    <div><label for="friend_mission">Mission</label><input type="text" id="friend_mission"></div>
                     <button type="submit" class="add-btn" style="width: auto; padding: 10px 20px;">Ajouter</button>
                 </form>
             </div>
@@ -1403,7 +1403,7 @@
                         </span>
                     </label>
                 </div>
-                <button class="add-btn" id="freePinConfirmBtn">Créer ce point</button>
+                <button type="button" class="add-btn" id="freePinConfirmBtn">Créer ce point</button>
             </div>
             <p style="color: var(--text-muted); font-size: 0.85em; margin-top: 12px;">Après sélection, clique sur la carte pour placer le point.</p>
         </div>
@@ -1428,12 +1428,12 @@
                         <div
                             style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 600px;">
                             <a href="https://www.google.com/maps/d/u/0/?hl=fr" target="_blank" class="add-log-btn"
-                                style="text-decoration: none; height: 120px; flex-direction: column; gap: 10px; font-size: 1.1em; background: rgba(59, 130, 246, 0.1); border-color: var(--accent-blue);">
+                                style="text-decoration: none; display: flex; align-items: center; justify-content: center; height: 120px; flex-direction: column; gap: 10px; font-size: 1.1em;">
                                 <span class="material-symbols-outlined" style="font-size: 32px;">location_on</span>
                                 <span>OUVRIR GOOGLE MAPS</span>
                             </a>
                             <a href="https://earth.google.com/web" target="_blank" class="add-log-btn"
-                                style="text-decoration: none; height: 120px; flex-direction: column; gap: 10px; font-size: 1.1em; background: rgba(34, 197, 94, 0.1); border-color: var(--ao-green);">
+                                style="text-decoration: none; display: flex; align-items: center; justify-content: center; height: 120px; flex-direction: column; gap: 10px; font-size: 1.1em; background: #25D366; border-color: #128C7E;">
                                 <span class="material-symbols-outlined" style="font-size: 32px;">public</span>
                                 <span>OUVRIR GOOGLE EARTH</span>
                             </a>
@@ -1515,12 +1515,12 @@
         <input type="hidden" id="new_pax_color_val" value="#800000">
 
         <div style="display: flex; gap: 12px; margin-top: 10px;">
-            <button class="add-btn" id="confirmCreatePaxBtn" style="flex: 2; height: 45px;">
+            <button type="button" class="add-btn" id="confirmCreatePaxBtn" style="flex: 2; height: 45px;">
                 <span class="material-symbols-outlined"
                     style="font-size: 20px; vertical-align: middle; margin-right: 5px;">check_circle</span>
                 CRÉER
             </button>
-            <button class="add-btn" id="cancelCreatePaxBtn" style="flex: 1; background: var(--bg-input); height: 45px;">
+            <button type="button" class="add-btn" id="cancelCreatePaxBtn" style="flex: 1; background: var(--bg-input); height: 45px;">
                 ANNULER
             </button>
         </div>
@@ -1533,9 +1533,9 @@
         <p style="margin: 15px 0; font-size: 0.9em; color: var(--text-muted);">Attention, toutes les données (logs,
             adversaires, otages, photos) seront définitivement supprimées. Cette action est irréversible.</p>
         <div style="display: flex; gap: 10px;">
-            <button class="add-btn" id="confirmResetBtn" style="background: var(--danger-red);">CONFIRMER LE
+            <button type="button" class="add-btn" id="confirmResetBtn" style="background: var(--danger-red);">CONFIRMER LE
                 RESET</button>
-            <button class="add-btn" id="cancelResetBtn" style="background: var(--bg-input);">ANNULER</button>
+            <button type="button" class="add-btn" id="cancelResetBtn" style="background: var(--bg-input);">ANNULER</button>
         </div>
     </div>
 
@@ -1552,8 +1552,8 @@
             <textarea id="edit_remarques" rows="3"></textarea>
         </div>
         <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button class="add-btn" id="confirmEditBtn">Enregistrer</button>
-            <button class="add-btn" onclick="UI.hideEditModal()" style="background: var(--bg-input);">Annuler</button>
+            <button type="button" class="add-btn" id="confirmEditBtn">Enregistrer</button>
+            <button type="button" class="add-btn" onclick="UI.hideEditModal()" style="background: var(--bg-input);">Annuler</button>
         </div>
     </div>
 
@@ -1572,7 +1572,7 @@
             </label>
         </div>
         <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button class="add-btn" id="confirmEditAdvBtn">Mettre à jour</button>
+            <button type="button" class="add-btn" id="confirmEditAdvBtn">Mettre à jour</button>
             <button class="add-btn" onclick="UI.hideEditAdversaryModal()"
                 style="background: var(--bg-input);">Annuler</button>
         </div>
@@ -1581,7 +1581,7 @@
     <div class="lightbox" id="lightboxModal">
         <img id="lightboxImage" src="" alt="">
         <div class="lightbox-title" id="lightboxTitle"></div>
-        <button onclick="UI.closeLightbox()"
+        <button type="button" onclick="UI.closeLightbox()"
             style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; cursor: pointer;">
             <span class="material-symbols-outlined" style="font-size: 40px;">close</span>
         </button>
@@ -1590,7 +1590,7 @@
     <!-- Dock Flottant -->
     <div class="dock-menu collapsed" id="dockMenu">
         <!-- Bouton de bascule du dock -->
-        <button class="dock-menu-item" id="dockToggleBtn" title="Ouvrir/Réduire">
+        <button type="button" class="dock-menu-item" id="dockToggleBtn" title="Ouvrir/Réduire">
             <span class="material-symbols-outlined">expand_less</span>
         </button>
         <!-- Bouton Alt Route (Remplace Home) -->

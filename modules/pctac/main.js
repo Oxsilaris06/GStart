@@ -12,6 +12,11 @@ import { CUSTOM_PAX_KEY, ADVERSARIES_KEY, HOSTAGES_KEY, FRIENDS_KEY, PHOTOS_KEY 
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Service Worker (PWA, offline-fallback)
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+        navigator.serviceWorker.register('sw.js').catch(err => console.warn('[PC TAC] SW register failed:', err));
+    }
+
     // Migration des photos base64 vers IndexedDB (s'exécute une seule fois)
     try {
         await ImageStore.migrateFromLocalStorage();
@@ -121,7 +126,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     return el.value;
                 });
                 
-                if (values.some(v => v && v.trim !== '')) {
+                // Au moins un champ texte/photo doit avoir une vraie valeur
+                if (values.some(v => v && (typeof v !== 'string' || v.trim() !== ''))) {
                     const itemId = Date.now().toString();
                     const mapped = cfg.map(values);
                     const photoData = mapped.photo;
@@ -387,7 +393,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const file = e.target.files[0];
             if (!file) return;
             try {
-                await Archive.importFile(file);
+                const res = await Archive.importFile(file);
+                if (res && res.cancelled) {
+                    archiveFileInput.value = '';
+                    return;
+                }
                 UI.renderLogTable(Storage.loadLogData());
                 UI.refreshLieuSuggestions();
                 await UI.renderAdversaries();

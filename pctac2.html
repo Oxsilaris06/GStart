@@ -8,6 +8,12 @@
     <link rel="icon" href="favicon.ico" sizes="any" type="image/png">
     <link rel="icon" href="favicon.ico" type="image/svg+xml">
     <link rel="apple-touch-icon" href="favicon.ico">
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#10141c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PC Tac">
 
     <!-- Fonts mises à jour pour le thème Tactical -->
     <link
@@ -724,6 +730,129 @@
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
         }
 
+        /* Variante large pour les modales avec textes longs (logs, fiches) */
+        .modal.pctac-modal-large {
+            max-width: 760px;
+        }
+
+        /* Champs confortables pour saisir du texte long */
+        .pctac-input-lg {
+            min-height: 46px;
+            font-size: 1.02em;
+            padding: 12px 14px;
+        }
+        .pctac-textarea-lg {
+            width: 100%;
+            min-height: 100px;
+            font-size: 1.02em;
+            line-height: 1.45;
+            padding: 12px 14px;
+            resize: vertical;
+            font-family: var(--font-ui, system-ui, sans-serif);
+        }
+
+        /* Grille édition : photo + champs ; passe en colonne sur mobile */
+        .pctac-edit-grid {
+            display: grid;
+            grid-template-columns: 170px 1fr;
+            gap: 18px;
+            margin: 15px 0;
+            align-items: flex-start;
+        }
+        .pctac-edit-photo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .pctac-edit-fields {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .pctac-edit-fields .row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        @media (max-width: 640px) {
+            .pctac-edit-grid {
+                grid-template-columns: 1fr;
+            }
+            .pctac-edit-photo {
+                flex-direction: row;
+                gap: 12px;
+                align-self: stretch;
+            }
+            .pctac-edit-photo > div:first-child {
+                max-width: 110px !important;
+            }
+            .pctac-edit-fields .row-2 {
+                grid-template-columns: 1fr;
+            }
+            .modal.pctac-modal-large {
+                padding: 20px 18px;
+            }
+        }
+
+        /* --- Modale Ping : optimisation mobile --- */
+        #pingModal #ping_entities_list { max-height: 30vh; }
+        #pingModal #pin_icon_catalog   { max-height: 38vh; }
+        #pingModal .pin-icon-suggest {
+            min-height: 44px;     /* cible tactile confortable */
+        }
+        #pingModal .pin-icon-cell {
+            min-height: 70px;
+        }
+        @media (max-width: 640px) {
+            #pingModal {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: 100% !important;
+                max-height: 100% !important;
+                top: 0; left: 0;
+                transform: none;
+                border-radius: 0;
+                padding: 18px 14px;
+                overflow-y: auto;
+            }
+            #pingModal h3 { font-size: 1.05em; }
+            #pingModal #pin_icon_suggestions {
+                gap: 8px;
+            }
+            #pingModal .pin-icon-suggest {
+                flex: 1 1 calc(50% - 8px);
+                justify-content: center;
+                padding: 10px 8px;
+                font-size: 0.9em;
+            }
+            #pingModal #pin_icon_grid > div > div:nth-child(2) {
+                /* Plus de cellules par ligne sur mobile : icônes plus petites */
+                grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)) !important;
+            }
+            #pingModal .pin-icon-cell {
+                padding: 6px 2px;
+                font-size: 0.65em;
+                min-height: 64px;
+            }
+            #pingModal .pin-icon-cell .material-symbols-outlined {
+                font-size: 22px !important;
+            }
+            #pingModal #free_pin_color_select .pax-select-option {
+                flex: 1 1 calc(33% - 6px);
+                min-height: 44px;
+                justify-content: center;
+                display: flex;
+                align-items: center;
+            }
+            #pingModal .add-btn {
+                min-height: 48px;
+                font-size: 1em;
+            }
+            #pingModal #pin_icon_current_preview {
+                padding: 10px;
+            }
+        }
+
         .lightbox {
             position: fixed;
             top: 0;
@@ -1335,6 +1464,9 @@
                     <button type="button" class="plan-draw-btn" data-tool="circle" title="Tracer un cercle" style="background: transparent; border: 1px solid transparent; color: var(--text-main); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
                         <span class="material-symbols-outlined" style="font-size: 24px;">circle</span>
                     </button>
+                    <button type="button" class="plan-draw-btn" data-tool="text" title="Texte libre (clic sur la carte)" style="background: transparent; border: 1px solid transparent; color: var(--text-main); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 24px;">title</span>
+                    </button>
                     <div class="plan-dock-sep"></div>
                     <div id="plan_draw_color_picker" style="display: flex; gap: 4px; align-items: center; padding: 0 5px;">
                         <button type="button" class="plan-draw-color" data-color="#ef4444" title="Rouge" style="width: 24px; height: 24px; border-radius: 50%; background: #ef4444; border: 2px solid #fff; cursor: pointer;"></button>
@@ -1351,6 +1483,9 @@
                         <span class="material-symbols-outlined" style="font-size: 24px;">redo</span>
                     </button>
                     <div class="plan-dock-sep"></div>
+                    <button type="button" id="plan_draw_diameter_toggle" title="Diamètres affichés (cliquer pour masquer)" style="background: transparent; border: 1px solid transparent; color: #22c55e; padding: 7px 10px; border-radius: 4px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 24px;">straighten</span>
+                    </button>
                     <button type="button" id="plan_draw_clear" title="Effacer tous les dessins" style="background: transparent; border: 1px solid transparent; color: var(--danger-red); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
                         <span class="material-symbols-outlined" style="font-size: 24px;">delete_sweep</span>
                     </button>
@@ -1367,7 +1502,7 @@
         </div>
 
         <!-- Modale PING hybride : entités existantes OU nouveau point libre -->
-        <div class="modal" id="pingModal" style="max-height: 90vh; overflow-y: auto;">
+        <div class="modal pctac-modal-large" id="pingModal" style="max-height: 92vh; overflow-y: auto;">
             <button type="button" id="pingModalCloseBtn"
                 style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; z-index: 10;">
                 <span class="material-symbols-outlined" style="font-size: 24px;">close</span>
@@ -1385,7 +1520,8 @@
             <!-- Section 2 : nouveau point libre -->
             <div>
                 <label>Ou créer un nouveau point</label>
-                <input type="text" id="free_pin_label" placeholder="Libellé (ex: PC repli, regroupement...)" style="margin-top: 6px;">
+                <input type="text" id="free_pin_label" placeholder="Libellé (ex: PC repli, FPT pompier, sniper toit...)" style="margin-top: 6px;" autocomplete="off">
+
                 <div style="margin: 12px 0;">
                     <label>Type / Couleur</label>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="free_pin_color_select">
@@ -1398,15 +1534,35 @@
                     <input type="hidden" id="free_pin_color" value="#3b82f6">
                     <input type="hidden" id="free_pin_kind" value="Inter">
                 </div>
-                <div style="margin: 12px 0;">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="checkbox" id="free_pin_is_vehicle" style="width: auto; margin: 0;">
-                        <span style="display: inline-flex; align-items: center; gap: 6px;">
-                            <span class="material-symbols-outlined" style="font-size: 18px;">directions_car</span>
-                            Véhicule (icône voiture)
-                        </span>
-                    </label>
+
+                <!-- Suggestions automatiques d'icônes en fonction du libellé -->
+                <div id="pin_icon_suggestions_wrap" style="margin: 12px 0; display: none;">
+                    <label style="font-size: 0.85em; color: var(--text-muted);">Icônes suggérées d'après l'intitulé</label>
+                    <div id="pin_icon_suggestions" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;"></div>
                 </div>
+
+                <!-- Choix d'icône (catalogue complet) -->
+                <div style="margin: 12px 0;">
+                    <div style="display: flex; align-items: center; gap: 10px; justify-content: space-between;">
+                        <label style="margin: 0;">Icône du point</label>
+                        <button type="button" id="pin_icon_picker_toggle" class="add-btn" style="width: auto; padding: 6px 12px; background: var(--bg-input); font-size: 0.85em;">
+                            <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle;">apps</span>
+                            Choisir
+                        </button>
+                    </div>
+                    <div id="pin_icon_current_preview" style="display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.04); border-radius: 6px;">
+                        <span id="pin_icon_current_glyph" class="material-symbols-outlined" style="font-size: 32px; color: #3b82f6;">place</span>
+                        <span id="pin_icon_current_label" style="font-size: 0.9em; color: var(--text-muted);">Pin par défaut</span>
+                    </div>
+                    <input type="hidden" id="free_pin_icon" value="">
+
+                    <!-- Catalogue complet, repliable -->
+                    <div id="pin_icon_catalog" style="display: none; margin-top: 10px; max-height: 260px; overflow-y: auto; border: 1px solid var(--border-glass); border-radius: 6px; padding: 10px; background: rgba(0,0,0,0.2);">
+                        <input type="text" id="pin_icon_search" placeholder="Filtrer (ex: pompier, drogue, camera...)" style="margin-bottom: 10px;" autocomplete="off">
+                        <div id="pin_icon_grid"></div>
+                    </div>
+                </div>
+
                 <button type="button" class="add-btn" id="freePinConfirmBtn">Créer ce point</button>
             </div>
             <p style="color: var(--text-muted); font-size: 0.85em; margin-top: 12px;">Après sélection, clique sur la carte pour placer le point.</p>
@@ -1544,16 +1700,19 @@
     </div>
 
     <!-- Modale d'édition de log -->
-    <div class="modal" id="editModal">
+    <div class="modal pctac-modal-large" id="editModal">
         <h3>Modifier l'entrée</h3>
         <input type="hidden" id="edit_id">
-        <div class="form-row" style="grid-template-columns: 1fr 2fr; margin-top: 15px;">
+        <div class="form-row" style="grid-template-columns: 1fr 3fr; margin-top: 15px;">
             <div><label>Heure</label><input type="time" id="edit_heure"></div>
-            <div><label>Localisation</label><input type="text" id="edit_lieu"></div>
+            <div>
+                <label>Localisation</label>
+                <textarea id="edit_lieu" rows="2" class="pctac-textarea-lg"></textarea>
+            </div>
         </div>
-        <div>
+        <div style="margin-top: 12px;">
             <label>Remarques</label>
-            <textarea id="edit_remarques" rows="3"></textarea>
+            <textarea id="edit_remarques" rows="6" class="pctac-textarea-lg"></textarea>
         </div>
         <div style="display: flex; gap: 10px; margin-top: 20px;">
             <button type="button" class="add-btn" id="confirmEditBtn">Enregistrer</button>
@@ -1562,29 +1721,29 @@
     </div>
 
     <!-- Modale d'édition d'adversaire (champs + photo) -->
-    <div class="modal" id="editAdversaryModal" style="max-height: 90vh; overflow-y: auto;">
+    <div class="modal pctac-modal-large" id="editAdversaryModal" style="max-height: 92vh; overflow-y: auto;">
         <h3>Modifier Adversaire</h3>
         <input type="hidden" id="edit_adv_id">
-        <div style="display: flex; gap: 15px; margin: 15px 0; align-items: flex-start;">
-            <div style="flex: 0 0 130px;">
+        <div class="pctac-edit-grid">
+            <div class="pctac-edit-photo">
                 <div id="edit_adv_preview"
-                    style="width: 130px; height: 130px; border: 2px dashed var(--border-glass); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    style="width: 100%; aspect-ratio: 1; max-width: 160px; border: 2px dashed var(--border-glass); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                     <span class="material-symbols-outlined" style="font-size: 48px; color: var(--text-muted);">person</span>
                 </div>
-                <label class="custom-file-upload" for="edit_adv_photo_input" style="margin-top: 8px; padding: 5px; height: auto;">
+                <label class="custom-file-upload" for="edit_adv_photo_input" style="margin-top: 10px; padding: 8px; height: auto;">
                     <span class="material-symbols-outlined">add_a_photo</span> Photo
                     <input type="file" id="edit_adv_photo_input" accept="image/*" style="display: none;">
                 </label>
             </div>
-            <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div><label>Nom</label><input type="text" id="edit_adv_nom"></div>
-                <div><label>Prénom</label><input type="text" id="edit_adv_prenom"></div>
-                <div><label>D.N.</label><input type="text" id="edit_adv_dob"></div>
-                <div><label>Lien Victimes</label><input type="text" id="edit_adv_lien"></div>
-                <div><label>Antécédents</label><input type="text" id="edit_adv_antecedents"></div>
-                <div><label>Attitude</label><input type="text" id="edit_adv_attitude"></div>
-                <div><label>Substance</label><input type="text" id="edit_adv_substance"></div>
-                <div><label>Armes</label><input type="text" id="edit_adv_armes"></div>
+            <div class="pctac-edit-fields">
+                <div class="row-2"><div><label>Nom</label><input type="text" id="edit_adv_nom" class="pctac-input-lg"></div>
+                <div><label>Prénom</label><input type="text" id="edit_adv_prenom" class="pctac-input-lg"></div></div>
+                <div class="row-2"><div><label>D.N.</label><input type="text" id="edit_adv_dob" class="pctac-input-lg"></div>
+                <div><label>Lien Victimes</label><input type="text" id="edit_adv_lien" class="pctac-input-lg"></div></div>
+                <div><label>Antécédents</label><textarea id="edit_adv_antecedents" rows="2" class="pctac-textarea-lg"></textarea></div>
+                <div class="row-2"><div><label>Attitude</label><input type="text" id="edit_adv_attitude" class="pctac-input-lg"></div>
+                <div><label>Substance</label><input type="text" id="edit_adv_substance" class="pctac-input-lg"></div></div>
+                <div><label>Armes</label><textarea id="edit_adv_armes" rows="2" class="pctac-textarea-lg"></textarea></div>
             </div>
         </div>
         <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -1595,33 +1754,76 @@
     </div>
 
     <!-- Modale d'édition d'otage (champs + photo) -->
-    <div class="modal" id="editHostageModal" style="max-height: 90vh; overflow-y: auto;">
+    <div class="modal pctac-modal-large" id="editHostageModal" style="max-height: 92vh; overflow-y: auto;">
         <h3>Modifier Otage</h3>
         <input type="hidden" id="edit_host_id">
-        <div style="display: flex; gap: 15px; margin: 15px 0; align-items: flex-start;">
-            <div style="flex: 0 0 130px;">
+        <div class="pctac-edit-grid">
+            <div class="pctac-edit-photo">
                 <div id="edit_host_preview"
-                    style="width: 130px; height: 130px; border: 2px dashed var(--border-glass); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    style="width: 100%; aspect-ratio: 1; max-width: 160px; border: 2px dashed var(--border-glass); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                     <span class="material-symbols-outlined" style="font-size: 48px; color: var(--text-muted);">person_off</span>
                 </div>
-                <label class="custom-file-upload" for="edit_host_photo_input" style="margin-top: 8px; padding: 5px; height: auto;">
+                <label class="custom-file-upload" for="edit_host_photo_input" style="margin-top: 10px; padding: 8px; height: auto;">
                     <span class="material-symbols-outlined">add_a_photo</span> Photo
                     <input type="file" id="edit_host_photo_input" accept="image/*" style="display: none;">
                 </label>
             </div>
-            <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div><label>Nom</label><input type="text" id="edit_host_nom"></div>
-                <div><label>Prénom</label><input type="text" id="edit_host_prenom"></div>
-                <div><label>D.N.</label><input type="text" id="edit_host_dob"></div>
-                <div><label>Lien Adversaire</label><input type="text" id="edit_host_lien"></div>
-                <div><label>État</label><input type="text" id="edit_host_etat"></div>
-                <div><label>Blessures</label><input type="text" id="edit_host_blessures"></div>
+            <div class="pctac-edit-fields">
+                <div class="row-2"><div><label>Nom</label><input type="text" id="edit_host_nom" class="pctac-input-lg"></div>
+                <div><label>Prénom</label><input type="text" id="edit_host_prenom" class="pctac-input-lg"></div></div>
+                <div class="row-2"><div><label>D.N.</label><input type="text" id="edit_host_dob" class="pctac-input-lg"></div>
+                <div><label>Lien Adversaire</label><input type="text" id="edit_host_lien" class="pctac-input-lg"></div></div>
+                <div><label>État</label><textarea id="edit_host_etat" rows="2" class="pctac-textarea-lg"></textarea></div>
+                <div><label>Blessures</label><textarea id="edit_host_blessures" rows="3" class="pctac-textarea-lg"></textarea></div>
             </div>
         </div>
         <div style="display: flex; gap: 10px; margin-top: 20px;">
             <button type="button" class="add-btn" id="confirmEditHostBtn">Enregistrer</button>
             <button class="add-btn" onclick="UI.hideEditHostageModal()"
                 style="background: var(--bg-input);">Annuler</button>
+        </div>
+    </div>
+
+    <!-- Modale de saisie de texte pour annotation dans/sur un dessin -->
+    <div class="modal pctac-modal-large" id="planTextModal" style="max-width: 520px;">
+        <h3 id="planTextModalTitle">Annoter le dessin</h3>
+        <input type="hidden" id="plan_text_target_id">
+        <div style="margin-top: 12px;">
+            <label>Texte (laisser vide pour supprimer l'annotation)</label>
+            <textarea id="plan_text_input" rows="4" class="pctac-textarea-lg"
+                placeholder="Ex : Cellule 1 - 4 pax, ZRA, etc."></textarea>
+        </div>
+        <div style="margin-top: 12px; display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-end;">
+            <div>
+                <label style="font-size: 0.85em; color: var(--text-muted);">Couleur du texte</label>
+                <div id="plan_text_color_palette" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
+                    <button type="button" class="plan-text-color" data-color="#ffffff" style="width: 28px; height: 28px; border-radius: 50%; background: #ffffff; border: 2px solid #fff; cursor: pointer;"></button>
+                    <button type="button" class="plan-text-color" data-color="#fbbf24" style="width: 28px; height: 28px; border-radius: 50%; background: #fbbf24; border: 2px solid transparent; cursor: pointer;"></button>
+                    <button type="button" class="plan-text-color" data-color="#ef4444" style="width: 28px; height: 28px; border-radius: 50%; background: #ef4444; border: 2px solid transparent; cursor: pointer;"></button>
+                    <button type="button" class="plan-text-color" data-color="#22c55e" style="width: 28px; height: 28px; border-radius: 50%; background: #22c55e; border: 2px solid transparent; cursor: pointer;"></button>
+                    <button type="button" class="plan-text-color" data-color="#3b82f6" style="width: 28px; height: 28px; border-radius: 50%; background: #3b82f6; border: 2px solid transparent; cursor: pointer;"></button>
+                </div>
+                <input type="hidden" id="plan_text_color_val" value="#ffffff">
+            </div>
+            <div>
+                <label style="font-size: 0.85em; color: var(--text-muted);">Taille</label>
+                <div style="display: flex; gap: 6px; align-items: center; margin-top: 6px;">
+                    <button type="button" id="plan_text_size_minus" title="Réduire"
+                        style="width: 36px; height: 36px; border-radius: 6px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">text_decrease</span>
+                    </button>
+                    <span id="plan_text_size_val" style="min-width: 38px; text-align: center; font-family: var(--font-data, monospace); font-weight: 600;">13</span>
+                    <button type="button" id="plan_text_size_plus" title="Agrandir"
+                        style="width: 36px; height: 36px; border-radius: 6px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">text_increase</span>
+                    </button>
+                </div>
+                <input type="hidden" id="plan_text_size_input" value="13">
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="button" class="add-btn" id="planTextConfirmBtn">Enregistrer</button>
+            <button type="button" class="add-btn" id="planTextCancelBtn" style="background: var(--bg-input);">Annuler</button>
         </div>
     </div>
 

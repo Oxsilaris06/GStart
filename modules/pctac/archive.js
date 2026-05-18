@@ -106,7 +106,7 @@ export const Archive = {
         const dataJson = JSON.parse(await dataFile.async('string'));
 
         if (!confirm('Importer cette archive ? Les données actuelles seront remplacées.')) {
-            return;
+            return { ok: false, cancelled: true };
         }
 
         // Wipe puis restaurer
@@ -128,6 +128,7 @@ export const Archive = {
             });
             await Promise.all(tasks);
         }
+        return { ok: true };
     },
 
     /** Compat : ancien export PC-TAC JSON (logs uniquement). */
@@ -137,9 +138,9 @@ export const Archive = {
             const ids = new Set(current.map(l => l.id));
             obj.logEntries.forEach(e => { if (!ids.has(e.id)) current.push(e); });
             Storage.saveLogData(current);
-        } else {
-            throw new Error('Format JSON non reconnu.');
+            return { ok: true };
         }
+        throw new Error('Format JSON non reconnu.');
     }
 };
 

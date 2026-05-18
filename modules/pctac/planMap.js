@@ -62,6 +62,7 @@ export const PlanMap = {
     map: null,
     markers: new Map(), // id -> { pin: Marker, label: Marker }
     pendingFreePin: null, // { label, color, kind } en attente d'un clic carte
+    searchMarker: null,  // pointeur précis sur l'adresse cherchée
     initialized: false,
     drawTool: null, // 'line' | 'rectangle' | 'circle' | null
     drawColor: '#ef4444',
@@ -344,6 +345,7 @@ export const PlanMap = {
         const gps = this._parseGps(q);
         if (gps) {
             this.map.flyTo({ center: [gps.lng, gps.lat], zoom: 17, speed: 1.4 });
+            this._placeSearchMarker(gps.lng, gps.lat, `GPS ${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}`);
             resultsBox.innerHTML = `
                 <div class="plan-search-result" style="padding: 8px; border-bottom: 1px solid var(--border-glass); display: flex; align-items: center; gap: 6px;">
                     <span class="material-symbols-outlined" style="font-size: 16px; color: var(--ao-green);">my_location</span>
@@ -363,6 +365,11 @@ export const PlanMap = {
                 resultsBox.innerHTML = '<em style="color: var(--text-muted);">Aucun résultat.</em>';
                 return;
             }
+            // Centrage + pointeur sur le 1er résultat (le plus probable)
+            const first = list[0];
+            const flng = parseFloat(first.lon), flat = parseFloat(first.lat);
+            this.map.flyTo({ center: [flng, flat], zoom: 17, speed: 1.4 });
+            this._placeSearchMarker(flng, flat, first.display_name);
             resultsBox.innerHTML = list.map((item, i) => `
                 <div class="plan-search-result" data-idx="${i}" style="padding: 6px 8px; cursor: pointer; border-bottom: 1px solid var(--border-glass);">
                     ${item.display_name}
@@ -371,7 +378,9 @@ export const PlanMap = {
             resultsBox.querySelectorAll('.plan-search-result').forEach(div => {
                 div.onclick = () => {
                     const item = list[parseInt(div.dataset.idx, 10)];
-                    this.map.flyTo({ center: [parseFloat(item.lon), parseFloat(item.lat)], zoom: 17, speed: 1.4 });
+                    const lng = parseFloat(item.lon), lat = parseFloat(item.lat);
+                    this.map.flyTo({ center: [lng, lat], zoom: 17, speed: 1.4 });
+                    this._placeSearchMarker(lng, lat, item.display_name);
                     resultsBox.innerHTML = '';
                 };
                 div.onmouseover = () => { div.style.background = 'rgba(59, 130, 246, 0.15)'; };
@@ -381,6 +390,60 @@ export const PlanMap = {
             console.error('[PlanMap] Nominatim échec:', e);
             resultsBox.innerHTML = '<em style="color: var(--danger-red);">Erreur réseau. Vérifie ta connexion.</em>';
         }
+    },
+
+    /** Pose (ou déplace) un pointeur précis sur l'adresse cherchée.
+     *  Pulse animé pour attirer l'œil. Le marker reste jusqu'à la prochaine
+     *  recherche ; on le retire si l'utilisateur clique dessus. */
+    _placeSearchMarker(lng, lat, label) {
+        if (!this.map) return;
+        if (this.searchMarker) {
+            this.searchMarker.remove();
+            this.searchMarker = null;
+        }
+        const el = document.createElement('div');
+        el.style.cssText = `
+            position: relative; width: 32px; height: 32px; cursor: pointer;
+        `;
+        el.innerHTML = `
+            <div style="
+                position: absolute; inset: 0;
+                border-radius: 50%;
+                background: rgba(59,130,246,0.35);
+                animation: pctacPulse 1.6s ease-out infinite;
+            "></div>
+            <div style="
+                position: absolute; left: 50%; top: 50%;
+                transform: translate(-50%, -50%);
+                width: 14px; height: 14px;
+                background: #3b82f6;
+                border: 3px solid #fff;
+                border-radius: 50%;
+                box-shadow: 0 0 6px rgba(0,0,0,0.6);
+            "></div>
+        `;
+        // Injecte le keyframe une seule fois
+        if (!document.getElementById('pctac-pulse-style')) {
+            const s = document.createElement('style');
+            s.id = 'pctac-pulse-style';
+            s.textContent = `@keyframes pctacPulse {
+                0% { transform: scale(0.6); opacity: 0.9; }
+                100% { transform: scale(2.2); opacity: 0; }
+            }`;
+            document.head.appendChild(s);
+        }
+        const popup = label
+            ? new maplibregl.Popup({ offset: 18, closeButton: true }).setHTML(
+                `<div style="font-family: var(--font-ui); font-size: 0.9em; max-width: 260px;">${label}</div>`)
+            : null;
+        const m = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lng, lat]);
+        if (popup) m.setPopup(popup);
+        m.addTo(this.map);
+        el.onclick = (ev) => {
+            ev.stopPropagation();
+            if (popup) popup.addTo(this.map);
+        };
+        this.searchMarker = m;
     },
 
     /** Ouvre/ferme le dock de dessin réductible */
@@ -974,17 +1037,121 @@ export const PlanMap = {
     },
 
     _onShapeClick(e) {
-        if (this.drawTool) return; // si on est en train de dessiner, ne pas supprimer
+        if (this.drawTool) return;          // dessin en cours : on ignore
+        if (this.moveState) return;         // déplacement en cours : on ignore
         const feat = e.features && e.features[0];
         if (!feat) return;
         const id = feat.properties.shapeId;
         if (!id) return;
-        if (!confirm('Supprimer ce dessin ?')) return;
+
+        const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: true })
+            .setLngLat(e.lngLat)
+            .setHTML(`
+                <div style="font-family: var(--font-ui); font-size: 0.9em; display: flex; flex-direction: column; gap: 6px; min-width: 140px;">
+                    <button type="button" data-act="move" style="cursor:pointer; padding: 6px 10px; background: rgba(59,130,246,0.15); border: 1px solid #3b82f6; color: #3b82f6; border-radius: 4px;">
+                        Déplacer
+                    </button>
+                    <button type="button" data-act="del" style="cursor:pointer; padding: 6px 10px; background: rgba(239,68,68,0.15); border: 1px solid #ef4444; color: #ef4444; border-radius: 4px;">
+                        Supprimer
+                    </button>
+                </div>
+            `)
+            .addTo(this.map);
+
+        popup.on('open', () => {
+            const root = popup.getElement();
+            if (!root) return;
+            const del = root.querySelector('[data-act="del"]');
+            const mov = root.querySelector('[data-act="move"]');
+            if (del) del.onclick = () => {
+                this._pushHistory();
+                const list = this._loadShapes().filter(s => s.id !== id);
+                this._saveShapes(list);
+                this._renderShapes();
+                this._refreshUndoRedoButtons();
+                popup.remove();
+            };
+            if (mov) mov.onclick = () => {
+                popup.remove();
+                this._startMoveShape(id, [e.lngLat.lng, e.lngLat.lat]);
+            };
+        });
+    },
+
+    /** Bascule en mode déplacement : la forme suit le curseur jusqu'au prochain clic.
+     *  Compatible souris ET tactile (mousemove + touchmove → click pour valider). */
+    _startMoveShape(shapeId, anchorLngLat) {
+        const list = this._loadShapes();
+        const shape = list.find(s => s.id === shapeId);
+        if (!shape) return;
+
+        // Snapshot original avant le déplacement (pour calcul du delta)
         this._pushHistory();
-        const list = this._loadShapes().filter(s => s.id !== id);
-        this._saveShapes(list);
-        this._renderShapes();
+        const original = JSON.parse(JSON.stringify(shape));
+        this.moveState = { shapeId, anchor: anchorLngLat, original };
+        this._showHint('Déplacement : bouge la carte/le doigt, clique pour valider, Échap pour annuler');
+
+        const onMove = (e) => {
+            if (!this.moveState) return;
+            const cur = [e.lngLat.lng, e.lngLat.lat];
+            const dLng = cur[0] - this.moveState.anchor[0];
+            const dLat = cur[1] - this.moveState.anchor[1];
+            const list2 = this._loadShapes();
+            const target = list2.find(s => s.id === shapeId);
+            if (!target) return;
+            // Translation : coords + (centre/edge si cercle)
+            target.coords = original.coords.map(([x, y]) => [x + dLng, y + dLat]);
+            if (original.center) target.center = [original.center[0] + dLng, original.center[1] + dLat];
+            if (original.edge)   target.edge   = [original.edge[0]   + dLng, original.edge[1]   + dLat];
+            this._saveShapes(list2);
+            this._renderShapes();
+        };
+        const onClick = () => this._endMoveShape();
+        const onKey = (e) => { if (e.key === 'Escape') this._cancelMoveShape(); };
+
+        this._moveHandlers = { onMove, onClick, onKey };
+        this.map.on('mousemove', onMove);
+        this.map.on('touchmove', onMove);
+        this.map.on('click', onClick);
+        document.addEventListener('keydown', onKey);
+        this.map.getCanvas().style.cursor = 'move';
+    },
+
+    _endMoveShape() {
+        if (!this.moveState) return;
+        this._teardownMove();
         this._refreshUndoRedoButtons();
+        this._hideHint();
+    },
+
+    _cancelMoveShape() {
+        if (!this.moveState) return;
+        // Restaure l'original
+        const { shapeId, original } = this.moveState;
+        const list = this._loadShapes();
+        const idx = list.findIndex(s => s.id === shapeId);
+        if (idx !== -1) {
+            list[idx] = original;
+            this._saveShapes(list);
+            this._renderShapes();
+        }
+        // Annule le snapshot d'historique poussé au démarrage
+        this.history.pop();
+        this._teardownMove();
+        this._refreshUndoRedoButtons();
+        this._hideHint();
+    },
+
+    _teardownMove() {
+        if (this._moveHandlers) {
+            this.map.off('mousemove', this._moveHandlers.onMove);
+            this.map.off('touchmove', this._moveHandlers.onMove);
+            this.map.off('click', this._moveHandlers.onClick);
+            document.removeEventListener('keydown', this._moveHandlers.onKey);
+            this._moveHandlers = null;
+        }
+        this.moveState = null;
+        if (this.map) this.map.getCanvas().style.cursor = '';
     },
 
     _loadShapes() {

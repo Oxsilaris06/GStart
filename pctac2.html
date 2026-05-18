@@ -29,6 +29,9 @@
     <!-- html2canvas pour le screenshot du plan -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
+    <!-- JSZip pour l'archive tout-en-un (export/import .pctac.zip) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
     <style>
         /* --- THEME TACTICAL GLASS --- */
         /* --- THEME TACTICAL GLASS --- */
@@ -1090,8 +1093,9 @@
                     </div>
                     <div style="margin-top: 15px;">
                         <label>Localisation</label>
-                        <textarea id="lieu_input" placeholder="Localisation" rows="1"
-                            style="resize: vertical; min-height: 45px; padding-top: 12px;"></textarea>
+                        <input type="text" id="lieu_input" placeholder="Localisation" list="lieu_suggestions"
+                            autocomplete="off" style="min-height: 45px;">
+                        <datalist id="lieu_suggestions"></datalist>
                     </div>
                     <div style="margin-top: 15px;">
                         <label>Remarques</label>
@@ -1557,26 +1561,72 @@
         </div>
     </div>
 
-    <!-- Modale d'édition d'adversaire (Photo uniquement) -->
-    <div class="modal" id="editAdversaryModal">
-        <h3>Modifier Photo Adversaire</h3>
+    <!-- Modale d'édition d'adversaire (champs + photo) -->
+    <div class="modal" id="editAdversaryModal" style="max-height: 90vh; overflow-y: auto;">
+        <h3>Modifier Adversaire</h3>
         <input type="hidden" id="edit_adv_id">
-        <div style="margin: 20px 0; text-align: center;">
-            <div id="edit_adv_preview"
-                style="width: 150px; height: 150px; border: 2px dashed var(--border-glass); border-radius: 8px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                <span class="material-symbols-outlined" style="font-size: 48px; color: var(--text-muted);">person</span>
+        <div style="display: flex; gap: 15px; margin: 15px 0; align-items: flex-start;">
+            <div style="flex: 0 0 130px;">
+                <div id="edit_adv_preview"
+                    style="width: 130px; height: 130px; border: 2px dashed var(--border-glass); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    <span class="material-symbols-outlined" style="font-size: 48px; color: var(--text-muted);">person</span>
+                </div>
+                <label class="custom-file-upload" for="edit_adv_photo_input" style="margin-top: 8px; padding: 5px; height: auto;">
+                    <span class="material-symbols-outlined">add_a_photo</span> Photo
+                    <input type="file" id="edit_adv_photo_input" accept="image/*" style="display: none;">
+                </label>
             </div>
-            <label class="custom-file-upload" for="edit_adv_photo_input">
-                <span class="material-symbols-outlined">add_a_photo</span> Sélectionner une photo
-                <input type="file" id="edit_adv_photo_input" accept="image/*" style="display: none;">
-            </label>
+            <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div><label>Nom</label><input type="text" id="edit_adv_nom"></div>
+                <div><label>Prénom</label><input type="text" id="edit_adv_prenom"></div>
+                <div><label>D.N.</label><input type="text" id="edit_adv_dob"></div>
+                <div><label>Lien Victimes</label><input type="text" id="edit_adv_lien"></div>
+                <div><label>Antécédents</label><input type="text" id="edit_adv_antecedents"></div>
+                <div><label>Attitude</label><input type="text" id="edit_adv_attitude"></div>
+                <div><label>Substance</label><input type="text" id="edit_adv_substance"></div>
+                <div><label>Armes</label><input type="text" id="edit_adv_armes"></div>
+            </div>
         </div>
         <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button type="button" class="add-btn" id="confirmEditAdvBtn">Mettre à jour</button>
+            <button type="button" class="add-btn" id="confirmEditAdvBtn">Enregistrer</button>
             <button class="add-btn" onclick="UI.hideEditAdversaryModal()"
                 style="background: var(--bg-input);">Annuler</button>
         </div>
     </div>
+
+    <!-- Modale d'édition d'otage (champs + photo) -->
+    <div class="modal" id="editHostageModal" style="max-height: 90vh; overflow-y: auto;">
+        <h3>Modifier Otage</h3>
+        <input type="hidden" id="edit_host_id">
+        <div style="display: flex; gap: 15px; margin: 15px 0; align-items: flex-start;">
+            <div style="flex: 0 0 130px;">
+                <div id="edit_host_preview"
+                    style="width: 130px; height: 130px; border: 2px dashed var(--border-glass); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    <span class="material-symbols-outlined" style="font-size: 48px; color: var(--text-muted);">person_off</span>
+                </div>
+                <label class="custom-file-upload" for="edit_host_photo_input" style="margin-top: 8px; padding: 5px; height: auto;">
+                    <span class="material-symbols-outlined">add_a_photo</span> Photo
+                    <input type="file" id="edit_host_photo_input" accept="image/*" style="display: none;">
+                </label>
+            </div>
+            <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div><label>Nom</label><input type="text" id="edit_host_nom"></div>
+                <div><label>Prénom</label><input type="text" id="edit_host_prenom"></div>
+                <div><label>D.N.</label><input type="text" id="edit_host_dob"></div>
+                <div><label>Lien Adversaire</label><input type="text" id="edit_host_lien"></div>
+                <div><label>État</label><input type="text" id="edit_host_etat"></div>
+                <div><label>Blessures</label><input type="text" id="edit_host_blessures"></div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="button" class="add-btn" id="confirmEditHostBtn">Enregistrer</button>
+            <button class="add-btn" onclick="UI.hideEditHostageModal()"
+                style="background: var(--bg-input);">Annuler</button>
+        </div>
+    </div>
+
+    <!-- Input caché pour import archive .pctac.zip -->
+    <input type="file" id="archiveImportInput" accept=".zip,.pctac,.pctac.zip,application/zip" style="display:none;">
 
     <div class="lightbox" id="lightboxModal">
         <img id="lightboxImage" src="" alt="">
@@ -1598,17 +1648,13 @@
             <span class="material-symbols-outlined">alt_route</span>
         </a>
 
-        <!-- NOUVEAU BOUTON : Transfert QR Local -->
-        <div class="dock-menu-item" id="transferDockBtn" title="Transfert QR Local"><span
-                class="material-symbols-outlined">qr_code_2</span></div>
-
-        <!-- Bouton Export JSON -->
-        <div class="dock-menu-item" id="exportJsonDockBtn" title="Exporter les données au format JSON">
-            <span class="material-symbols-outlined">save</span>
+        <!-- Archive tout-en-un : export .pctac.zip (données + images) -->
+        <div class="dock-menu-item" id="exportJsonDockBtn" title="Exporter une archive .pctac.zip (données + photos)">
+            <span class="material-symbols-outlined">archive</span>
         </div>
-        <!-- Bouton Import JSON -->
-        <div class="dock-menu-item" id="importJsonDockBtn" title="Importer des données au format JSON">
-            <span class="material-symbols-outlined">upload_file</span>
+        <!-- Import archive .pctac.zip (ou .json legacy) -->
+        <div class="dock-menu-item" id="importJsonDockBtn" title="Importer une archive .pctac.zip">
+            <span class="material-symbols-outlined">unarchive</span>
         </div>
 
         <div class="dock-menu-item" id="darkModeToggle" title="Changer le thème">

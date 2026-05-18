@@ -1,3 +1,8 @@
+/**
+ * patrac.js — Gestion du tableau de répartition du personnel et des véhicules (PATRACDVR).
+ * Chargé par : 4.html
+ * Fonctions principales : addPatracdvrRow, addPatracdvrMember, handleMemberSelection, initializePatracdvr
+ */
 // ==================== Patracdvr.js ====================
 
 // Redundant declarations removed (now in init.js)

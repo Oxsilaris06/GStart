@@ -1,4 +1,9 @@
 /**
+ * pdf_engine_v2.js — Moteur de rendu PDF et d'aperçu, collectant les données du Store et des photos pour produire un document structuré.
+ * Chargé par : 4.html
+ * Fonctions principales : PDFEngineV2.openPreview, PDFEngineV2.downloadOiPdf, PDFEngineV2.collectAllData, PDFEngineV2.generateHTML
+ */
+/**
  * ============================================================
  * PDF ENGINE V2 - GSTART PROJECT
  * ============================================================

@@ -1,3 +1,8 @@
+/**
+ * articulation.js — Gestion dynamique des blocs MOICP / ZMSPCP / effraction et de l'articulation tactique.
+ * Chargé par : 4.html
+ * Fonctions principales : addMoicp, addZmspcp, addEffraction, refreshArticulationFromPatracdvr, refreshColonneProgression
+ */
 // ==================== Articulation.js ====================
 
 

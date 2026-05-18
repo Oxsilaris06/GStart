@@ -1,3 +1,8 @@
+/**
+ * medias.js — Gestion des images et médias : import, compression, miniatures, fond personnalisé.
+ * Chargé par : 4.html
+ * Fonctions principales : handleFileChange, removeImage, syncAllThumbnails, handleCustomBackgroundChange
+ */
 // ==================== MediaManager.js ====================
 
 

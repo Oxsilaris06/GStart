@@ -1,3 +1,8 @@
+/**
+ * formulaires.js — Gestion des champs de formulaire dynamiques (chips, événements chronologiques, adversaires).
+ * Chargé par : 4.html
+ * Fonctions principales : addDynamicField, initChipContainer, getChipData, addTimeEvent, addAdversary
+ */
 // ==================== FormManager.js ====================
 
 

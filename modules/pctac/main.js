@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Charger les données initiales
     const initialLogs = Storage.loadLogData();
     UI.renderLogTable(initialLogs);
+    UI.refreshLieuSuggestions();
 
     // Initialiser les écouteurs d'onglets
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -67,6 +68,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (newEntry) {
                 UI.renderLogTable(Storage.loadLogData());
                 UI.elements.remarquesInput.value = '';
+                UI.elements.lieuInput.value = '';
+                UI.refreshLieuSuggestions();
                 UI.elements.remarquesInput.focus();
                 UI.updateTimeInput(true);
             }
@@ -291,7 +294,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         confirmResetBtn.onclick = async () => {
             Storage.clearAllData();
             try { await ImageStore.clear(); } catch (e) { console.error('[PC TAC] clear IDB échec:', e); }
-            UI.renderLogTable([]);
+
+            // Reset des champs du formulaire principal
+            ['lieu_input', 'remarques_input', 'heure_input'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            // Reset des formulaires de collection
+            ['adversary-form', 'hostage-form', 'friend-form', 'photo-form'].forEach(fid => {
+                const f = document.getElementById(fid);
+                if (f) f.reset();
+            });
+            // Reset des aperçus photo
+            ['adv_photo_preview', 'hostage_photo_preview'].forEach(pid => {
+                const p = document.getElementById(pid);
+                if (p) {
+                    const isAdv = pid === 'adv_photo_preview';
+                    p.innerHTML = `<span class="material-symbols-outlined" style="font-size: 30px; color: var(--text-muted);">${isAdv ? 'person' : 'person_off'}</span>`;
+                }
+            });
+            ['adv_photo', 'hostage_photo'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.value = ''; delete el.dataset.base64; }
+            });
+
             UI.hideResetModal();
             location.reload();
         };
@@ -300,9 +326,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cancelCreatePaxBtn = document.getElementById('cancelCreatePaxBtn');
     if (cancelCreatePaxBtn) cancelCreatePaxBtn.onclick = () => UI.hideCreatePaxModal();
 
-    // Édition Adversaire
+    // Édition Adversaire (champs + photo)
     const confirmEditAdvBtn = document.getElementById('confirmEditAdvBtn');
-    if (confirmEditAdvBtn) confirmEditAdvBtn.onclick = () => UI.handleAdversaryPhotoUpdate();
+    if (confirmEditAdvBtn) confirmEditAdvBtn.onclick = () => UI.handleAdversaryUpdate();
 
     const editAdvPhotoInput = document.getElementById('edit_adv_photo_input');
     if (editAdvPhotoInput) {
@@ -317,6 +343,64 @@ document.addEventListener('DOMContentLoaded', async () => {
                     console.error("Erreur de compression:", err);
                 }
             }
+        };
+    }
+
+    // Édition Otage (champs + photo)
+    const confirmEditHostBtn = document.getElementById('confirmEditHostBtn');
+    if (confirmEditHostBtn) confirmEditHostBtn.onclick = () => UI.handleHostageUpdate();
+
+    const editHostPhotoInput = document.getElementById('edit_host_photo_input');
+    if (editHostPhotoInput) {
+        editHostPhotoInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                try {
+                    const compressedData = await Utils.compressImage(file, 800, 800, 0.7);
+                    document.getElementById('edit_host_preview').innerHTML = `<img src="${compressedData}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    editHostPhotoInput.dataset.compressedBase64 = compressedData;
+                } catch (err) {
+                    console.error("Erreur de compression:", err);
+                }
+            }
+        };
+    }
+
+    // Édition Log (Enregistrer + Annuler du Reset)
+    const confirmEditLogBtn = document.getElementById('confirmEditBtn');
+    if (confirmEditLogBtn) confirmEditLogBtn.onclick = () => UI.confirmEditLog();
+
+    const cancelResetBtn = document.getElementById('cancelResetBtn');
+    if (cancelResetBtn) cancelResetBtn.onclick = () => UI.hideResetModal();
+
+    // --- ARCHIVE TOUT-EN-UN (.pctac.zip) ---
+    const { Archive } = await import('./archive.js');
+
+    const exportArchiveBtn = document.getElementById('exportJsonDockBtn');
+    if (exportArchiveBtn) exportArchiveBtn.onclick = () => Archive.exportZip();
+
+    const importArchiveBtn = document.getElementById('importJsonDockBtn');
+    const archiveFileInput = document.getElementById('archiveImportInput');
+    if (importArchiveBtn && archiveFileInput) {
+        importArchiveBtn.onclick = () => archiveFileInput.click();
+        archiveFileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            try {
+                await Archive.importFile(file);
+                UI.renderLogTable(Storage.loadLogData());
+                UI.refreshLieuSuggestions();
+                await UI.renderAdversaries();
+                await UI.renderHostages();
+                UI.renderFriends();
+                await UI.renderPhotos();
+                if (window.PlanMap && window.PlanMap.initialized) window.PlanMap.refresh();
+                alert('Archive importée avec succès.');
+            } catch (err) {
+                console.error('[Archive] import échec:', err);
+                alert('Erreur d\'import : ' + err.message);
+            }
+            archiveFileInput.value = '';
         };
     }
 

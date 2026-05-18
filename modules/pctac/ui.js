@@ -1,6 +1,7 @@
 import { PDF_PAX_COLORS, FREE_MODE_COLORS, LONG_PRESS_DELAY, PHOTO_CATEGORIES } from './config.js';
 import { Storage } from './storage.js';
 import { ImageStore } from './imageStore.js';
+import { LogManager } from './logManager.js';
 
 /**
  * Gestionnaire de l'interface utilisateur PC TAC
@@ -39,6 +40,22 @@ export const UI = {
             createPaxModal: document.getElementById('createPaxModal'),
             newPaxColorPalette: document.getElementById('new_pax_color_palette')
         };
+        this.bindModalBackdrop();
+    },
+
+    /**
+     * Ferme toute modale active au clic sur le fond assombri (m5).
+     * Les modales (.modal) et le fond (#modalBackdrop) sont des éléments frères :
+     * un clic sur le fond est donc toujours un clic « hors modale ».
+     */
+    bindModalBackdrop() {
+        const backdrop = document.getElementById('modalBackdrop');
+        if (!backdrop || backdrop.dataset.bound) return;
+        backdrop.dataset.bound = '1';
+        backdrop.addEventListener('click', () => {
+            document.querySelectorAll('.modal').forEach(m => { m.style.display = 'none'; });
+            backdrop.style.display = 'none';
+        });
     },
 
     /**
@@ -181,6 +198,9 @@ export const UI = {
                 <td style="width: 15%;">
                     <div class="heure-cell-container">
                         <span class="heure-cell-text">${entry.heure}</span>
+                        <button type="button" class="action-btn-small edit" onclick="window.openEditModal('${entry.id}')" title="Modifier">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">edit</span>
+                        </button>
                         <button type="button" class="delete-btn" onclick="window.deleteLogEntry('${entry.id}')">
                             <span class="material-symbols-outlined" style="font-size: 18px;">close</span>
                         </button>
@@ -238,9 +258,32 @@ export const UI = {
         document.getElementById('editModal').style.display = 'block';
     },
 
+    confirmEditLog() {
+        const id = document.getElementById('edit_id').value;
+        if (!id) return;
+        const updated = {
+            heure: document.getElementById('edit_heure').value,
+            lieu: document.getElementById('edit_lieu').value.trim(),
+            remarques: document.getElementById('edit_remarques').value.trim()
+        };
+        LogManager.updateEntry(id, updated);
+        if (updated.lieu) LogManager.addLieuToHistory(updated.lieu);
+        this.renderLogTable(Storage.loadLogData());
+        this.refreshLieuSuggestions();
+        this.hideEditModal();
+    },
+
     hideEditModal() {
         document.getElementById('modalBackdrop').style.display = 'none';
         document.getElementById('editModal').style.display = 'none';
+    },
+
+    /** Recharge les suggestions de localisation dans le datalist */
+    refreshLieuSuggestions() {
+        const dl = document.getElementById('lieu_suggestions');
+        if (!dl) return;
+        const hist = LogManager.getLieuHistory();
+        dl.innerHTML = hist.map(l => `<option value="${l.replace(/"/g, '&quot;')}">`).join('');
     },
 
     selectColorSwatch(hex, paletteId, hiddenInputId) {
@@ -343,7 +386,7 @@ export const UI = {
                 </td>
                 <td style="width: 50px;">
                     <div style="display: flex; gap: 5px;">
-                        <button class="action-btn-small edit" onclick="window.UI.showEditAdversaryModal('${item.id}')" title="Modifier Photo"><span class="material-symbols-outlined" style="font-size: 18px;">add_a_photo</span></button>
+                        <button class="action-btn-small edit" onclick="window.UI.showEditAdversaryModal('${item.id}')" title="Modifier"><span class="material-symbols-outlined" style="font-size: 18px;">edit</span></button>
                         <button class="delete-btn" onclick="window.deleteCollectionItem('pcTacAdversaries', '${item.id}', 'view-adversaires')"><span class="material-symbols-outlined" style="font-size: 18px;">delete</span></button>
                     </div>
                 </td>
@@ -372,7 +415,10 @@ export const UI = {
                     </div>
                 </td>
                 <td style="width: 50px;">
-                    <button class="delete-btn" onclick="window.deleteCollectionItem('pcTacHostages', '${item.id}', 'view-otages')"><span class="material-symbols-outlined" style="font-size: 18px;">delete</span></button>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="action-btn-small edit" onclick="window.UI.showEditHostageModal('${item.id}')" title="Modifier"><span class="material-symbols-outlined" style="font-size: 18px;">edit</span></button>
+                        <button class="delete-btn" onclick="window.deleteCollectionItem('pcTacHostages', '${item.id}', 'view-otages')"><span class="material-symbols-outlined" style="font-size: 18px;">delete</span></button>
+                    </div>
                 </td>
             </tr>
         `).join('');
@@ -604,9 +650,19 @@ export const UI = {
         if (!item) return;
 
         document.getElementById('edit_adv_id').value = id;
+        const fields = ['nom', 'prenom', 'dob', 'lien', 'antecedents', 'attitude', 'substance', 'armes'];
+        fields.forEach(f => {
+            const el = document.getElementById('edit_adv_' + f);
+            if (el) el.value = item[f] || '';
+        });
         const preview = document.getElementById('edit_adv_preview');
         const existingPhoto = await ImageStore.get(id);
-        preview.innerHTML = existingPhoto ? `<img src="${existingPhoto}" style="width: 100%; height: 100%; object-fit: cover;">` : '<span class="material-symbols-outlined" style="font-size: 48px; color: var(--text-muted);">person</span>';
+        preview.innerHTML = existingPhoto
+            ? `<img src="${existingPhoto}" style="width: 100%; height: 100%; object-fit: cover;">`
+            : '<span class="material-symbols-outlined" style="font-size: 48px; color: var(--text-muted);">person</span>';
+
+        const fileInput = document.getElementById('edit_adv_photo_input');
+        if (fileInput) { fileInput.value = ''; delete fileInput.dataset.compressedBase64; }
 
         document.getElementById('modalBackdrop').style.display = 'block';
         document.getElementById('editAdversaryModal').style.display = 'block';
@@ -617,23 +673,26 @@ export const UI = {
         document.getElementById('editAdversaryModal').style.display = 'none';
     },
 
-    async handleAdversaryPhotoUpdate() {
+    async handleAdversaryUpdate() {
         const id = document.getElementById('edit_adv_id').value;
-        const fileInput = document.getElementById('edit_adv_photo_input');
-        const dataUrl = fileInput.dataset.compressedBase64;
-
-        if (!dataUrl) return alert("Veuillez sélectionner une photo");
-
-        // 1. Update Adversary : image en IDB, flag dans la collection
+        if (!id) return;
         const advList = Storage.loadCollection('pcTacAdversaries');
         const adv = advList.find(a => a.id === id);
-        if (adv) {
+        if (!adv) return this.hideEditAdversaryModal();
+
+        const fields = ['nom', 'prenom', 'dob', 'lien', 'antecedents', 'attitude', 'substance', 'armes'];
+        fields.forEach(f => {
+            const el = document.getElementById('edit_adv_' + f);
+            if (el) adv[f] = el.value.trim();
+        });
+
+        const fileInput = document.getElementById('edit_adv_photo_input');
+        const dataUrl = fileInput && fileInput.dataset.compressedBase64;
+        if (dataUrl) {
             await ImageStore.put(id, dataUrl);
             delete adv.photo;
             adv.hasImage = true;
-            Storage.saveCollection('pcTacAdversaries', advList);
 
-            // 2. Sync vers Photos
             const photoList = Storage.loadCollection('pcTacPhotos');
             const photoSyncId = id + "_sync";
             await ImageStore.put(photoSyncId, dataUrl);
@@ -641,6 +700,7 @@ export const UI = {
             if (photo) {
                 delete photo.data;
                 photo.hasImage = true;
+                photo.title = `${adv.nom} ${adv.prenom}`;
             } else {
                 photoList.push({
                     id: photoSyncId,
@@ -653,10 +713,85 @@ export const UI = {
             Storage.saveCollection('pcTacPhotos', photoList);
         }
 
+        Storage.saveCollection('pcTacAdversaries', advList);
         this.hideEditAdversaryModal();
         await this.renderAdversaries();
-        fileInput.value = '';
-        delete fileInput.dataset.compressedBase64;
+        if (fileInput) { fileInput.value = ''; delete fileInput.dataset.compressedBase64; }
+    },
+
+    async showEditHostageModal(id) {
+        const list = Storage.loadCollection('pcTacHostages');
+        const item = list.find(h => h.id === id);
+        if (!item) return;
+
+        document.getElementById('edit_host_id').value = id;
+        const fields = ['nom', 'prenom', 'dob', 'lien', 'etat', 'blessures'];
+        fields.forEach(f => {
+            const el = document.getElementById('edit_host_' + f);
+            if (el) el.value = item[f] || '';
+        });
+        const preview = document.getElementById('edit_host_preview');
+        const existingPhoto = await ImageStore.get(id);
+        preview.innerHTML = existingPhoto
+            ? `<img src="${existingPhoto}" style="width: 100%; height: 100%; object-fit: cover;">`
+            : '<span class="material-symbols-outlined" style="font-size: 48px; color: var(--text-muted);">person_off</span>';
+
+        const fileInput = document.getElementById('edit_host_photo_input');
+        if (fileInput) { fileInput.value = ''; delete fileInput.dataset.compressedBase64; }
+
+        document.getElementById('modalBackdrop').style.display = 'block';
+        document.getElementById('editHostageModal').style.display = 'block';
+    },
+
+    hideEditHostageModal() {
+        document.getElementById('modalBackdrop').style.display = 'none';
+        document.getElementById('editHostageModal').style.display = 'none';
+    },
+
+    async handleHostageUpdate() {
+        const id = document.getElementById('edit_host_id').value;
+        if (!id) return;
+        const list = Storage.loadCollection('pcTacHostages');
+        const host = list.find(h => h.id === id);
+        if (!host) return this.hideEditHostageModal();
+
+        const fields = ['nom', 'prenom', 'dob', 'lien', 'etat', 'blessures'];
+        fields.forEach(f => {
+            const el = document.getElementById('edit_host_' + f);
+            if (el) host[f] = el.value.trim();
+        });
+
+        const fileInput = document.getElementById('edit_host_photo_input');
+        const dataUrl = fileInput && fileInput.dataset.compressedBase64;
+        if (dataUrl) {
+            await ImageStore.put(id, dataUrl);
+            delete host.photo;
+            host.hasImage = true;
+
+            const photoList = Storage.loadCollection('pcTacPhotos');
+            const photoSyncId = id + "_sync";
+            await ImageStore.put(photoSyncId, dataUrl);
+            let photo = photoList.find(p => p.id === photoSyncId);
+            if (photo) {
+                delete photo.data;
+                photo.hasImage = true;
+                photo.title = `${host.nom} ${host.prenom}`;
+            } else {
+                photoList.push({
+                    id: photoSyncId,
+                    title: `${host.nom} ${host.prenom}`,
+                    category: 'hostage',
+                    status: 'ok',
+                    hasImage: true
+                });
+            }
+            Storage.saveCollection('pcTacPhotos', photoList);
+        }
+
+        Storage.saveCollection('pcTacHostages', list);
+        this.hideEditHostageModal();
+        await this.renderHostages();
+        if (fileInput) { fileInput.value = ''; delete fileInput.dataset.compressedBase64; }
     }
 };
 

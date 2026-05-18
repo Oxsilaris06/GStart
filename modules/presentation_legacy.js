@@ -1,3 +1,8 @@
+/**
+ * presentation_legacy.js — Ancien moteur de présentation et d'export PDF, conservé pour compatibilité ou comme solution de repli.
+ * Chargé par : Aucun (Orphelin)
+ * Fonctions principales : openPresentationMode, buildPresentationHtml, downloadOiPdf, buildPdf
+ */
 window.openPresentationMode = openPresentationMode;
 window.downloadOiPdf = downloadOiPdf;
 

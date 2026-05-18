@@ -1,3 +1,8 @@
+/**
+ * oi_cartographie.js — Cartographie de préparation mission (MapLibre) pour le Générateur d'OI.
+ * Chargé par : 4.html
+ * Fonctions principales : OICarto (objet : init, gestion des pins, shapes, historique undo/redo)
+ */
 // ==================== oi_cartographie.js ====================
 // Cartographie de préparation mission pour le Générateur d'OI (4.html).
 //

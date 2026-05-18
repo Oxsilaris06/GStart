@@ -1,3 +1,8 @@
+/**
+ * init.js — Constantes globales et Store réactif (Proxy) de l'application ; point d'initialisation.
+ * Chargé par : 4.html
+ * Fonctions principales : createDeepProxy, Store (Proxy réactif), LOCAL_STORAGE_KEY, DEFAULTS
+ */
 // ==================== Constants.js ====================
 const LOCAL_STORAGE_KEY = 'tactical_oi_data';
 window.LOCAL_STORAGE_KEY = LOCAL_STORAGE_KEY;

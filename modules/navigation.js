@@ -1,3 +1,8 @@
+/**
+ * navigation.js — Navigation de l'assistant (wizard) : affichage et changement d'étape.
+ * Chargé par : 4.html
+ * Fonctions principales : showStep, goToStep, changeStep
+ */
 // ==================== Wizard.js ====================
 
 

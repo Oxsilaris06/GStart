@@ -1153,6 +1153,135 @@
                 grid-template-columns: 1fr !important;
             }
         }
+
+        /* --- OPTIMISATION DESSIN MOBILE --- */
+        #plan_draw_crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            pointer-events: none;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+        }
+        #plan_draw_crosshair.active {
+            display: flex;
+        }
+        #plan_draw_crosshair::before,
+        #plan_draw_crosshair::after {
+            content: '';
+            position: absolute;
+            background: var(--accent-blue);
+            box-shadow: 0 0 6px var(--accent-blue);
+        }
+        #plan_draw_crosshair::before {
+            width: 30px;
+            height: 2px;
+        }
+        #plan_draw_crosshair::after {
+            width: 2px;
+            height: 30px;
+        }
+        #plan_draw_crosshair .reticle-ring {
+            width: 42px;
+            height: 42px;
+            border: 1.5px dashed var(--accent-blue);
+            border-radius: 50%;
+            box-shadow: inset 0 0 4px var(--accent-blue), 0 0 4px var(--accent-blue);
+            position: absolute;
+        }
+        #plan_draw_crosshair .reticle-center {
+            width: 4px;
+            height: 4px;
+            background: #fff;
+            border-radius: 50%;
+            position: absolute;
+            box-shadow: 0 0 4px var(--accent-blue);
+        }
+
+        #plan_draw_precision_controls {
+            display: none;
+            position: absolute;
+            bottom: 75px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 12;
+            gap: 10px;
+        }
+
+        @media (max-width: 768px) {
+            #plan_draw_dock {
+                flex-direction: row !important;
+                position: absolute !important;
+                top: auto !important;
+                right: 10px !important;
+                left: 10px !important;
+                bottom: 10px !important;
+                max-height: none !important;
+                width: auto !important;
+                justify-content: space-around !important;
+                align-items: center !important;
+                padding: 8px 10px !important;
+                border-radius: var(--radius-md) !important;
+                gap: 2px !important;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+            }
+
+            #plan_draw_dock .plan-draw-btn,
+            #plan_draw_dock #plan_draw_undo,
+            #plan_draw_dock #plan_draw_redo,
+            #plan_draw_dock #plan_draw_diameter_toggle,
+            #plan_draw_dock #plan_draw_clear {
+                width: 42px !important;
+                height: 42px !important;
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border-radius: 50% !important;
+            }
+
+            #plan_draw_color_picker {
+                flex-direction: row !important;
+                width: auto !important;
+                gap: 6px !important;
+                padding: 0 4px !important;
+            }
+
+            #plan_draw_color_picker .plan-draw-color {
+                width: 28px !important;
+                height: 28px !important;
+            }
+
+            #plan_draw_dock.open ~ #plan_legend {
+                display: none !important;
+            }
+
+            #plan_draw_precision_controls {
+                top: 15px !important;
+                bottom: auto !important;
+                background: rgba(10, 10, 12, 0.85) !important;
+                backdrop-filter: blur(12px) !important;
+                -webkit-backdrop-filter: blur(12px) !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                padding: 6px 10px !important;
+                border-radius: 30px !important;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+                gap: 8px !important;
+            }
+
+            #plan_draw_precision_controls button {
+                padding: 8px 14px !important;
+                font-size: 0.9em !important;
+                border-radius: 20px !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+        }
     </style>
 </head>
 
@@ -1488,6 +1617,28 @@
                     </button>
                     <button type="button" id="plan_draw_clear" title="Effacer tous les dessins" style="background: transparent; border: 1px solid transparent; color: var(--danger-red); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
                         <span class="material-symbols-outlined" style="font-size: 24px;">delete_sweep</span>
+                    </button>
+                </div>
+
+                <!-- Réticule de visée tactique pour le mode dessin de précision sur mobile -->
+                <div id="plan_draw_crosshair">
+                    <div class="reticle-ring"></div>
+                    <div class="reticle-center"></div>
+                </div>
+
+                <!-- Boutons d'action pour le tracé de précision sur mobile -->
+                <div id="plan_draw_precision_controls">
+                    <button type="button" id="plan_draw_precision_start" style="display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 30px; font-weight: bold; background: var(--accent-blue); border: 1px solid var(--border-glass); color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; font-family: inherit;">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">add_circle</span>
+                        <span>Débuter tracé</span>
+                    </button>
+                    <button type="button" id="plan_draw_precision_confirm" style="display: none; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 30px; font-weight: bold; background: #22c55e; border: 1px solid var(--border-glass); color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; font-family: inherit;">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">check_circle</span>
+                        <span>Valider</span>
+                    </button>
+                    <button type="button" id="plan_draw_precision_cancel" style="display: none; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 30px; font-weight: bold; background: var(--danger-red); border: 1px solid var(--border-glass); color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.4); cursor: pointer; font-family: inherit;">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">cancel</span>
+                        <span>Annuler</span>
                     </button>
                 </div>
 

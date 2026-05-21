@@ -59,6 +59,7 @@ export class Wheel {
         this._mountedAt = Date.now();
         // Capture pour intercepter avant que le map handler ne réagisse
         document.addEventListener('pointerdown', this._onOutside, { capture: true });
+        document.addEventListener('touchstart', this._onOutside, { capture: true, passive: true });
         document.addEventListener('keydown', this._onKey);
         // Anim d'apparition
         requestAnimationFrame(() => {
@@ -78,6 +79,7 @@ export class Wheel {
             try { this.map.off('zoom', this._onMove); } catch (_) {}
         }
         document.removeEventListener('pointerdown', this._onOutside, { capture: true });
+        document.removeEventListener('touchstart', this._onOutside, { capture: true });
         document.removeEventListener('keydown', this._onKey);
         if (this.onClose) {
             try { this.onClose(); } catch (_) {}

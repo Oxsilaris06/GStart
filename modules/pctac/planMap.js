@@ -797,12 +797,12 @@ export const PlanMap = {
                 .addTo(this.map);
             // Détecte tap vs drag : si pas de mouvement durant la pression → roue
             let pdStart = null;
-            pinWrap.addEventListener('pointerdown', (ev) => {
-                pdStart = { x: ev.clientX, y: ev.clientY, t: Date.now() };
-            });
-            pinWrap.addEventListener('pointerup', (ev) => {
+            const onDown = (clientX, clientY) => {
+                pdStart = { x: clientX, y: clientY, t: Date.now() };
+            };
+            const onUp = (clientX, clientY, ev) => {
                 if (!pdStart) return;
-                const dx = ev.clientX - pdStart.x, dy = ev.clientY - pdStart.y;
+                const dx = clientX - pdStart.x, dy = clientY - pdStart.y;
                 const moved = Math.hypot(dx, dy);
                 const dt = Date.now() - pdStart.t;
                 pdStart = null;
@@ -811,6 +811,29 @@ export const PlanMap = {
                     ev.stopPropagation();
                     this._openPingOptionsWheel(pin.id);
                 }
+            };
+
+            pinWrap.addEventListener('pointerdown', (ev) => {
+                if (ev.pointerType === 'touch') return; // géré par touchstart
+                onDown(ev.clientX, ev.clientY);
+            });
+            pinWrap.addEventListener('pointerup', (ev) => {
+                if (ev.pointerType === 'touch') return;
+                onUp(ev.clientX, ev.clientY, ev);
+            });
+
+            pinWrap.addEventListener('touchstart', (ev) => {
+                if (ev.touches.length > 0) {
+                    onDown(ev.touches[0].clientX, ev.touches[0].clientY);
+                }
+            }, { passive: true });
+            pinWrap.addEventListener('touchend', (ev) => {
+                if (ev.changedTouches.length > 0) {
+                    onUp(ev.changedTouches[0].clientX, ev.changedTouches[0].clientY, ev);
+                }
+            });
+            pinWrap.addEventListener('touchcancel', () => {
+                pdStart = null;
             });
 
             // --- 2) MARKER LABEL séparé, ancré au même lng/lat (label +20% : 11→13) ---
@@ -1158,6 +1181,71 @@ export const PlanMap = {
         const diamBtn = document.getElementById('plan_draw_diameter_toggle');
         if (diamBtn) diamBtn.onclick = () => this._toggleGlobalDiameter();
 
+        // Raccordement des boutons de précision tactique (mobile)
+        const pStart = document.getElementById('plan_draw_precision_start');
+        const pConfirm = document.getElementById('plan_draw_precision_confirm');
+        const pCancel = document.getElementById('plan_draw_precision_cancel');
+
+        if (pStart) {
+            pStart.onclick = () => {
+                if (!this.drawTool) return;
+                const center = this.map.getCenter();
+                const lngLat = [center.lng, center.lat];
+
+                if (this.drawTool === 'text') {
+                    this._addFreeText(center);
+                    this._setTool(null);
+                    return;
+                }
+
+                this.drawState = { start: lngLat, current: lngLat };
+
+                // Afficher Valider / Annuler
+                pStart.style.display = 'none';
+                if (pConfirm) pConfirm.style.display = 'flex';
+                if (pCancel) pCancel.style.display = 'flex';
+
+                // Générer un premier aperçu
+                this._handleDrawMove({ lngLat: center });
+            };
+        }
+
+        if (pConfirm) {
+            pConfirm.onclick = () => {
+                if (!this.drawTool || !this.drawState) return;
+                const center = this.map.getCenter();
+                this._handleDrawUp({ lngLat: center });
+
+                // Réinitialiser les états des boutons
+                if (pStart) pStart.style.display = 'flex';
+                pConfirm.style.display = 'none';
+                if (pCancel) pCancel.style.display = 'none';
+            };
+        }
+
+        if (pCancel) {
+            pCancel.onclick = () => {
+                this.drawState = null;
+                this._clearPreview();
+                this._clearLiveDiameter();
+
+                // Réinitialiser les états des boutons
+                if (pStart) pStart.style.display = 'flex';
+                if (pConfirm) pConfirm.style.display = 'none';
+                pCancel.style.display = 'none';
+            };
+        }
+
+        // Mettre à jour l'aperçu à chaque mouvement de la carte en mode précision
+        if (this.map) {
+            this.map.on('move', () => {
+                if (this.drawPrecisionMode && this.drawState) {
+                    const center = this.map.getCenter();
+                    this._handleDrawMove({ lngLat: center });
+                }
+            });
+        }
+
         // Échap = quitte l'outil ; Ctrl+Z / Ctrl+Y raccourcis (uniquement sur la vue Plan)
         document.addEventListener('keydown', (e) => {
             const planView = document.getElementById('view-plan');
@@ -1214,16 +1302,45 @@ export const PlanMap = {
         this.drawTool = tool;
         this.drawState = null;
         this._clearPreview();
+        this._clearLiveDiameter();
+
+        // Détecter si on est sur mobile/tactile pour le mode précision
+        const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        this.drawPrecisionMode = !!(tool && isMobile);
+
         // Style des boutons
         document.querySelectorAll('.plan-draw-btn').forEach(b => {
             const active = b.dataset.tool === tool;
             b.style.background = active ? this.drawColor : 'transparent';
             b.style.color = active ? (['#eab308', '#ffffff', '#22c55e'].includes(this.drawColor) ? '#000' : '#fff') : 'var(--text-main)';
         });
-        // Curseur + désactive le pan de la carte tant qu'un outil est actif
+
+        // Contrôles du réticule et des boutons de précision mobile
+        const crosshair = document.getElementById('plan_draw_crosshair');
+        const precControls = document.getElementById('plan_draw_precision_controls');
+        const viewPlan = document.getElementById('view-plan');
+
+        if (crosshair) {
+            crosshair.classList.toggle('active', !!this.drawPrecisionMode);
+        }
+        if (precControls) {
+            precControls.style.display = this.drawPrecisionMode ? 'flex' : 'none';
+            // Réinitialiser l'état visuel des boutons de visée
+            const pStart = document.getElementById('plan_draw_precision_start');
+            const pConfirm = document.getElementById('plan_draw_precision_confirm');
+            const pCancel = document.getElementById('plan_draw_precision_cancel');
+            if (pStart) pStart.style.display = 'flex';
+            if (pConfirm) pConfirm.style.display = 'none';
+            if (pCancel) pCancel.style.display = 'none';
+        }
+        if (viewPlan) {
+            viewPlan.classList.toggle('drawing-active', !!this.drawPrecisionMode);
+        }
+
+        // Curseur + désactive le pan de la carte tant qu'un outil est actif (sauf en mode précision mobile)
         if (this.map) {
             this.map.getCanvas().style.cursor = tool ? 'crosshair' : '';
-            if (tool) {
+            if (tool && !this.drawPrecisionMode) {
                 this.map.dragPan.disable();
                 this.map.doubleClickZoom.disable();
                 this.map.boxZoom.disable();
@@ -1246,7 +1363,7 @@ export const PlanMap = {
 
     /** Drag-to-draw : démarrage */
     _handleDrawDown(e) {
-        if (!this.drawTool) return;
+        if (!this.drawTool || this.drawPrecisionMode) return;
         // Outil texte : un seul clic suffit (pas de drag)
         if (this.drawTool === 'text') {
             if (e.originalEvent) { e.originalEvent.preventDefault(); e.originalEvent.stopPropagation(); }
@@ -1268,6 +1385,9 @@ export const PlanMap = {
     /** Drag-to-draw : déplacement (live preview) */
     _handleDrawMove(e) {
         if (!this.drawTool || !this.drawState) return;
+        // Ignorer les glissements de doigt directs sur l'écran en mode précision mobile
+        if (this.drawPrecisionMode && e.originalEvent) return;
+
         const cursor = [e.lngLat.lng, e.lngLat.lat];
         this.drawState.current = cursor;
         if (this.drawTool === 'line') {
@@ -1334,13 +1454,16 @@ export const PlanMap = {
     /** Drag-to-draw : relâchement → commit (si le drag a été significatif) */
     _handleDrawUp(e) {
         if (!this.drawTool || !this.drawState) return;
+        // Ignorer les relâchements de doigt directs sur l'écran en mode précision mobile
+        if (this.drawPrecisionMode && e.originalEvent) return;
+
         const end = e.lngLat ? [e.lngLat.lng, e.lngLat.lat] : this.drawState.current;
         const start = this.drawState.start;
         // Distance pixel pour filtrer les "clics" non-drag
         const p1 = this.map.project({ lng: start[0], lat: start[1] });
         const p2 = this.map.project({ lng: end[0], lat: end[1] });
         const distPx = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-        if (distPx < 4) {
+        if (!this.drawPrecisionMode && distPx < 4) {
             // Clic trop court, on annule la preview
             this.drawState = null;
             this._clearPreview();
@@ -1638,6 +1761,9 @@ export const PlanMap = {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
             document.removeEventListener('pointercancel', onUp);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onUp);
+            document.removeEventListener('touchcancel', onUp);
             try { this.map.dragPan.enable(); } catch (e) {}
             this.map.getCanvas().style.cursor = '';
             this._gesture = null;
@@ -1661,6 +1787,9 @@ export const PlanMap = {
         document.addEventListener('pointermove', onMove);
         document.addEventListener('pointerup',   onUp);
         document.addEventListener('pointercancel', onUp);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onUp);
+        document.addEventListener('touchcancel', onUp);
     },
 
     /**
@@ -1984,6 +2113,9 @@ export const PlanMap = {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
             document.removeEventListener('pointercancel', onUp);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onUp);
+            document.removeEventListener('touchcancel', onUp);
             try { this.map.dragPan.enable(); } catch (_) {}
             this.map.getCanvas().style.cursor = '';
             this._gesture = null;
@@ -1997,6 +2129,9 @@ export const PlanMap = {
         document.addEventListener('pointermove', onMove);
         document.addEventListener('pointerup', onUp);
         document.addEventListener('pointercancel', onUp);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onUp);
+        document.addEventListener('touchcancel', onUp);
     },
 
     /** Rendu de la barre flottante d'actions (Texte / Couleur / Suppr / +/-). */

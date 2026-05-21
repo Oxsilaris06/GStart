@@ -797,44 +797,55 @@ export const PlanMap = {
                 .addTo(this.map);
             // Détecte tap vs drag : si pas de mouvement durant la pression → roue
             let pdStart = null;
-            const onDown = (clientX, clientY) => {
-                pdStart = { x: clientX, y: clientY, t: Date.now() };
+            let originalLngLat = null;
+            const onDown = (clientX, clientY, isTouch) => {
+                pdStart = { x: clientX, y: clientY, t: Date.now(), isTouch };
+                originalLngLat = pinMarker.getLngLat();
             };
             const onUp = (clientX, clientY, ev) => {
                 if (!pdStart) return;
                 const dx = clientX - pdStart.x, dy = clientY - pdStart.y;
                 const moved = Math.hypot(dx, dy);
                 const dt = Date.now() - pdStart.t;
+                
+                // Seuil de mouvement plus généreux sur mobile touch (20px) que sur souris (6px)
+                const threshold = pdStart.isTouch ? 20 : 6;
+                const maxTime = pdStart.isTouch ? 350 : 500;
+                
+                const isTap = moved < threshold && dt < maxTime;
                 pdStart = null;
-                if (moved < 6 && dt < 500) {
-                    // tap → roue d'options sur le pin
+                
+                if (isTap) {
+                    // C'est un tap ! On stoppe la propagation pour ne pas déclencher le drag natif
                     ev.stopPropagation();
+                    ev.preventDefault();
+                    
+                    // Si un mini-drag a eu lieu (quelques pixels), on réinitialise la position d'origine
+                    if (originalLngLat) {
+                        pinMarker.setLngLat(originalLngLat);
+                        labelMarker.setLngLat(originalLngLat);
+                        const dm = this._pinDiameterLabels && this._pinDiameterLabels[pin.id];
+                        if (dm) dm.setLngLat(originalLngLat);
+                        updateLiveCircle(originalLngLat);
+                    }
+                    
+                    // Ouvre la roue d'options sur le pin
                     this._openPingOptionsWheel(pin.id);
                 }
             };
 
+            // Enregistrement des écouteurs en phase CAPTURE pour intercepter avant MapLibre
             pinWrap.addEventListener('pointerdown', (ev) => {
-                if (ev.pointerType === 'touch') return; // géré par touchstart
-                onDown(ev.clientX, ev.clientY);
-            });
-            pinWrap.addEventListener('pointerup', (ev) => {
-                if (ev.pointerType === 'touch') return;
-                onUp(ev.clientX, ev.clientY, ev);
-            });
+                onDown(ev.clientX, ev.clientY, ev.pointerType === 'touch');
+            }, { capture: true });
 
-            pinWrap.addEventListener('touchstart', (ev) => {
-                if (ev.touches.length > 0) {
-                    onDown(ev.touches[0].clientX, ev.touches[0].clientY);
-                }
-            }, { passive: true });
-            pinWrap.addEventListener('touchend', (ev) => {
-                if (ev.changedTouches.length > 0) {
-                    onUp(ev.changedTouches[0].clientX, ev.changedTouches[0].clientY, ev);
-                }
-            });
-            pinWrap.addEventListener('touchcancel', () => {
+            pinWrap.addEventListener('pointerup', (ev) => {
+                onUp(ev.clientX, ev.clientY, ev);
+            }, { capture: true });
+
+            pinWrap.addEventListener('pointercancel', () => {
                 pdStart = null;
-            });
+            }, { capture: true });
 
             // --- 2) MARKER LABEL séparé, ancré au même lng/lat (label +20% : 11→13) ---
             // Si l'utilisateur a saisi un texte custom (pin.text), on l'affiche À LA PLACE
@@ -1057,6 +1068,17 @@ export const PlanMap = {
             }
         });
         this.map.addLayer({
+            id: 'plan-shapes-line-hit',
+            type: 'line',
+            source: 'plan-shapes-src',
+            filter: ['!=', ['get', 'isText'], true],
+            paint: {
+                'line-color': '#000',
+                'line-width': 28,
+                'line-opacity': 0
+            }
+        });
+        this.map.addLayer({
             id: 'plan-shapes-line',
             type: 'line',
             source: 'plan-shapes-src',
@@ -1108,7 +1130,7 @@ export const PlanMap = {
         //  - Tap court & immobile → menu contextuel (Déplacer/Redim/Texte/Suppr)
         //  - Drag (mouvement > 6px) → déplacement direct, mobile + PC
         //  - Sans hit sur une forme → la carte panote normalement (maplibre natif)
-        const layers = ['plan-shapes-fill', 'plan-shapes-line', 'plan-shapes-text-hit'];
+        const layers = ['plan-shapes-fill', 'plan-shapes-line-hit', 'plan-shapes-text-hit'];
         layers.forEach(layerId => {
             this.map.on('mousedown',  layerId, (e) => this._shapePointerDown(e));
             this.map.on('touchstart', layerId, (e) => this._shapePointerDown(e));
@@ -1140,7 +1162,7 @@ export const PlanMap = {
             if (this.drawTool || this.moveState || this._gesture) return;
             if (this._wheelJustClosed && Date.now() - this._wheelJustClosed < 250) return;
             const hits = this.map.queryRenderedFeatures(e.point, {
-                layers: ['plan-shapes-fill', 'plan-shapes-line', 'plan-shapes-text-hit']
+                layers: ['plan-shapes-fill', 'plan-shapes-line-hit', 'plan-shapes-text-hit']
             });
             if (hits.length) return;
             if (this._selectedShapeId) this._deselectShape();
@@ -3404,7 +3426,7 @@ export const PlanMap = {
         };
         const isOnFeature = (point) => {
             const hits = this.map.queryRenderedFeatures(point, {
-                layers: ['plan-shapes-fill', 'plan-shapes-line', 'plan-shapes-text-hit']
+                layers: ['plan-shapes-fill', 'plan-shapes-line-hit', 'plan-shapes-text-hit']
             });
             return hits.length > 0;
         };

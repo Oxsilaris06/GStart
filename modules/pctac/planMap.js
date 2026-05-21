@@ -795,14 +795,67 @@ export const PlanMap = {
             const pinMarker = new maplibregl.Marker({ element: pinWrap, anchor: (customIcon || isVehicle) ? 'center' : 'bottom', draggable: true })
                 .setLngLat([pin.lng, pin.lat])
                 .addTo(this.map);
-            // Détecte tap vs drag : si pas de mouvement durant la pression → roue
+            // Détecte tap vs drag et long press sur mobile
             let pdStart = null;
             let originalLngLat = null;
+            let lpTimer = null;
+            let longPressTriggered = false;
+
             const onDown = (clientX, clientY, isTouch) => {
                 pdStart = { x: clientX, y: clientY, t: Date.now(), isTouch };
                 originalLngLat = pinMarker.getLngLat();
+                longPressTriggered = false;
+
+                if (isTouch) {
+                    if (lpTimer) clearTimeout(lpTimer);
+                    lpTimer = setTimeout(() => {
+                        longPressTriggered = true;
+                        lpTimer = null;
+
+                        // Si un mini-drag a eu lieu (quelques pixels), on réinitialise la position d'origine
+                        if (originalLngLat) {
+                            pinMarker.setLngLat(originalLngLat);
+                            labelMarker.setLngLat(originalLngLat);
+                            const dm = this._pinDiameterLabels && this._pinDiameterLabels[pin.id];
+                            if (dm) dm.setLngLat(originalLngLat);
+                            updateLiveCircle(originalLngLat);
+                        }
+
+                        // Ouvre la roue d'options sur le pin
+                        this._openPingOptionsWheel(pin.id);
+                    }, 480);
+                }
             };
+
+            const onMove = (clientX, clientY) => {
+                if (!pdStart) return;
+                const dx = clientX - pdStart.x, dy = clientY - pdStart.y;
+                const moved = Math.hypot(dx, dy);
+                const threshold = pdStart.isTouch ? 20 : 6;
+
+                // Si l'utilisateur bouge au-delà du seuil, on annule le long press timer pour permettre le drag
+                if (moved > threshold) {
+                    if (lpTimer) {
+                        clearTimeout(lpTimer);
+                        lpTimer = null;
+                    }
+                }
+            };
+
             const onUp = (clientX, clientY, ev) => {
+                if (lpTimer) {
+                    clearTimeout(lpTimer);
+                    lpTimer = null;
+                }
+
+                if (longPressTriggered) {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    longPressTriggered = false;
+                    pdStart = null;
+                    return;
+                }
+
                 if (!pdStart) return;
                 const dx = clientX - pdStart.x, dy = clientY - pdStart.y;
                 const moved = Math.hypot(dx, dy);
@@ -839,12 +892,21 @@ export const PlanMap = {
                 onDown(ev.clientX, ev.clientY, ev.pointerType === 'touch');
             }, { capture: true });
 
+            pinWrap.addEventListener('pointermove', (ev) => {
+                onMove(ev.clientX, ev.clientY);
+            }, { capture: true });
+
             pinWrap.addEventListener('pointerup', (ev) => {
                 onUp(ev.clientX, ev.clientY, ev);
             }, { capture: true });
 
             pinWrap.addEventListener('pointercancel', () => {
+                if (lpTimer) {
+                    clearTimeout(lpTimer);
+                    lpTimer = null;
+                }
                 pdStart = null;
+                longPressTriggered = false;
             }, { capture: true });
 
             // --- 2) MARKER LABEL séparé, ancré au même lng/lat (label +20% : 11→13) ---
@@ -893,11 +955,22 @@ export const PlanMap = {
                 src.setData({ type: 'FeatureCollection', features: this._pinCircleFeatures });
             };
             pinMarker.on('dragstart', () => {
+                if (longPressTriggered) return;
                 pinWrap.style.cursor = 'grabbing';
                 pinWrap.style.opacity = '0.85';
                 labelEl.style.opacity = '0.5';
             });
             pinMarker.on('drag', () => {
+                if (longPressTriggered) {
+                    if (originalLngLat) {
+                        pinMarker.setLngLat(originalLngLat);
+                        labelMarker.setLngLat(originalLngLat);
+                        const dm = this._pinDiameterLabels && this._pinDiameterLabels[pin.id];
+                        if (dm) dm.setLngLat(originalLngLat);
+                        updateLiveCircle(originalLngLat);
+                    }
+                    return;
+                }
                 const ll = pinMarker.getLngLat();
                 labelMarker.setLngLat(ll);
                 updateLiveCircle(ll);
@@ -905,6 +978,20 @@ export const PlanMap = {
                 if (dm) dm.setLngLat(ll);
             });
             pinMarker.on('dragend', () => {
+                if (longPressTriggered) {
+                    if (originalLngLat) {
+                        pinMarker.setLngLat(originalLngLat);
+                        labelMarker.setLngLat(originalLngLat);
+                        const dm = this._pinDiameterLabels && this._pinDiameterLabels[pin.id];
+                        if (dm) dm.setLngLat(originalLngLat);
+                        updateLiveCircle(originalLngLat);
+                    }
+                    pinWrap.style.cursor = 'grab';
+                    pinWrap.style.opacity = '1';
+                    labelEl.style.opacity = '1';
+                    longPressTriggered = false;
+                    return;
+                }
                 pinWrap.style.cursor = 'grab';
                 pinWrap.style.opacity = '1';
                 labelEl.style.opacity = '1';

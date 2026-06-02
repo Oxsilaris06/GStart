@@ -81,11 +81,36 @@ export const PlanMap = {
     _gesture: null,          // état du geste en cours (tap/drag/resize/pinch)
     _diameterGlobal: true,   // toggle global : afficher diamètres (défaut ON)
     _drawingDiameterMarker: null,  // label live pendant le tracé d'un cercle
+    _locked: false,          // verrou global : fige la position des pings ET dessins
+
+    /**
+     * Enveloppe un handler d'événement : capture toute exception et la journalise,
+     * pour qu'une erreur dans UN callback (drag, pointer, geste…) ne casse pas
+     * silencieusement l'interaction ni n'interrompe les autres listeners MapLibre.
+     */
+    _safe(fn, label) {
+        return (...args) => {
+            try { return fn(...args); }
+            catch (e) { console.error('[PlanMap] ' + (label || 'handler') + ' a échoué:', e); }
+        };
+    },
 
     init() {
         if (this.initialized) return;
         const mapEl = document.getElementById('plan_map');
         if (!mapEl) return;
+
+        // Garde : si la lib MapLibre n'a pas chargé (CDN bloqué / hors-ligne),
+        // on n'essaie pas d'instancier la carte (sinon ReferenceError opaque).
+        if (typeof maplibregl === 'undefined') {
+            console.error('[PlanMap] MapLibre indisponible (CDN ?).');
+            mapEl.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; padding:24px; text-align:center; color:var(--text-muted,#9aa4b2); font-family:var(--font-ui,sans-serif);">'
+                + 'Carte indisponible : la librairie cartographique n\'a pas pu être chargée (réseau ?).<br>Reconnecte-toi puis recharge la page.</div>';
+            return;
+        }
+
+        // Restaure l'état de verrouillage (position des pings/dessins figée).
+        try { this._locked = localStorage.getItem('pcTacPlanLocked') === '1'; } catch (_) { this._locked = false; }
 
         const savedView = this._loadView();
         this.map = new maplibregl.Map({
@@ -101,23 +126,23 @@ export const PlanMap = {
         this.map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
         this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right');
 
-        this.map.on('moveend', () => this._saveView());
-        this.map.on('pitchend', () => this._saveView());
-        this.map.on('rotateend', () => this._saveView());
+        this.map.on('moveend', this._safe(() => this._saveView(), 'moveend'));
+        this.map.on('pitchend', this._safe(() => this._saveView(), 'pitchend'));
+        this.map.on('rotateend', this._safe(() => this._saveView(), 'rotateend'));
 
         // Restaurer le relief 3D si la vue sauvegardée était inclinée
         if (savedView.is3D) {
-            this.map.on('load', () => this._enable3D(false));
+            this.map.on('load', this._safe(() => this._enable3D(false), 'load:3D'));
         }
-        this.map.on('click', (e) => this._onMapClick(e));
+        this.map.on('click', this._safe((e) => this._onMapClick(e), 'mapClick'));
 
         // Drag-to-draw (mousedown / move / up) — souris ET tactile
-        this.map.on('mousedown', (e) => this._handleDrawDown(e));
-        this.map.on('mousemove', (e) => this._handleDrawMove(e));
-        this.map.on('mouseup',   (e) => this._handleDrawUp(e));
-        this.map.on('touchstart',(e) => this._handleDrawDown(e));
-        this.map.on('touchmove', (e) => this._handleDrawMove(e));
-        this.map.on('touchend',  (e) => this._handleDrawUp(e));
+        this.map.on('mousedown', this._safe((e) => this._handleDrawDown(e), 'drawDown'));
+        this.map.on('mousemove', this._safe((e) => this._handleDrawMove(e), 'drawMove'));
+        this.map.on('mouseup',   this._safe((e) => this._handleDrawUp(e), 'drawUp'));
+        this.map.on('touchstart',this._safe((e) => this._handleDrawDown(e), 'drawDown'));
+        this.map.on('touchmove', this._safe((e) => this._handleDrawMove(e), 'drawMove'));
+        this.map.on('touchend',  this._safe((e) => this._handleDrawUp(e), 'drawUp'));
 
         this._bindUi();
 
@@ -313,6 +338,8 @@ export const PlanMap = {
     _updateFullscreenIcon() {
         const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
         const active = !!fsEl;
+        // Sortie de plein écran avec un modal déplacé → on le restaure à sa place.
+        if (!active) this._restoreModalFromFullscreen();
         const btn = document.getElementById('plan_btn_fullscreen');
         if (btn) {
             btn.classList.toggle('active', active);
@@ -476,43 +503,9 @@ export const PlanMap = {
         if (!shouldOpen && this.drawTool) this._setTool(null);
     },
 
-    /** Élément actuellement en plein écran (ou null). */
-    _fullscreenEl() {
-        return document.fullscreenElement || document.webkitFullscreenElement || null;
-    },
-
-    /** Reparente un élément dans le conteneur plein écran (sinon il n'est pas
-     *  peint, étant hors du top-layer). Mémorise sa place d'origine via un
-     *  commentaire-ancre pour le restaurer à la fermeture. No-op hors fullscreen. */
-    _adoptIntoFullscreen(el) {
-        if (!el) return;
-        const fsEl = this._fullscreenEl();
-        if (fsEl && !fsEl.contains(el)) {
-            if (!el._fsPlaceholder) {
-                el._fsPlaceholder = document.createComment('fs-anchor');
-                if (el.parentNode) el.parentNode.insertBefore(el._fsPlaceholder, el);
-            }
-            fsEl.appendChild(el);
-        }
-    },
-
-    /** Restaure l'emplacement DOM d'origine d'un élément reparenté. */
-    _restoreFromFullscreen(el) {
-        if (el && el._fsPlaceholder && el._fsPlaceholder.parentNode) {
-            el._fsPlaceholder.parentNode.insertBefore(el, el._fsPlaceholder);
-            el._fsPlaceholder.remove();
-            el._fsPlaceholder = null;
-        }
-    },
     _openPingModal() {
-        const backdrop = document.getElementById('modalBackdrop');
-        const modal = document.getElementById('pingModal');
-        backdrop.style.display = 'block';
-        modal.style.display = 'block';
-        // En plein écran, backdrop + modale doivent vivre DANS l'élément fullscreen
-        // pour être peints au-dessus de la carte.
-        this._adoptIntoFullscreen(backdrop);
-        this._adoptIntoFullscreen(modal);
+        document.getElementById('modalBackdrop').style.display = 'block';
+        document.getElementById('pingModal').style.display = 'block';
         document.getElementById('free_pin_label').value = '';
         const veh = document.getElementById('free_pin_is_vehicle');
         if (veh) veh.checked = false;
@@ -528,9 +521,8 @@ export const PlanMap = {
     _closePingModal() {
         document.getElementById('modalBackdrop').style.display = 'none';
         document.getElementById('pingModal').style.display = 'none';
-        this._restoreFromFullscreen(document.getElementById('pingModal'));
-        this._restoreFromFullscreen(document.getElementById('modalBackdrop'));
     },
+
     /** Rend la liste des entités existantes (Adv/Otage/Ami) dans la modale Ping */
     _renderPingEntities() {
         const list = document.getElementById('ping_entities_list');
@@ -827,122 +819,78 @@ export const PlanMap = {
             }
 
             // Tap sur le pin → roue d'options (au lieu de popup texte). Drag = move natif.
-            const pinMarker = new maplibregl.Marker({ element: pinWrap, anchor: (customIcon || isVehicle) ? 'center' : 'bottom', draggable: true })
+            const pinMarker = new maplibregl.Marker({ element: pinWrap, anchor: (customIcon || isVehicle) ? 'center' : 'bottom', draggable: !this._locked })
                 .setLngLat([pin.lng, pin.lat])
                 .addTo(this.map);
-            // Détecte tap vs drag et long press sur mobile
+            // Détecte tap (simple/double) vs drag.
+            //  - Drag         → déplace le ping (drag natif maplibre).
+            //  - Double tap   → ouvre la roue d'options.
+            //  - Simple tap   → rien (laisse le drag déplacer ; cohérent avec "un touch déplace").
             let pdStart = null;
             let originalLngLat = null;
-            let lpTimer = null;
-            let longPressTriggered = false;
 
             const onDown = (clientX, clientY, isTouch) => {
                 pdStart = { x: clientX, y: clientY, t: Date.now(), isTouch };
                 originalLngLat = pinMarker.getLngLat();
-                longPressTriggered = false;
-
-                if (isTouch) {
-                    if (lpTimer) clearTimeout(lpTimer);
-                    lpTimer = setTimeout(() => {
-                        longPressTriggered = true;
-                        lpTimer = null;
-
-                        // Si un mini-drag a eu lieu (quelques pixels), on réinitialise la position d'origine
-                        if (originalLngLat) {
-                            pinMarker.setLngLat(originalLngLat);
-                            labelMarker.setLngLat(originalLngLat);
-                            const dm = this._pinDiameterLabels && this._pinDiameterLabels[pin.id];
-                            if (dm) dm.setLngLat(originalLngLat);
-                            updateLiveCircle(originalLngLat);
-                        }
-
-                        // Ouvre la roue d'options sur le pin
-                        this._openPingOptionsWheel(pin.id);
-                    }, 480);
-                }
             };
 
-            const onMove = (clientX, clientY) => {
-                if (!pdStart) return;
-                const dx = clientX - pdStart.x, dy = clientY - pdStart.y;
-                const moved = Math.hypot(dx, dy);
-                const threshold = pdStart.isTouch ? 20 : 6;
-
-                // Si l'utilisateur bouge au-delà du seuil, on annule le long press timer pour permettre le drag
-                if (moved > threshold) {
-                    if (lpTimer) {
-                        clearTimeout(lpTimer);
-                        lpTimer = null;
-                    }
-                }
-            };
+            const onMove = () => { /* le drag natif maplibre gère le déplacement */ };
 
             const onUp = (clientX, clientY, ev) => {
-                if (lpTimer) {
-                    clearTimeout(lpTimer);
-                    lpTimer = null;
-                }
-
-                if (longPressTriggered) {
-                    ev.stopPropagation();
-                    ev.preventDefault();
-                    longPressTriggered = false;
-                    pdStart = null;
-                    return;
-                }
-
                 if (!pdStart) return;
                 const dx = clientX - pdStart.x, dy = clientY - pdStart.y;
                 const moved = Math.hypot(dx, dy);
                 const dt = Date.now() - pdStart.t;
-                
+
                 // Seuil de mouvement plus généreux sur mobile touch (20px) que sur souris (6px)
                 const threshold = pdStart.isTouch ? 20 : 6;
                 const maxTime = pdStart.isTouch ? 350 : 500;
-                
+
                 const isTap = moved < threshold && dt < maxTime;
                 pdStart = null;
-                
-                if (isTap) {
-                    // C'est un tap ! On stoppe la propagation pour ne pas déclencher le drag natif
-                    ev.stopPropagation();
-                    ev.preventDefault();
-                    
-                    // Si un mini-drag a eu lieu (quelques pixels), on réinitialise la position d'origine
-                    if (originalLngLat) {
-                        pinMarker.setLngLat(originalLngLat);
-                        labelMarker.setLngLat(originalLngLat);
-                        const dm = this._pinDiameterLabels && this._pinDiameterLabels[pin.id];
-                        if (dm) dm.setLngLat(originalLngLat);
-                        updateLiveCircle(originalLngLat);
-                    }
-                    
-                    // Ouvre la roue d'options sur le pin
+
+                if (!isTap) return; // un drag : déplacement natif, rien à faire ici
+
+                // C'est un tap : on stoppe la propagation pour ne pas déclencher le drag natif
+                ev.stopPropagation();
+                ev.preventDefault();
+
+                // Si un mini-drag a eu lieu (quelques pixels), on réinitialise la position d'origine
+                if (originalLngLat) {
+                    pinMarker.setLngLat(originalLngLat);
+                    labelMarker.setLngLat(originalLngLat);
+                    const dm = this._pinDiameterLabels && this._pinDiameterLabels[pin.id];
+                    if (dm) dm.setLngLat(originalLngLat);
+                    updateLiveCircle(originalLngLat);
+                }
+
+                // Détection double-tap / double-clic → roue d'options
+                const now = Date.now();
+                const prev = this._lastPinTap;
+                if (prev && prev.id === pin.id && (now - prev.t) < 350) {
+                    this._lastPinTap = null;
                     this._openPingOptionsWheel(pin.id);
+                } else {
+                    this._lastPinTap = { id: pin.id, t: now };
                 }
             };
 
             // Enregistrement des écouteurs en phase CAPTURE pour intercepter avant MapLibre
-            pinWrap.addEventListener('pointerdown', (ev) => {
+            pinWrap.addEventListener('pointerdown', this._safe((ev) => {
                 onDown(ev.clientX, ev.clientY, ev.pointerType === 'touch');
-            }, { capture: true });
+            }, 'pin:pointerdown'), { capture: true });
 
-            pinWrap.addEventListener('pointermove', (ev) => {
+            pinWrap.addEventListener('pointermove', this._safe((ev) => {
                 onMove(ev.clientX, ev.clientY);
-            }, { capture: true });
+            }, 'pin:pointermove'), { capture: true });
 
-            pinWrap.addEventListener('pointerup', (ev) => {
+            pinWrap.addEventListener('pointerup', this._safe((ev) => {
                 onUp(ev.clientX, ev.clientY, ev);
-            }, { capture: true });
+            }, 'pin:pointerup'), { capture: true });
 
-            pinWrap.addEventListener('pointercancel', () => {
-                if (lpTimer) {
-                    clearTimeout(lpTimer);
-                    lpTimer = null;
-                }
+            pinWrap.addEventListener('pointercancel', this._safe(() => {
                 pdStart = null;
-                longPressTriggered = false;
-            }, { capture: true });
+            }, 'pin:pointercancel'), { capture: true });
 
             // --- 2) MARKER LABEL séparé, ancré au même lng/lat (label +20% : 11→13) ---
             // Si l'utilisateur a saisi un texte custom (pin.text), on l'affiche À LA PLACE
@@ -989,44 +937,20 @@ export const PlanMap = {
                 };
                 src.setData({ type: 'FeatureCollection', features: this._pinCircleFeatures });
             };
-            pinMarker.on('dragstart', () => {
-                if (longPressTriggered) return;
+            pinMarker.on('dragstart', this._safe(() => {
                 pinWrap.style.cursor = 'grabbing';
                 pinWrap.style.opacity = '0.85';
                 labelEl.style.opacity = '0.5';
-            });
-            pinMarker.on('drag', () => {
-                if (longPressTriggered) {
-                    if (originalLngLat) {
-                        pinMarker.setLngLat(originalLngLat);
-                        labelMarker.setLngLat(originalLngLat);
-                        const dm = this._pinDiameterLabels && this._pinDiameterLabels[pin.id];
-                        if (dm) dm.setLngLat(originalLngLat);
-                        updateLiveCircle(originalLngLat);
-                    }
-                    return;
-                }
+            }, 'pin:dragstart'));
+            pinMarker.on('drag', this._safe(() => {
+                // Le libellé + le cercle suivent le pin en temps réel.
                 const ll = pinMarker.getLngLat();
                 labelMarker.setLngLat(ll);
                 updateLiveCircle(ll);
                 const dm = this._pinDiameterLabels && this._pinDiameterLabels[pin.id];
                 if (dm) dm.setLngLat(ll);
-            });
-            pinMarker.on('dragend', () => {
-                if (longPressTriggered) {
-                    if (originalLngLat) {
-                        pinMarker.setLngLat(originalLngLat);
-                        labelMarker.setLngLat(originalLngLat);
-                        const dm = this._pinDiameterLabels && this._pinDiameterLabels[pin.id];
-                        if (dm) dm.setLngLat(originalLngLat);
-                        updateLiveCircle(originalLngLat);
-                    }
-                    pinWrap.style.cursor = 'grab';
-                    pinWrap.style.opacity = '1';
-                    labelEl.style.opacity = '1';
-                    longPressTriggered = false;
-                    return;
-                }
+            }, 'pin:drag'));
+            pinMarker.on('dragend', this._safe(() => {
                 pinWrap.style.cursor = 'grab';
                 pinWrap.style.opacity = '1';
                 labelEl.style.opacity = '1';
@@ -1041,7 +965,7 @@ export const PlanMap = {
                 }
                 // Re-render complet pour réindexer les features du cercle proprement
                 this._renderPinDecorations();
-            });
+            }, 'pin:dragend'));
 
             this.markers.set(pin.id, { pin: pinMarker, label: labelMarker });
         }
@@ -1208,7 +1132,8 @@ export const PlanMap = {
             filter: ['!=', ['get', 'isText'], true],
             paint: {
                 'line-color': ['coalesce', ['get', 'color'], '#ef4444'],
-                'line-width': 3,
+                // Épaisseur pilotée par la donnée (réglable via la roue : Épaisseur -/+)
+                'line-width': ['coalesce', ['get', 'strokeWidth'], 3],
                 'line-opacity': 0.9
             }
         });
@@ -1254,8 +1179,8 @@ export const PlanMap = {
         //  - Sans hit sur une forme → la carte panote normalement (maplibre natif)
         const layers = ['plan-shapes-fill', 'plan-shapes-line-hit', 'plan-shapes-text-hit'];
         layers.forEach(layerId => {
-            this.map.on('mousedown',  layerId, (e) => this._shapePointerDown(e));
-            this.map.on('touchstart', layerId, (e) => this._shapePointerDown(e));
+            this.map.on('mousedown',  layerId, this._safe((e) => this._shapePointerDown(e), 'shapeDown'));
+            this.map.on('touchstart', layerId, this._safe((e) => this._shapePointerDown(e), 'shapeDown'));
             // Curseur indicatif au survol
             this.map.on('mouseenter', layerId, () => {
                 if (!this.drawTool && !this.moveState && !this._gesture) this.map.getCanvas().style.cursor = 'grab';
@@ -1324,6 +1249,10 @@ export const PlanMap = {
 
         const diamBtn = document.getElementById('plan_draw_diameter_toggle');
         if (diamBtn) diamBtn.onclick = () => this._toggleGlobalDiameter();
+
+        const lockBtn = document.getElementById('plan_draw_lock');
+        if (lockBtn) lockBtn.onclick = () => this._toggleLock();
+        this._updateLockButton();
 
         // Raccordement des boutons de précision tactique (mobile)
         const pStart = document.getElementById('plan_draw_precision_start');
@@ -1448,9 +1377,11 @@ export const PlanMap = {
         this._clearPreview();
         this._clearLiveDiameter();
 
-        // Détecter si on est sur mobile/tactile pour le mode précision
+        // Détecter si on est sur mobile/tactile pour le mode précision.
+        // Exception : l'outil TRAIT se trace au doigt (cheminement libre), sans
+        // réticule ni boutons Valider/Annuler → mode précision désactivé pour lui.
         const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        this.drawPrecisionMode = !!(tool && isMobile);
+        this.drawPrecisionMode = !!(tool && isMobile && tool !== 'line');
 
         // Style des boutons
         document.querySelectorAll('.plan-draw-btn').forEach(b => {
@@ -1523,7 +1454,8 @@ export const PlanMap = {
         }
         if (e.preventDefault) e.preventDefault();
         const lngLat = [e.lngLat.lng, e.lngLat.lat];
-        this.drawState = { start: lngLat, current: lngLat };
+        // `points` sert au tracé libre (cheminement) de l'outil trait.
+        this.drawState = { start: lngLat, current: lngLat, points: [lngLat] };
     },
 
     /** Drag-to-draw : déplacement (live preview) */
@@ -1535,9 +1467,15 @@ export const PlanMap = {
         const cursor = [e.lngLat.lng, e.lngLat.lat];
         this.drawState.current = cursor;
         if (this.drawTool === 'line') {
+            // Tracé libre : on accumule les points le long du glissement (cheminement).
+            const pts = this.drawState.points || (this.drawState.points = [this.drawState.start]);
+            const last = pts[pts.length - 1];
+            const lp = this.map.project({ lng: last[0], lat: last[1] });
+            const cp = this.map.project({ lng: cursor[0], lat: cursor[1] });
+            if (Math.hypot(cp.x - lp.x, cp.y - lp.y) >= 4) pts.push(cursor);
             this._renderPreview({
                 type: 'Feature',
-                geometry: { type: 'LineString', coordinates: [this.drawState.start, cursor] },
+                geometry: { type: 'LineString', coordinates: pts.length > 1 ? pts : [this.drawState.start, cursor] },
                 properties: { color: this.drawColor }
             });
         } else if (this.drawTool === 'rectangle') {
@@ -1607,7 +1545,10 @@ export const PlanMap = {
         const p1 = this.map.project({ lng: start[0], lat: start[1] });
         const p2 = this.map.project({ lng: end[0], lat: end[1] });
         const distPx = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-        if (!this.drawPrecisionMode && distPx < 4) {
+        // Un trait libre (cheminement) peut revenir près de son départ : on le
+        // commit dès qu'il compte plusieurs points, même si start≈end en pixels.
+        const freehandLine = this.drawTool === 'line' && this.drawState.points && this.drawState.points.length > 2;
+        if (!this.drawPrecisionMode && distPx < 4 && !freehandLine) {
             // Clic trop court, on annule la preview
             this.drawState = null;
             this._clearPreview();
@@ -1616,11 +1557,14 @@ export const PlanMap = {
         }
 
         if (this.drawTool === 'line') {
+            const pts = (this.drawState.points && this.drawState.points.length > 1)
+                ? this.drawState.points.slice()
+                : [start, end];
             this._finishShape({
                 id: 'shape_' + Date.now(),
                 type: 'line',
                 color: this.drawColor,
-                coords: [start, end]
+                coords: pts
             });
         } else if (this.drawTool === 'rectangle') {
             this._finishShape({
@@ -1675,9 +1619,9 @@ export const PlanMap = {
         const features = [];
         for (const s of list) {
             if (s.type === 'line') {
-                features.push({ type: 'Feature', id: s.id, geometry: { type: 'LineString', coordinates: s.coords }, properties: { color: s.color, shapeId: s.id } });
+                features.push({ type: 'Feature', id: s.id, geometry: { type: 'LineString', coordinates: s.coords }, properties: { color: s.color, shapeId: s.id, strokeWidth: s.strokeWidth || 3 } });
             } else if (s.type === 'rectangle' || s.type === 'circle') {
-                features.push({ type: 'Feature', id: s.id, geometry: { type: 'Polygon', coordinates: [s.coords] }, properties: { color: s.color, shapeId: s.id } });
+                features.push({ type: 'Feature', id: s.id, geometry: { type: 'Polygon', coordinates: [s.coords] }, properties: { color: s.color, shapeId: s.id, strokeWidth: s.strokeWidth || 3 } });
             } else if (s.type === 'text') {
                 // Petite zone "hit" invisible autour du point pour rendre le clic possible.
                 // Carré de ~14 px à l'écran, projeté en degrés.
@@ -1787,6 +1731,34 @@ export const PlanMap = {
         }
     },
 
+    /** Verrouille / déverrouille la position des pings ET des dessins. */
+    _toggleLock() {
+        this._locked = !this._locked;
+        try { localStorage.setItem('pcTacPlanLocked', this._locked ? '1' : '0'); } catch (_) {}
+        this._updateLockButton();
+        // En verrouillant, on retire les poignées de la forme sélectionnée.
+        if (this._locked) this._clearHandles();
+        else this._renderHandles();
+        // Recrée les pings pour appliquer le nouveau draggable.
+        this._renderPins();
+        this._showHint(this._locked
+            ? 'Positions verrouillées : pings et dessins figés'
+            : 'Positions déverrouillées : déplacement réactivé');
+        setTimeout(() => this._hideHint(), 1600);
+    },
+
+    _updateLockButton() {
+        const btn = document.getElementById('plan_draw_lock');
+        if (!btn) return;
+        const icon = btn.querySelector('.material-symbols-outlined');
+        if (icon) icon.textContent = this._locked ? 'lock' : 'lock_open';
+        btn.style.color = this._locked ? '#eab308' : 'var(--text-main)';
+        btn.title = this._locked
+            ? 'Positions verrouillées (cliquer pour déverrouiller)'
+            : 'Verrouiller la position des pings/dessins';
+        btn.classList.toggle('active', this._locked);
+    },
+
     /** Toggle global ON/OFF (depuis la toolbar dessin). */
     _toggleGlobalDiameter() {
         this._diameterGlobal = !this._diameterGlobal;
@@ -1863,12 +1835,12 @@ export const PlanMap = {
             return null;
         };
 
-        const onMove = (ev) => {
+        const onMove = this._safe((ev) => {
             if (this._gesture !== state) return;
             const cur = extractLngLat(ev);
             if (!cur) return;
-            // Détection drag : seuil franchi ?
-            if (!state.isDrag) {
+            // Détection drag : seuil franchi ? (jamais en mode verrouillé → position figée)
+            if (!state.isDrag && !this._locked) {
                 const p = this.map.project(cur);
                 if (Math.hypot(p.x - startPt.x, p.y - startPt.y) > DRAG_PX) {
                     // Bascule en mode drag : snapshot + history
@@ -1893,9 +1865,9 @@ export const PlanMap = {
                 this._saveShapes(list);
                 this._renderShapes();
             }
-        };
+        }, 'shapeGesture:move');
 
-        const onUp = (ev) => {
+        const onUp = this._safe((ev) => {
             if (this._gesture !== state) return;
             // Cleanup listeners
             try { this.map.off('mousemove', onMove); } catch (e) {}
@@ -1917,10 +1889,21 @@ export const PlanMap = {
                 // Garde la forme sélectionnée pour l'édition immédiate après drag
                 this._selectShape(shapeId);
             } else {
-                // Pas de drag détecté → c'est un tap → sélection + handles
-                this._openShapeContextMenu(shapeId, startLngLat);
+                // Pas de drag → un tap. Simple tap = sélection (poignées, déplaçable).
+                // Double tap / double-clic = ouverture de la roue d'options.
+                // On neutralise le zoom double-clic natif de MapLibre le temps de la fenêtre.
+                this._suppressDblZoom();
+                const now = Date.now();
+                const prev = this._lastShapeTap;
+                if (prev && prev.id === shapeId && (now - prev.t) < 350) {
+                    this._lastShapeTap = null;
+                    this._openShapeContextMenu(shapeId, startLngLat);
+                } else {
+                    this._lastShapeTap = { id: shapeId, t: now };
+                    this._selectShape(shapeId);
+                }
             }
-        };
+        }, 'shapeGesture:up');
 
         // Listeners sur maplibre (couvre les events sur le canvas)
         this.map.on('mousemove', onMove);
@@ -1934,6 +1917,20 @@ export const PlanMap = {
         document.addEventListener('touchmove', onMove, { passive: false });
         document.addEventListener('touchend', onUp);
         document.addEventListener('touchcancel', onUp);
+    },
+
+    /** Neutralise temporairement le zoom double-clic natif (fenêtre double-tap). */
+    _suppressDblZoom() {
+        if (!this.map || !this.map.doubleClickZoom) return;
+        try { this.map.doubleClickZoom.disable(); } catch (_) {}
+        if (this._dblZoomTimer) clearTimeout(this._dblZoomTimer);
+        this._dblZoomTimer = setTimeout(() => {
+            this._dblZoomTimer = null;
+            // Ne pas réactiver si un outil de dessin l'a volontairement désactivé.
+            if (!this.drawTool || this.drawPrecisionMode) {
+                try { this.map.doubleClickZoom.enable(); } catch (_) {}
+            }
+        }, 450);
     },
 
     /**
@@ -1976,14 +1973,15 @@ export const PlanMap = {
      */
     _attachPinchListeners() {
         if (this._pinchListener) return;
-        const onTouchStart = (e) => {
+        const onTouchStart = this._safe((e) => {
             if (!this._selectedShapeId || this.drawTool || this.moveState || this._gesture) return;
+            if (this._locked) return; // verrouillé : pas de redimensionnement au pinch
             const oe = e.originalEvent || e;
             if (oe.touches && oe.touches.length === 2) {
                 oe.preventDefault();
                 this._startPinchGesture();
             }
-        };
+        }, 'pinch:touchstart');
         this.map.on('touchstart', onTouchStart);
         this._pinchListener = onTouchStart;
     },
@@ -1996,7 +1994,8 @@ export const PlanMap = {
 
     _shapeCentroid(s) {
         if (s.type === 'line') {
-            return [(s.coords[0][0] + s.coords[1][0]) / 2, (s.coords[0][1] + s.coords[1][1]) / 2];
+            const a = s.coords[0], b = s.coords[s.coords.length - 1];
+            return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
         }
         if (s.type === 'rectangle') {
             const lngs = s.coords.map(c => c[0]);
@@ -2023,7 +2022,7 @@ export const PlanMap = {
         const getDist = (touches) =>
             Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
 
-        const onMove = (e) => {
+        const onMove = this._safe((e) => {
             const oe = e.originalEvent || e;
             if (!oe.touches || oe.touches.length < 2) return;
             oe.preventDefault();
@@ -2049,9 +2048,9 @@ export const PlanMap = {
             }
             this._saveShapes(list2);
             this._renderShapes();
-        };
+        }, 'pinch:move');
 
-        const onEnd = (e) => {
+        const onEnd = this._safe((e) => {
             const oe = e.originalEvent || e;
             if (oe.touches && oe.touches.length >= 2) return;
             try { this.map.off('touchmove', onMove); } catch (_) {}
@@ -2061,7 +2060,7 @@ export const PlanMap = {
             try { this.map.dragPan.enable(); } catch (_) {}
             this._gesture = null;
             this._refreshUndoRedoButtons();
-        };
+        }, 'pinch:end');
 
         this.map.on('touchmove', onMove);
         this.map.on('touchend', onEnd);
@@ -2092,8 +2091,10 @@ export const PlanMap = {
     _shapeHandles(s) {
         const handles = [];
         if (s.type === 'line') {
+            // Trait simple OU cheminement libre multi-points : poignées au 1er et au DERNIER point.
+            const last = s.coords.length - 1;
             handles.push({ role: 'endpoint', index: 0, lngLat: { lng: s.coords[0][0], lat: s.coords[0][1] }, cursor: 'grab' });
-            handles.push({ role: 'endpoint', index: 1, lngLat: { lng: s.coords[1][0], lat: s.coords[1][1] }, cursor: 'grab' });
+            handles.push({ role: 'endpoint', index: last, lngLat: { lng: s.coords[last][0], lat: s.coords[last][1] }, cursor: 'grab' });
         } else if (s.type === 'rectangle') {
             // coords est un polygone fermé à 5 points (le 5e === le 1er)
             for (let i = 0; i < 4; i++) {
@@ -2120,6 +2121,8 @@ export const PlanMap = {
     _renderHandles() {
         this._clearHandles();
         if (!this.map || !this._selectedShapeId) return;
+        // Verrouillé : pas de poignées (ni déplacement, ni redimensionnement).
+        if (this._locked) return;
         const s = this._loadShapes().find(x => x.id === this._selectedShapeId);
         if (!s) { this._deselectShape(); return; }
         const handles = this._shapeHandles(s);
@@ -2149,7 +2152,7 @@ export const PlanMap = {
             const shapeId = s.id;
             const role = h.role;
             const index = h.index;
-            const onDown = (ev) => {
+            const onDown = this._safe((ev) => {
                 if (this.drawTool || this.moveState || this._gesture) return;
                 ev.preventDefault();
                 ev.stopPropagation();
@@ -2158,7 +2161,7 @@ export const PlanMap = {
                 const cy = (ev.touches && ev.touches[0] ? ev.touches[0].clientY : ev.clientY) - rect.top;
                 const lngLat = this.map.unproject([cx, cy]);
                 this._startHandleGesture(shapeId, role, index, lngLat, ev);
-            };
+            }, 'handle:down');
             el.addEventListener('pointerdown', onDown);
             el.addEventListener('touchstart', onDown, { passive: false });
             this._handleMarkers.push(m);
@@ -2208,7 +2211,7 @@ export const PlanMap = {
             return null;
         };
 
-        const onMove = (ev) => {
+        const onMove = this._safe((ev) => {
             if (!this._gesture || this._gesture.type !== 'handle') return;
             const cur = extract(ev);
             if (!cur) return;
@@ -2247,9 +2250,9 @@ export const PlanMap = {
             this._renderShapes();
             this._renderHandles();          // suit la forme
             this._updateFloatingToolbarPos(); // suit aussi
-        };
+        }, 'handle:move');
 
-        const onUp = () => {
+        const onUp = this._safe(() => {
             try { this.map.off('mousemove', onMove); } catch (_) {}
             try { this.map.off('touchmove', onMove); } catch (_) {}
             try { this.map.off('mouseup', onUp); } catch (_) {}
@@ -2264,7 +2267,7 @@ export const PlanMap = {
             this.map.getCanvas().style.cursor = '';
             this._gesture = null;
             this._refreshUndoRedoButtons();
-        };
+        }, 'handle:up');
 
         this.map.on('mousemove', onMove);
         this.map.on('touchmove', onMove);
@@ -2377,6 +2380,20 @@ export const PlanMap = {
         this._pushHistory();
         const cur = s.fontSize || 13;
         s.fontSize = Math.max(9, Math.min(72, cur + delta));
+        this._saveShapes(list);
+        this._renderShapes();
+        this._renderHandles();
+        this._refreshUndoRedoButtons();
+    },
+
+    /** Ajuste l'épaisseur du trait d'une forme (trait / cercle / rectangle). */
+    _adjustStrokeWidth(shapeId, delta) {
+        const list = this._loadShapes();
+        const s = list.find(x => x.id === shapeId);
+        if (!s) return;
+        this._pushHistory();
+        const cur = s.strokeWidth || 3;
+        s.strokeWidth = Math.max(1, Math.min(24, cur + delta));
         this._saveShapes(list);
         this._renderShapes();
         this._renderHandles();
@@ -2995,20 +3012,29 @@ export const PlanMap = {
                 label: s.text ? 'Modifier texte' : 'Ajouter texte',
                 color: '#fff', bg: 'rgba(234,179,8,0.95)',
                 action: () => this._openTextModal(s.id)
-            },
-            {
-                id: 'minus', icon: 'text_decrease', label: 'Taille -',
-                color: '#fff', bg: 'rgba(120,120,120,0.95)',
-                action: () => this._adjustFontSize(s.id, -2),
-                keepOpen: false
-            },
-            {
-                id: 'plus', icon: 'text_increase', label: 'Taille +',
-                color: '#fff', bg: 'rgba(120,120,120,0.95)',
-                action: () => this._adjustFontSize(s.id, +2),
-                keepOpen: false
             }
         ];
+        if (s.type === 'text') {
+            // Texte libre : les boutons taille agissent sur la police.
+            opts.push(
+                { id: 'minus', icon: 'text_decrease', label: 'Taille -',
+                  color: '#fff', bg: 'rgba(120,120,120,0.95)',
+                  action: () => this._adjustFontSize(s.id, -2), keepOpen: true },
+                { id: 'plus', icon: 'text_increase', label: 'Taille +',
+                  color: '#fff', bg: 'rgba(120,120,120,0.95)',
+                  action: () => this._adjustFontSize(s.id, +2), keepOpen: true }
+            );
+        } else {
+            // Trait / Cercle / Rectangle : les boutons taille règlent l'épaisseur du trait.
+            opts.push(
+                { id: 'thin', icon: 'remove', label: 'Épaisseur -',
+                  color: '#fff', bg: 'rgba(120,120,120,0.95)',
+                  action: () => this._adjustStrokeWidth(s.id, -1), keepOpen: true },
+                { id: 'thick', icon: 'add', label: 'Épaisseur +',
+                  color: '#fff', bg: 'rgba(120,120,120,0.95)',
+                  action: () => this._adjustStrokeWidth(s.id, +1), keepOpen: true }
+            );
+        }
         if (s.type === 'circle') {
             const diaOn = (s.showDiameter !== false) && this._diameterGlobal;
             opts.push({
@@ -3276,9 +3302,42 @@ export const PlanMap = {
         document.querySelectorAll('#plan_text_color_palette .plan-text-color').forEach(b => {
             b.style.borderColor = (b.dataset.color === col) ? '#fff' : 'transparent';
         });
+        // En plein écran, le modal (enfant de <body>) n'est pas rendu : seul le
+        // sous-arbre de l'élément fullscreen l'est. On le déplace donc dans cet
+        // élément le temps de l'édition, puis on le restaure à la fermeture.
+        this._mountModalInFullscreen(modal, backdrop);
         backdrop.style.display = 'block';
         modal.style.display = 'block';
         setTimeout(() => input && input.focus(), 50);
+    },
+
+    /**
+     * Si un élément est en plein écran et que le modal n'en fait pas partie,
+     * on réinsère modal + backdrop dans l'élément fullscreen (sinon invisibles).
+     * Mémorise l'emplacement d'origine pour pouvoir restaurer.
+     */
+    _mountModalInFullscreen(modal, backdrop) {
+        const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+        if (!fsEl || !modal) return;
+        if (fsEl.contains(modal)) return; // déjà dedans
+        this._modalReparent = {
+            modal, backdrop,
+            modalParent: modal.parentNode, modalNext: modal.nextSibling,
+            bdParent: backdrop ? backdrop.parentNode : null, bdNext: backdrop ? backdrop.nextSibling : null
+        };
+        if (backdrop) fsEl.appendChild(backdrop);
+        fsEl.appendChild(modal);
+    },
+
+    /** Restaure modal + backdrop à leur emplacement d'origine (post-plein écran). */
+    _restoreModalFromFullscreen() {
+        const r = this._modalReparent;
+        if (!r) return;
+        try {
+            if (r.modalParent) r.modalParent.insertBefore(r.modal, r.modalNext);
+            if (r.bdParent && r.backdrop) r.bdParent.insertBefore(r.backdrop, r.bdNext);
+        } catch (_) {}
+        this._modalReparent = null;
     },
 
     _hideTextModal() {
@@ -3299,6 +3358,7 @@ export const PlanMap = {
         const backdrop = document.getElementById('modalBackdrop');
         if (modal) modal.style.display = 'none';
         if (backdrop) backdrop.style.display = 'none';
+        this._restoreModalFromFullscreen();
     },
 
     /** Confirme la saisie de texte : applique sur la forme cible. */
@@ -3339,6 +3399,7 @@ export const PlanMap = {
         const backdrop = document.getElementById('modalBackdrop');
         if (modal) modal.style.display = 'none';
         if (backdrop) backdrop.style.display = 'none';
+        this._restoreModalFromFullscreen();
     },
 
     /** Initialise (une seule fois) les listeners de la modale de texte. */
@@ -3614,15 +3675,15 @@ export const PlanMap = {
             if (Math.hypot(dx, dy) > LP_TOLERANCE) cancel();
         };
 
-        this.map.on('mousedown', start);
-        this.map.on('touchstart', start);
-        this.map.on('mousemove', move);
-        this.map.on('touchmove', move);
-        this.map.on('mouseup', cancel);
-        this.map.on('touchend', cancel);
-        this.map.on('touchcancel', cancel);
-        this.map.on('dragstart', cancel);
-        this.map.on('movestart', cancel);
+        this.map.on('mousedown', this._safe(start, 'longpress:start'));
+        this.map.on('touchstart', this._safe(start, 'longpress:start'));
+        this.map.on('mousemove', this._safe(move, 'longpress:move'));
+        this.map.on('touchmove', this._safe(move, 'longpress:move'));
+        this.map.on('mouseup', this._safe(cancel, 'longpress:cancel'));
+        this.map.on('touchend', this._safe(cancel, 'longpress:cancel'));
+        this.map.on('touchcancel', this._safe(cancel, 'longpress:cancel'));
+        this.map.on('dragstart', this._safe(cancel, 'longpress:cancel'));
+        this.map.on('movestart', this._safe(cancel, 'longpress:cancel'));
     },
 
     _loadShapes() {
@@ -3693,7 +3754,7 @@ export const PlanMap = {
      * On ne capture donc jamais le conteneur entier via html2canvas (ce qui
      * cassait en plein écran : taille écran × scale → canvas démesuré).
      */
-   async _takeScreenshot() {
+    async _takeScreenshot() {
         if (typeof html2canvas === 'undefined') {
             alert('Librairie html2canvas indisponible (réseau ?)');
             return;
@@ -3701,6 +3762,7 @@ export const PlanMap = {
         const mapContainer = document.getElementById('plan_map').parentElement;
         if (!mapContainer) return;
 
+        // Éléments UI à masquer temporairement (on garde la boussole MapLibre)
         const toHide = [
             document.getElementById('plan_unified_toolbar'),
             document.getElementById('plan_draw_dock'),
@@ -3711,18 +3773,18 @@ export const PlanMap = {
         const memo = toHide.map(el => el.style.display);
         toHide.forEach(el => { el.style.display = 'none'; });
 
-        // Police d'icônes prête (pins à base de glyphes Material).
-        try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (_) {}
-
-        // Attendre la fin du rendu (tuiles + dessins) avant de lire le buffer WebGL.
-        await this._waitForMapIdle();
+        // Forcer un repaint pour que le canvas WebGL contienne la frame actuelle
+        this.map.triggerRepaint();
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
         let outCanvas;
         try {
             const glCanvas = this.map.getCanvas();
-            const w = glCanvas.width;
+            const w = glCanvas.width;   // dimensions pixel réelles (déjà × devicePixelRatio)
             const h = glCanvas.height;
-            const dpr = w / glCanvas.clientWidth;
+
+            // Overlay DOM (markers, boussole) — html2canvas en ignorant tous les <canvas>
+            const dpr = w / glCanvas.clientWidth; // ratio réel appliqué par MapLibre
             const overlay = await html2canvas(mapContainer, {
                 useCORS: true,
                 allowTaint: false,
@@ -3733,6 +3795,8 @@ export const PlanMap = {
                 height: glCanvas.clientHeight,
                 ignoreElements: (el) => el.tagName === 'CANVAS'
             });
+
+            // Composition finale
             outCanvas = document.createElement('canvas');
             outCanvas.width = w;
             outCanvas.height = h;
@@ -3744,6 +3808,7 @@ export const PlanMap = {
             alert('Erreur lors de la capture : ' + e.message);
             return;
         } finally {
+            // Restaurer l'UI
             toHide.forEach((el, i) => { el.style.display = memo[i] || ''; });
         }
 
@@ -3759,18 +3824,6 @@ export const PlanMap = {
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(url), 1000);
         }, 'image/png');
-    },
-
-    /** Attend la fin du rendu MapLibre (idle) avec garde-fou anti-blocage. */
-    _waitForMapIdle(timeout = 2000) {
-        return new Promise(resolve => {
-            if (!this.map) return resolve();
-            let done = false;
-            const finish = () => { if (done) return; done = true; resolve(); };
-            this.map.once('idle', finish);
-            this.map.triggerRepaint();
-            setTimeout(finish, timeout);
-        });
     },
 
     _showHint(msg) {

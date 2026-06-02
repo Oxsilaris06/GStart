@@ -1170,6 +1170,18 @@ function toggleMobileDock() {
 window.toggleMobileDock = toggleMobileDock;
 
 /**
+ * Ferme le bottom-sheet contextuel mobile : désélectionne l'annotation courante
+ * et masque les réglages. Le sheet se referme via la classe .active de
+ * #contextual_tools (cf. setContextualTools), pilotée par le CSS mobile.
+ */
+function closeMobileSheet() {
+    selectedAnnotation = null;
+    setContextualTools(null);
+    if (typeof redrawCanvas === 'function') redrawCanvas();
+}
+window.closeMobileSheet = closeMobileSheet;
+
+/**
  * Branche le canvas et la barre d'outils d'annotation (équivalent monolithique 4.html).
  * À appeler une fois le canvas initialisé (ex. après getElementById dans presentation.js).
  */
@@ -1180,13 +1192,19 @@ function initAnnotationWorkspace() {
     
     // Initialiser le workspace (le triple dock mobile est géré via CSS Grid et toggleMobileDock)
 
-    canvas.addEventListener('mousedown', handleDrawStart);
-    canvas.addEventListener('mousemove', handleDrawMove);
-    canvas.addEventListener('mouseup', handleDrawEnd);
-    canvas.addEventListener('mouseout', handleDrawEnd);
-    canvas.addEventListener('touchstart', handleDrawStart, { passive: false });
-    canvas.addEventListener('touchmove', handleDrawMove, { passive: false });
-    canvas.addEventListener('touchend', handleDrawEnd);
+    // Enveloppe : une exception dans un handler canvas ne doit pas casser
+    // silencieusement l'annotation (le filet global de 4.html journalise aussi).
+    const safeAnnot = (fn, label) => function (ev) {
+        try { return fn(ev); }
+        catch (e) { console.error('[Annotation] ' + label + ' a échoué:', e); }
+    };
+    canvas.addEventListener('mousedown', safeAnnot(handleDrawStart, 'drawStart'));
+    canvas.addEventListener('mousemove', safeAnnot(handleDrawMove, 'drawMove'));
+    canvas.addEventListener('mouseup', safeAnnot(handleDrawEnd, 'drawEnd'));
+    canvas.addEventListener('mouseout', safeAnnot(handleDrawEnd, 'drawEnd'));
+    canvas.addEventListener('touchstart', safeAnnot(handleDrawStart, 'drawStart'), { passive: false });
+    canvas.addEventListener('touchmove', safeAnnot(handleDrawMove, 'drawMove'), { passive: false });
+    canvas.addEventListener('touchend', safeAnnot(handleDrawEnd, 'drawEnd'));
 
     const drawingTools = ['tool_move', 'tool_location', 'tool_arrow', 'tool_box', 'tool_text', 'tool_member'];
     drawingTools.forEach(id => {

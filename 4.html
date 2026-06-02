@@ -11,6 +11,16 @@
             document.head.appendChild(manifestLink);
         }
     </script>
+    <!-- Filet global : journalise toute erreur/rejet non capturé (console). -->
+    <script>
+        window.addEventListener('error', function (e) {
+            console.error('[OI] Erreur non capturée:',
+                e.message, (e.filename || '') + ':' + (e.lineno || '') + ':' + (e.colno || ''), e.error || '');
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+            console.error('[OI] Promesse rejetée non gérée:', e.reason);
+        });
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OI - ADI </title>
@@ -81,7 +91,7 @@
             console.error = (...args) => { formatLog(args, 'error'); originalError.apply(console, args); };
             
             window.openLogs = function() {
-                const html = `<html><head><title>Console Logs - GStart</title><style>body { font-family: monospace; background: #000; color: #fff; padding: 20px; line-height: 1.5; } h2 { color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; } .log { color: #fff; border-bottom: 1px solid #1a1a1a; padding: 4px 0; } .warn { color: #fbbf24; border-bottom: 1px solid #1a1a1a; padding: 4px 0; } .error { color: #f87171; font-weight: bold; border-left: 3px solid red; padding: 4px 0 4px 10px; border-bottom: 1px solid #1a1a1a; } .btn-clear { background: #ef4444; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; font-size: 14px; }</style></head><body><h2>GStart Mobile Console <button class="btn-clear" onclick="localStorage.removeItem('gstart_captured_logs'); location.reload();">Vider les logs</button></h2>${window.__capturedLogs.map(l => {
+                const html = `<html><head><title>Console Logs - GStart</title><style>body { font-family: monospace; background: #000; color: #fff; padding: 20px; line-height: 1.5; } h2 { color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; } .log { color: #fff; border-bottom: 1px solid #1a1a1a; padding: 4px 0; } .warn { color: #fbbf24; border-bottom: 1px solid #1a1a1a; padding: 4px 0; } .error { color: #f87171; font-weight: bold; border-left: 3px solid red; padding: 4px 0 4px 10px; border-bottom: 1px solid #1a1a1a; } .btn-clear { background: #ef4444; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; font-size: 14px; }</style></head><body><h2>GStart Mobile Console <button type="button" class="btn-clear" onclick="localStorage.removeItem('gstart_captured_logs'); location.reload();">Vider les logs</button></h2>${window.__capturedLogs.map(l => {
                     const cls = l.includes('[ERROR]') ? 'error' : l.includes('[WARN]') ? 'warn' : 'log';
                     return `<div class="${cls}">${l}</div>`;
                 }).reverse().join('')}</body></html>`;
@@ -1524,7 +1534,7 @@
                 display: flex !important;
                 height: 100% !important;
                 max-height: none !important;
-                background: var(--bg-secondary) !important;
+                background: var(--bg-container) !important;
                 border: none !important;
                 border-radius: 0 !important;
                 box-shadow: none !important;
@@ -1719,58 +1729,56 @@
             flex-direction: column;
             gap: 8px; /* Compaction maximale */
             padding: 12px;
-            background: rgba(14, 14, 18, 0.98) !important;
-            border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+            background: var(--bg-container) !important;
+            border-right: 1px solid var(--border-color) !important;
             flex-shrink: 0;
             z-index: 100;
-            box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+            box-shadow: var(--shadow-lg);
             overflow: hidden; /* Désactivation du scroll par défaut */
-            color: #e4e4e7 !important;
+            color: var(--text-primary) !important;
         }
 
         .annotation-toolbar label {
-            color: #a1a1aa !important;
+            color: var(--text-muted) !important;
             font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 1px;
             font-weight: 600;
         }
 
-        /* Boutons Style Dock */
+        /* Boutons Style Dock — alignés sur les FAB de la cartographie */
         .annotation-toolbar .tool-btn {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
-            background: rgba(39, 39, 42, 0.7) !important;
-            backdrop-filter: blur(20px) !important;
-            -webkit-backdrop-filter: blur(20px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            color: #d1d1d6 !important;
+            background: var(--bg-interactive) !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--text-secondary) !important;
             padding: 8px 10px;
-            border-radius: 10px;
+            border-radius: var(--radius-md);
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.18s var(--ease-in-out);
             font-family: 'Inter', sans-serif;
             font-size: 0.75rem;
             font-weight: 500;
             min-width: 0;
             width: 100%;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            box-shadow: var(--shadow-sm);
         }
 
         .annotation-toolbar .tool-btn:hover {
-            background: rgba(63, 63, 70, 0.9) !important;
-            color: #ffffff !important;
+            background: var(--bg-interactive-hover) !important;
+            color: var(--text-primary) !important;
             transform: translateY(-2px);
-            border-color: rgba(255, 255, 255, 0.2) !important;
+            border-color: var(--accent-blue) !important;
         }
 
         .annotation-toolbar .tool-btn.active {
-            background: #3b82f6 !important; /* Blue 500 */
+            background: var(--accent-blue) !important;
             color: #ffffff !important;
-            border-color: #60a5fa !important;
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+            border-color: var(--accent-blue) !important;
+            box-shadow: 0 0 0 3px var(--accent-glow);
         }
 
         .annotation-toolbar .tool-btn.compact {
@@ -1780,20 +1788,21 @@
         }
 
         .annotation-toolbar .tool-btn.icon-only {
-            min-width: 36px;
-            height: 36px;
+            min-width: 40px;
+            height: 40px;
             padding: 0;
             border-radius: 50%;
         }
 
         .annotation-toolbar .tool-btn.danger {
-            background: rgba(239, 68, 68, 0.2) !important;
-            border-color: rgba(239, 68, 68, 0.3) !important;
-            color: #fca5a5 !important;
+            background: var(--danger-bg) !important;
+            border-color: rgba(239, 68, 68, 0.35) !important;
+            color: var(--danger-red) !important;
         }
 
         .annotation-toolbar .tool-btn.danger:hover {
-            background: #ef4444 !important;
+            background: var(--danger-red) !important;
+            border-color: var(--danger-red) !important;
             color: white !important;
         }
 
@@ -1832,10 +1841,10 @@
         .annotation-toolbar .color-picker {
             display: flex;
             justify-content: space-between;
-            background: rgba(255, 255, 255, 0.04);
+            background: var(--bg-interactive);
             padding: 10px;
-            border-radius: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
         }
 
         .annotation-toolbar .color-circle {
@@ -1843,14 +1852,14 @@
             height: 26px;
             border-radius: 50%;
             border: 2px solid transparent;
-            transition: transform 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
         }
 
         .annotation-toolbar .color-circle.active {
             border-color: #ffffff;
-            transform: scale(1.15);
-            box-shadow: 0 0 10px rgba(255,255,255,0.3);
+            transform: scale(1.18);
+            box-shadow: 0 0 0 3px var(--accent-glow);
         }
 
         /* Actions Finales */
@@ -1938,12 +1947,18 @@
             border-color: #ef4444 !important;
         }
 
+        /* Éléments du bottom-sheet mobile : masqués hors mobile (réaffichés <=767px) */
+        #dock-right .sheet-grabber,
+        #dock-right .sheet-title {
+            display: none;
+        }
+
         /* --- STRUCTURE LAYOUT ANNOTATION (V5) --- */
         #annotationModal .modal-header {
             flex-shrink: 0;
             z-index: 10;
-            background: #141820;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            background: var(--bg-container);
+            border-bottom: 1px solid var(--border-color);
             padding: 10px 20px;
         }
 
@@ -1964,14 +1979,14 @@
         }
 
         .annotation-toolbar {
-            background: #181d26;
+            background: var(--bg-container);
             padding: 12px;
             display: flex;
             flex-direction: column;
             gap: 15px;
             overflow-y: auto;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            max-height: 50vh; 
+            border-bottom: 1px solid var(--border-color);
+            max-height: 50vh;
             flex-shrink: 0;
         }
 
@@ -2008,13 +2023,13 @@
             max-width: none;
         }
 
-        /* Tool Buttons Styles */
+        /* Tool Buttons Styles — alignés sur l'esthétique FAB de la cartographie */
         .tool-btn {
-            background: rgba(39, 39, 42, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #d1d1d6;
+            background: var(--bg-interactive);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
             padding: 8px 14px;
-            border-radius: 10px;
+            border-radius: var(--radius-md);
             display: flex;
             align-items: center;
             gap: 10px;
@@ -2040,10 +2055,12 @@
 
         .tool-btn.icon-only {
             padding: 0;
-            width: 44px;
-            height: 44px;
+            width: 46px;
+            height: 46px;
             justify-content: center;
             border-radius: 50%;
+            background: var(--bg-container);
+            box-shadow: var(--shadow-md);
         }
         
         .tool-btn.compact { padding: 6px 12px; font-size: 0.8rem; }
@@ -2081,7 +2098,7 @@
                 width: 250px;
                 max-height: none;
                 border-bottom: none;
-                border-right: 1px solid rgba(255,255,255,0.1);
+                border-right: 1px solid var(--border-color);
                 padding: 24px 16px;
                 gap: 24px;
             }
@@ -2124,20 +2141,107 @@
         }
 
         /* Mode Mobile Spécifique pour Toolbar en Row */
+        /* ==========================================================================
+           MOBILE PLATINUM (<=767px) — refonte UX native de la modale d'annotation
+           Modèle d'interaction :
+             • Barre supérieure collante (Annuler / titre / Valider) + safe-area top
+             • Canvas plein écran immersif
+             • Barre d'outils PRIMAIRE flottante en bas (44px+, scroll horizontal)
+             • Bottom-sheet CONTEXTUEL coulissant (sliders horizontaux) piloté par
+               #contextual_tools.active (aucune logique JS modifiée)
+             • Barre couleurs + actions (undo/redo/delete/reset)
+             • Respect de env(safe-area-inset-*), easing "spring", touch-action none conservé
+           ========================================================================== */
         @media screen and (max-width: 767px) {
+
+            /* ---- Coque immersive ---- */
             .annotation-wrapper {
-                flex-direction: column !important;
-                display: flex !important;
-                height: 100% !important;
-                background: #000;
-                overflow: hidden !important;
+                display: block !important;
                 position: relative !important;
+                height: 100% !important;
+                width: 100% !important;
+                background: #000 !important;
+                overflow: hidden !important;
             }
 
+            #annotationModal .modal-form {
+                background: #000 !important;
+            }
+
+            /* ---- Barre supérieure collante (réutilise .modal-header) ---- */
+            #annotationModal .modal-header {
+                position: absolute !important;
+                top: 0; left: 0; right: 0;
+                z-index: 1200;
+                display: flex !important;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 12px !important;
+                padding-top: calc(10px + env(safe-area-inset-top, 0px)) !important;
+                background: linear-gradient(180deg, rgba(9,9,11,0.92) 0%, rgba(9,9,11,0.78) 70%, rgba(9,9,11,0) 100%) !important;
+                backdrop-filter: blur(14px) saturate(140%);
+                -webkit-backdrop-filter: blur(14px) saturate(140%);
+                border-bottom: none !important;
+                pointer-events: none; /* laisse passer le geste sauf sur les boutons */
+            }
+            #annotationModal .modal-header > * { pointer-events: auto; }
+
+            /* Titre compacté en pastille discrète, centré */
+            #annotationModal .modal-header h3 {
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
+                margin: 0 !important;
+                font-size: 0.9rem !important;
+                font-weight: 600;
+                color: var(--text-primary) !important;
+                white-space: nowrap;
+            }
+            #annotationModal .modal-header h3 .material-symbols-outlined { display: none; }
+
+            #annotationModal .modal-header .header-actions {
+                margin-left: 0 !important;
+                width: 100%;
+                justify-content: space-between !important;
+                gap: 0 !important;
+            }
+
+            /* Annuler / Valider : cibles tactiles confortables */
+            #annotationModal .modal-header #annotation_cancel_header,
+            #annotationModal .modal-header #annotation_save_header {
+                min-height: 40px;
+                padding: 8px 16px !important;
+                border-radius: 12px !important;
+                font-size: 0.85rem !important;
+                font-weight: 600;
+                letter-spacing: 0.2px;
+                text-transform: none;
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                transition: transform 0.18s var(--ease-out-spring), background 0.18s ease;
+            }
+            #annotationModal .modal-header #annotation_cancel_header {
+                background: rgba(63,63,70,0.55) !important;
+                border: 1px solid rgba(255,255,255,0.10) !important;
+                color: #e4e4e7 !important;
+            }
+            #annotationModal .modal-header #annotation_save_header {
+                background: var(--accent-blue) !important;
+                border: 1px solid var(--accent-blue) !important;
+                color: #fff !important;
+                box-shadow: 0 4px 18px rgba(59,130,246,0.45);
+            }
+            #annotationModal .modal-header #annotation_cancel_header:active,
+            #annotationModal .modal-header #annotation_save_header:active {
+                transform: scale(0.94);
+            }
+            /* La croix de fermeture est redondante avec "Annuler" sur mobile */
+            #annotationModal .modal-header .close-modal-btn { display: none !important; }
+
+            /* ---- Canvas plein écran ---- */
             .annotation-canvas-container {
                 position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
+                inset: 0 !important;
                 width: 100% !important;
                 height: 100% !important;
                 padding: 0 !important;
@@ -2145,313 +2249,363 @@
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
+                background: #0a0a0c !important;
                 overflow: hidden !important;
+                touch-action: none;
+            }
+            #annotationCanvas {
+                box-shadow: 0 0 40px rgba(0,0,0,0.85);
+                touch-action: none; /* conservé : dessin fiable */
             }
 
-            #mobile-dock-fab {
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                background: var(--accent-blue) !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 50% !important;
-                width: 50px !important;
-                height: 50px !important;
-                padding: 0 !important;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
-                cursor: pointer !important;
-                pointer-events: auto !important;
-                transition: transform 0.2s, opacity 0.2s;
-            }
+            /* FAB historique masqué : les outils sont toujours accessibles d'un tap.
+               #mobile-dock-fab reste dans le DOM, toggleMobileDock() reste valide. */
+            #mobile-dock-fab { display: none !important; }
+            #mobile-dock-handle { display: none !important; }
 
-            #mobile-dock-fab.hidden {
-                display: none !important;
-            }
-
-            .annotation-toolbar {
-                display: none !important;
-            }
-
-            .btn-text {
-                display: none !important;
-            }
-
-            .annotation-wrapper.show-triple-dock {
-                display: grid !important;
-                grid-template-columns: 70px 1fr 70px !important;
-                grid-template-rows: 1fr 70px !important;
-            }
-            
-            .annotation-wrapper.show-triple-dock .annotation-canvas-container {
-                position: relative !important;
-                grid-column: 2 !important;
-                grid-row: 1 !important;
-                width: 100% !important;
-                height: 100% !important;
-            }
-
-            .annotation-wrapper.show-triple-dock .annotation-toolbar {
+            /* La toolbar n'est plus un panneau : ses 3 docks deviennent des barres
+               flottantes positionnées indépendamment. */
+            #annotation-toolbar-panel,
+            .annotation-toolbar.triple-dock-ui {
                 display: contents !important;
             }
+            .btn-text { display: inline !important; }
 
-            .mobile-dock {
-                background: rgba(24, 29, 38, 0.95) !important;
-                backdrop-filter: blur(10px) !important;
-                border: 1px solid rgba(255,255,255,0.1) !important;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.7) !important;
-                pointer-events: auto !important;
-                display: flex !important;
-                align-items: center !important;
-                z-index: 1000;
-            }
-            .mobile-dock.vertical {
-                flex-direction: column !important;
-                width: 50px !important;
-                height: fit-content !important;
-                max-height: calc(100% - 20px) !important;
-                margin: 10px auto !important;
-                padding: 10px 0 !important;
-                overflow-y: auto !important;
-                border-radius: 25px !important;
-                position: relative !important;
-                justify-content: flex-start !important;
-            }
-            .mobile-dock.horizontal {
-                flex-direction: row !important;
-                height: 50px !important;
-                width: fit-content !important;
-                max-width: calc(100% - 20px) !important;
-                margin: auto auto 10px auto !important;
-                padding: 0 15px !important;
-                overflow-x: auto !important;
-                overflow-y: hidden !important;
-                justify-content: center !important;
-                border-radius: 25px !important;
-            }
+            /* ======================================================================
+               BARRE D'OUTILS PRIMAIRE (#dock-left) — flottante, scroll horizontal
+               ====================================================================== */
             #dock-left {
-                grid-column: 1 !important;
-                grid-row: 1 !important;
+                position: absolute !important;
+                left: 8px; right: 8px;
+                bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+                z-index: 1100;
+                display: block !important;
+                pointer-events: none;
             }
-            #dock-right {
-                grid-column: 3 !important;
-                grid-row: 1 !important;
-            }
-            #dock-bottom {
-                grid-column: 1 / 4 !important;
-                grid-row: 2 !important;
-            }
-
-            .annotation-toolbar.expanded {
+            #dock-left .toolbar-vertical-group {
                 display: flex !important;
-            }
-
-            .toolbar-vertical-group {
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 15px !important;
-                align-items: center !important;
-                width: 100% !important;
-            }
-            .vertical-slider-group {
-                display: flex !important;
-                flex-direction: column !important;
-                align-items: center !important;
-                gap: 5px !important;
-            }
-            .vertical-slider {
-                -webkit-appearance: slider-vertical !important;
-                appearance: slider-vertical !important;
-                writing-mode: vertical-lr !important;
-                direction: rtl !important;
-                width: 28px !important;
-                height: 90px !important;
-                margin: 0 !important;
-                cursor: ns-resize !important;
-                accent-color: var(--accent-blue) !important;
-            }
-            .color-picker.vertical {
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 10px !important;
-                align-items: center !important;
-                padding: 0 !important;
-                background: none !important;
-            }
-            .toolbar-divider {
-                width: 80% !important;
-                height: 1px !important;
-                background: rgba(255,255,255,0.1) !important;
-                margin: 5px 0 !important;
-            }
-
-            /* Drag Handle */
-            #mobile-dock-handle {
-                width: 100% !important;
-                height: 24px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                cursor: grab !important;
-                margin-bottom: 5px !important;
-            }
-            
-            #mobile-dock-handle:active {
-                cursor: grabbing !important;
-            }
-
-            .annotation-toolbar details {
-                background: rgba(255,255,255,0.03);
-                border-radius: 8px;
-                border: 1px solid rgba(255,255,255,0.1);
-                margin-bottom: 5px;
-            }
-
-            .annotation-toolbar details summary {
-                padding: 10px 15px;
-                font-weight: 600;
-                color: var(--accent-blue);
-                cursor: pointer;
-                list-style: none; /* Hide default arrow */
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                font-size: 0.9rem;
-            }
-            
-            .annotation-toolbar details summary::-webkit-details-marker {
-                display: none;
-            }
-
-            .annotation-toolbar details summary::after {
-                content: '\e313'; /* expand_more material symbol */
-                font-family: 'Material Symbols Outlined';
-                font-size: 20px;
-                transition: transform 0.3s;
-            }
-
-            .annotation-toolbar details[open] summary::after {
-                transform: rotate(180deg);
-            }
-
-            .annotation-toolbar details .details-content {
-                padding: 10px;
-                border-top: 1px solid rgba(255,255,255,0.05);
-            }
-
-            .toolbar-row {
                 flex-direction: row !important;
-                flex-wrap: wrap !important;
-                gap: 8px !important;
+                gap: 8px;
+                width: 100%;
+                padding: 8px;
+                overflow-x: auto;
+                overflow-y: hidden;
+                scrollbar-width: none;
+                -webkit-overflow-scrolling: touch;
+                background: rgba(20,20,24,0.78) !important;
+                backdrop-filter: blur(18px) saturate(150%);
+                -webkit-backdrop-filter: blur(18px) saturate(150%);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 18px;
+                box-shadow: 0 8px 30px rgba(0,0,0,0.55);
+                pointer-events: auto;
+            }
+            #dock-left .toolbar-vertical-group::-webkit-scrollbar { display: none; }
+
+            #dock-left .tool-btn {
+                flex: 0 0 auto !important;
+                display: flex !important;
+                flex-direction: column !important;
                 align-items: center !important;
                 justify-content: center !important;
-                width: 100% !important;
+                gap: 2px !important;
+                width: auto !important;
+                min-width: 58px !important;
+                height: 56px !important;
+                padding: 6px 10px !important;
+                border-radius: 14px !important;
+                background: transparent !important;
+                border: 1px solid transparent !important;
+                color: var(--text-secondary) !important;
+                font-size: 0.62rem !important;
+                font-weight: 600 !important;
+                box-shadow: none !important;
+                transition: transform 0.18s var(--ease-out-spring), background 0.18s ease, color 0.18s ease !important;
+            }
+            #dock-left .tool-btn .material-symbols-outlined {
+                font-size: 24px !important;
+                line-height: 1;
+            }
+            #dock-left .tool-btn .btn-text {
+                display: block !important;
+                font-size: 0.62rem !important;
+                line-height: 1;
+                white-space: nowrap;
+            }
+            #dock-left .tool-btn:active { transform: scale(0.92) !important; }
+            #dock-left .tool-btn.active {
+                background: var(--accent-blue) !important;
+                color: #fff !important;
+                border-color: var(--accent-blue) !important;
+                box-shadow: 0 4px 16px rgba(59,130,246,0.5) !important;
             }
 
-            .toolbar-main-tools {
-                display: grid !important;
-                grid-template-columns: repeat(6, 1fr) !important;
-                gap: 8px !important;
-                width: 100% !important;
+            /* ======================================================================
+               BARRE COULEURS + ACTIONS (#dock-bottom) — flottante au-dessus du safe-area
+               ====================================================================== */
+            #dock-bottom {
+                position: absolute !important;
+                left: 8px; right: 8px;
+                bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+                z-index: 1100;
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                gap: 6px !important;
+                height: 60px !important;
+                width: auto !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 8px 10px !important;
+                overflow-x: auto;
+                overflow-y: hidden;
+                scrollbar-width: none;
+                background: rgba(20,20,24,0.82) !important;
+                backdrop-filter: blur(18px) saturate(150%) !important;
+                -webkit-backdrop-filter: blur(18px) saturate(150%) !important;
+                border: 1px solid rgba(255,255,255,0.08) !important;
+                border-radius: 18px !important;
+                box-shadow: 0 8px 30px rgba(0,0,0,0.55) !important;
+            }
+            #dock-bottom::-webkit-scrollbar { display: none; }
+
+            #dock-bottom .color-picker.horizontal {
+                display: flex !important;
+                flex: 0 0 auto;
+                gap: 10px !important;
+                padding: 0 4px !important;
+                align-items: center !important;
+            }
+            #dock-bottom .color-circle {
+                width: 30px !important;
+                height: 30px !important;
+                min-width: 30px !important;
+                border-radius: 50% !important;
+                border: 2px solid rgba(255,255,255,0.18) !important;
+                box-shadow: inset 0 1px 3px rgba(0,0,0,0.35) !important;
+                transition: transform 0.18s var(--ease-out-spring), box-shadow 0.18s ease !important;
+            }
+            #dock-bottom .color-circle:active { transform: scale(0.9) !important; }
+            #dock-bottom .color-circle.active {
+                border-color: #fff !important;
+                transform: scale(1.18) !important;
+                box-shadow: 0 0 0 3px var(--accent-glow), 0 0 10px var(--accent-glow) !important;
             }
 
-            .annotation-toolbar label {
-                display: block !important; /* Show labels on mobile for clarity */
-                font-size: 0.75rem !important;
-                color: var(--text-secondary);
-                margin-bottom: 2px;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
+            /* Séparateur inline (le <div> 1px) */
+            #dock-bottom > div[style*="width: 1px"] {
+                flex: 0 0 auto;
+                height: 28px !important;
+                margin: 0 4px !important;
+                background: rgba(255,255,255,0.14) !important;
             }
 
-            .annotation-toolbar .toolbar-main-tools span:not(.material-symbols-outlined),
-            .annotation-toolbar .tool-btn:not(.icon-only):not(.compact) span:not(.material-symbols-outlined) {
-                display: none !important;
+            #dock-bottom .toolbar-horizontal-group {
+                display: flex !important;
+                flex: 0 0 auto;
+                gap: 6px !important;
+                align-items: center !important;
             }
-
-            .annotation-toolbar .tool-btn {
-                min-width: 44px !important;
+            #dock-bottom .tool-btn.icon-only {
                 width: 44px !important;
                 height: 44px !important;
+                min-width: 44px !important;
                 padding: 0 !important;
-                font-size: 0 !important;
-                border-radius: 50% !important;
+                border-radius: 13px !important;
                 background: rgba(255,255,255,0.06) !important;
+                border: 1px solid rgba(255,255,255,0.08) !important;
+                color: var(--text-secondary) !important;
+                box-shadow: none !important;
+                transition: transform 0.16s var(--ease-out-spring), background 0.18s ease !important;
+            }
+            #dock-bottom .tool-btn.icon-only .material-symbols-outlined { font-size: 22px !important; }
+            #dock-bottom .tool-btn.icon-only:active { transform: scale(0.9) !important; }
+            #dock-bottom .tool-btn.icon-only.danger {
+                background: var(--danger-bg) !important;
+                border-color: rgba(239,68,68,0.30) !important;
+                color: var(--danger-red) !important;
+            }
+
+            /* ======================================================================
+               BOTTOM-SHEET CONTEXTUEL (#dock-right)
+               Visible quand #contextual_tools.active (sélection/outil avec réglages).
+               Sliders 100% HORIZONTAUX — fini les hacks slider-vertical.
+               ====================================================================== */
+            /* Carte flottante COMPACTE, positionnée AU-DESSUS de la barre d'actions
+               (#dock-bottom, ~68px) : ainsi « Supprimer l'objet » / « Tout effacer »
+               restent accessibles et la photo n'est plus masquée sur toute la hauteur. */
+            #dock-right {
+                position: absolute !important;
+                left: 8px; right: 8px;
+                bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+                z-index: 1300;
+                /* Barre SLIM sur une seule ligne : masque le minimum de photo. */
                 display: flex !important;
+                flex-direction: row !important;
                 align-items: center !important;
-                justify-content: center !important;
-                margin: 0 !important;
-            }
-
-            .annotation-toolbar .tool-btn.active {
-                background: var(--accent-blue) !important;
-                color: white !important;
-            }
-
-            .annotation-toolbar .tool-btn .material-symbols-outlined {
-                font-size: 22px !important;
-            }
-
-            .annotation-toolbar .color-picker {
-                display: flex !important;
-                justify-content: space-between !important;
-                width: 100% !important;
-                padding: 10px !important;
-                background: rgba(0,0,0,0.2) !important;
-                border-radius: 12px !important;
-                gap: 5px !important;
-            }
-
-            .annotation-toolbar .color-circle {
-                width: 32px !important;
-                height: 32px !important;
-            }
-
-            .tool-settings-group {
-                flex: 1;
-                min-width: 45%;
-                background: rgba(255,255,255,0.03);
-                padding: 8px;
-                border-radius: 10px;
-            }
-
-            .number-input-group {
-                height: 36px !important;
-            }
-
-            .annotation-actions {
-                display: grid !important;
-                grid-template-columns: 1fr 1fr !important;
-                gap: 10px !important;
-                margin-top: 5px !important;
-                width: 100% !important;
-                border-top: 1px solid rgba(255,255,255,0.1) !important;
-                padding-top: 10px !important;
-            }
-            
-            .annotation-actions .action-group {
-                display: contents !important;
-            }
-
-            .annotation-actions button {
-                width: 100% !important;
-                height: 46px !important;
-                border-radius: 10px !important;
-            }
-
-            .annotation-canvas-container {
-                position: relative !important;
-                order: 1 !important;
-                padding: 0 !important;
-                margin: 0 !important;
+                gap: 8px !important;
+                width: auto !important;
                 height: auto !important;
-                flex: 1 !important; /* Take remaining vertical space */
-                width: 100% !important;
-                overflow: hidden !important;
+                max-height: none !important;
+                margin: 0 !important;
+                padding: 8px 10px !important;
+                background: rgba(18,18,22,0.94) !important;
+                backdrop-filter: blur(24px) saturate(160%) !important;
+                -webkit-backdrop-filter: blur(24px) saturate(160%) !important;
+                border: 1px solid rgba(255,255,255,0.12) !important;
+                border-radius: 16px !important;
+                box-shadow: 0 12px 36px rgba(0,0,0,0.6) !important;
+                transform: translateY(calc(100% + 100px)); /* masquée entièrement sous l'écran */
+                transition: transform 0.32s var(--ease-out-spring), opacity 0.2s ease;
+                opacity: 0;
+                overflow: visible !important;
+                pointer-events: none;
+            }
+            /* Ouverture pilotée par la logique existante (setContextualTools) */
+            #dock-right:has(#contextual_tools.active) {
+                transform: translateY(0);
+                opacity: 1;
+                pointer-events: auto;
+            }
+            /* Feuille de réglages ouverte → on masque la barre d'OUTILS (évite le
+               chevauchement) ; la barre d'ACTIONS du bas reste, elle, accessible. */
+            .annotation-wrapper:has(#contextual_tools.active) #dock-left {
+                opacity: 0 !important;
+                pointer-events: none !important;
+                transform: translateY(8px) !important;
+                transition: opacity 0.2s ease, transform 0.2s ease !important;
+            }
+
+            /* Grabber + titre masqués sur mobile : barre slim, gain de hauteur. */
+            #dock-right .sheet-grabber,
+            #dock-right .sheet-title { display: none !important; }
+
+            #dock-right .close-dock-btn {
+                position: static !important;
+                order: 2 !important;
+                transform: none !important;
+                flex: 0 0 auto !important;
+                width: 36px !important;
+                height: 36px !important;
+                min-width: 36px !important;
+                border-radius: 50% !important;
+                background: rgba(255,255,255,0.08) !important;
+                border: 1px solid rgba(255,255,255,0.12) !important;
+                color: var(--text-secondary) !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
             }
+            #dock-right .close-dock-btn .material-symbols-outlined { font-size: 18px !important; }
+
+            /* Contrôles sur UNE ligne, défilable horizontalement si besoin. */
+            #dock-right #contextual_tools {
+                order: 1 !important;
+                margin: 0 !important;
+                flex: 1 1 auto !important;
+                width: auto !important;          /* neutralise le width:100% inline */
+                min-width: 0 !important;
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                flex-wrap: nowrap !important;
+                gap: 8px !important;
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
+                scrollbar-width: none !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+            #dock-right #contextual_tools::-webkit-scrollbar { display: none !important; }
+
+            /* Chaque réglage = pastille compacte inline : icône + slider court.
+               NB : `display` SANS !important → le display:none inline de
+               text_size_control / zone_settings (piloté par le JS selon le type
+               de sélection) reste prioritaire ; seuls les réglages pertinents
+               s'affichent (barre plus courte). */
+            #dock-right .tool-settings-group.vertical-slider-group {
+                display: flex;
+                flex-direction: row !important;
+                align-items: center !important;
+                gap: 8px !important;
+                flex: 0 0 auto !important;
+                width: auto !important;
+                min-width: 0 !important;
+                height: 44px !important;
+                padding: 8px 12px !important;
+                background: rgba(255,255,255,0.05) !important;
+                border: 1px solid rgba(255,255,255,0.08) !important;
+                border-radius: 12px !important;
+            }
+            #dock-right .tool-settings-group .material-symbols-outlined {
+                font-size: 20px !important;
+                color: var(--text-secondary) !important;
+                flex: 0 0 auto;
+            }
+
+            /* Sliders HORIZONTAUX compacts (largeur fixe courte) */
+            #dock-right .vertical-slider {
+                -webkit-appearance: none !important;
+                appearance: none !important;
+                writing-mode: horizontal-tb !important;
+                direction: ltr !important;
+                flex: 0 0 auto !important;
+                width: 92px !important;
+                height: 28px !important;
+                margin: 0 !important;
+                cursor: pointer !important;
+                background: transparent !important;
+                accent-color: var(--accent-blue) !important;
+            }
+            #dock-right .vertical-slider::-webkit-slider-runnable-track {
+                height: 6px;
+                border-radius: 999px;
+                background: rgba(255,255,255,0.14);
+            }
+            #dock-right .vertical-slider::-moz-range-track {
+                height: 6px;
+                border-radius: 999px;
+                background: rgba(255,255,255,0.14);
+            }
+            #dock-right .vertical-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 24px;
+                height: 24px;
+                margin-top: -9px;
+                border-radius: 50%;
+                background: #fff;
+                border: 2px solid var(--accent-blue);
+                box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            }
+            #dock-right .vertical-slider::-moz-range-thumb {
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                background: #fff;
+                border: 2px solid var(--accent-blue);
+                box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            }
+
+            /* Bouton "modifier le texte" : pastille inline (reste sur la ligne) */
+            #dock-right #edit_text_btn {
+                flex: 0 0 auto !important;
+                width: auto !important;
+                height: 44px !important;
+                padding: 0 16px !important;
+                border-radius: 12px !important;
+                background: rgba(255,255,255,0.06) !important;
+                border: 1px solid rgba(255,255,255,0.10) !important;
+                color: var(--text-primary) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 8px !important;
+                white-space: nowrap !important;
+            }
+            #dock-right #edit_text_btn .material-symbols-outlined { font-size: 22px !important; }
+
+            /* La logique existante gère déjà l'affichage par type :
+               text_size_control / zone_settings sont en display:none par défaut. */
         }
         
         #annotationModal {
@@ -3308,8 +3462,8 @@
             <div class="pdf-format-toggle">
                 <span class="toggle-label">Format PDF</span>
                 <div class="pdf-format-track" id="pdfFormatTrack">
-                    <button id="btnFormatA4" class="active" onclick="setPdfFormat('a4')">A4 Paysage</button>
-                    <button id="btnFormat169" onclick="setPdfFormat('16:9')">16:9</button>
+                    <button type="button" id="btnFormatA4" class="active" onclick="setPdfFormat('a4')">A4 Paysage</button>
+                    <button type="button" id="btnFormat169" onclick="setPdfFormat('16:9')">16:9</button>
                 </div>
                 <span id="pdfFormatDims" class="toggle-label" style="color: var(--text-muted); font-size:0.72em;">297×210 mm</span>
             </div>
@@ -3376,8 +3530,8 @@
                     <span class="material-symbols-outlined">edit</span> Annotation Photo
                 </h3>
                 <div class="header-actions" style="display: flex; gap: 10px; margin-left: auto;">
-                    <button id="annotation_cancel_header" class="btn-cancel compact wizard-nav-btn" style="border-radius: 8px;" onclick="closeAnnotationModal()">Annuler</button>
-                    <button id="annotation_save_header" class="btn-save compact wizard-nav-btn" style="border-radius: 8px;">Valider</button>
+                    <button type="button" id="annotation_cancel_header" class="btn-cancel compact wizard-nav-btn" style="border-radius: 8px;" onclick="closeAnnotationModal()">Annuler</button>
+                    <button type="button" id="annotation_save_header" class="btn-save compact wizard-nav-btn" style="border-radius: 8px;">Valider</button>
                 </div>
                 <button type="button" class="close-modal-btn" onclick="closeAnnotationModal()" style="margin-left: 10px;">
                     <span class="material-symbols-outlined">close</span>
@@ -3393,18 +3547,20 @@
                     <!-- 1. Outils Principaux (Gauche) -->
                     <div id="dock-left" class="mobile-dock vertical">
                         <div class="toolbar-vertical-group">
-                            <button id="tool_move" class="tool-btn active" title="Bouger"><span class="material-symbols-outlined">pan_tool</span><span class="btn-text">Bouger</span></button>
-                            <button id="tool_location" class="tool-btn" title="Zone"><span class="material-symbols-outlined">pin_drop</span><span class="btn-text">Zone</span></button>
-                            <button id="tool_arrow" class="tool-btn" title="Axe"><span class="material-symbols-outlined">north_east</span><span class="btn-text">Axe</span></button>
-                            <button id="tool_box" class="tool-btn" title="Box"><span class="material-symbols-outlined">crop_square</span><span class="btn-text">Box</span></button>
-                            <button id="tool_text" class="tool-btn" title="Texte"><span class="material-symbols-outlined">title</span><span class="btn-text">Texte</span></button>
-                            <button id="tool_member" class="tool-btn" title="Membre"><span class="material-symbols-outlined">badge</span><span class="btn-text">Membre</span></button>
+                            <button type="button" id="tool_move" class="tool-btn active" title="Bouger"><span class="material-symbols-outlined">pan_tool</span><span class="btn-text">Bouger</span></button>
+                            <button type="button" id="tool_location" class="tool-btn" title="Zone"><span class="material-symbols-outlined">pin_drop</span><span class="btn-text">Zone</span></button>
+                            <button type="button" id="tool_arrow" class="tool-btn" title="Axe"><span class="material-symbols-outlined">north_east</span><span class="btn-text">Axe</span></button>
+                            <button type="button" id="tool_box" class="tool-btn" title="Box"><span class="material-symbols-outlined">crop_square</span><span class="btn-text">Box</span></button>
+                            <button type="button" id="tool_text" class="tool-btn" title="Texte"><span class="material-symbols-outlined">title</span><span class="btn-text">Texte</span></button>
+                            <button type="button" id="tool_member" class="tool-btn" title="Membre"><span class="material-symbols-outlined">badge</span><span class="btn-text">Membre</span></button>
                         </div>
                     </div>
 
-                    <!-- 2. Réglages Contextuels (Droite) -->
+                    <!-- 2. Réglages Contextuels (Droite / Bottom-sheet mobile) -->
                     <div id="dock-right" class="mobile-dock vertical">
-                        <button type="button" onclick="toggleMobileDock()" class="tool-btn icon-only danger close-dock-btn" style="width: 26px; height: 26px; min-width: 26px; position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 1001;" title="Fermer">
+                        <div class="sheet-grabber" aria-hidden="true"></div>
+                        <div class="sheet-title">Réglages</div>
+                        <button type="button" onclick="closeMobileSheet()" class="tool-btn icon-only danger close-dock-btn" style="width: 26px; height: 26px; min-width: 26px; position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 1001;" title="Fermer">
                             <span class="material-symbols-outlined" style="font-size: 15px;">close</span>
                         </button>
                         <div id="contextual_tools" class="toolbar-vertical-group" style="margin-top: 45px; width: 100%; display: flex; flex-direction: column; align-items: center;">
@@ -3427,10 +3583,8 @@
                                 <input type="range" id="circle_opacity" min="0" max="1" step="0.1" value="0.5" class="vertical-slider">
                             </div>
                             <input type="hidden" id="text_size_tool" value="30">
-                            <input type="hidden" id="resize_w" value="100">
-                            <input type="hidden" id="resize_h" value="100">
-                            
-                            <button id="edit_text_btn" class="tool-btn icon-only" title="Modifier le texte"><span class="material-symbols-outlined">edit_note</span></button>
+
+                            <button type="button" id="edit_text_btn" class="tool-btn icon-only" title="Modifier le texte"><span class="material-symbols-outlined">edit_note</span></button>
                         </div>
                     </div>
 
@@ -3447,8 +3601,10 @@
                         <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.2); margin: 0 10px;"></div>
 
                         <div class="toolbar-horizontal-group" style="display: flex; gap: 10px; align-items: center;">
-                            <button id="delete_btn" class="tool-btn icon-only danger" title="Supprimer l'objet"><span class="material-symbols-outlined">delete</span></button>
-                            <button id="tool_reset" class="tool-btn icon-only danger" style="opacity: 0.8;" title="Réinitialiser tout"><span class="material-symbols-outlined">delete_sweep</span></button>
+                            <button type="button" id="annotation_undo" class="tool-btn icon-only" title="Annuler (Ctrl+Z)"><span class="material-symbols-outlined">undo</span></button>
+                            <button type="button" id="annotation_redo" class="tool-btn icon-only" title="Rétablir (Ctrl+Y)"><span class="material-symbols-outlined">redo</span></button>
+                            <button type="button" id="delete_btn" class="tool-btn icon-only danger" title="Supprimer l'objet"><span class="material-symbols-outlined">delete</span></button>
+                            <button type="button" id="tool_reset" class="tool-btn icon-only danger" style="opacity: 0.8;" title="Réinitialiser tout"><span class="material-symbols-outlined">delete_sweep</span></button>
                         </div>
                     </div>
                 </div>
@@ -3461,7 +3617,7 @@
     </dialog>
 
     <div class="container">
-        <button id="log-button" onclick="openLogs()">
+        <button type="button" id="log-button" onclick="openLogs()">
             <span class="material-symbols-outlined" style="font-size: 1.25em;">terminal</span> LOG
         </button>
         <a href="1.html" id="beta-button">BETA</a>
@@ -3540,7 +3696,7 @@ Je veux, le (date) à partir de (heure), pour une action (type d'action) investi
 présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui-ci.</textarea>
                     <h3>Chronologie</h3>
                     <div id="time_events_container"></div><button type="button" class="add-btn"
-                        onclick="addTimeEvent()">➕</button>
+                        onclick="addTimeEvent()"><span class="material-symbols-outlined">add_box</span> Ajouter Événement</button>
                     <h3>Hypothèses</h3>
                     <div id="hypotheses_container"></div>
                     <button type="button" class="add-btn" onclick="addHypothesis()"
@@ -4185,10 +4341,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         </div>
     </dialog>
     <div id="memberContextMenu" class="context-menu" style="display:none; position:fixed; z-index:9999; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); padding: 5px;">
-        <button onclick="window.cloneMemberFromContext()" style="display:flex; align-items:center; gap:8px; width:100%; padding:8px 12px; background:none; border:none; color:var(--text-primary); cursor:pointer; text-align:left;">
+        <button type="button" onclick="window.cloneMemberFromContext()" style="display:flex; align-items:center; gap:8px; width:100%; padding:8px 12px; background:none; border:none; color:var(--text-primary); cursor:pointer; text-align:left;">
             <span class="material-symbols-outlined" style="font-size:18px;">content_copy</span> Cloner
         </button>
-        <button onclick="window.deleteMemberFromContext()" style="display:flex; align-items:center; gap:8px; width:100%; padding:8px 12px; background:none; border:none; color:var(--danger-red); cursor:pointer; text-align:left;">
+        <button type="button" onclick="window.deleteMemberFromContext()" style="display:flex; align-items:center; gap:8px; width:100%; padding:8px 12px; background:none; border:none; color:var(--danger-red); cursor:pointer; text-align:left;">
             <span class="material-symbols-outlined" style="font-size:18px;">delete</span> Supprimer
         </button>
     </div>

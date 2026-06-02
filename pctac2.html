@@ -3,6 +3,17 @@
 
 <head>
     <meta charset="UTF-8">
+    <!-- Filet global : journalise toute erreur/rejet non capturé (console). Aucun
+         comportement ne casse silencieusement (ex. handler de carte qui lance). -->
+    <script>
+        window.addEventListener('error', function (e) {
+            console.error('[PCTAC] Erreur non capturée:',
+                e.message, (e.filename || '') + ':' + (e.lineno || '') + ':' + (e.colno || ''), e.error || '');
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+            console.error('[PCTAC] Promesse rejetée non gérée:', e.reason);
+        });
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PC Tac</title>
     <link rel="icon" href="favicon.ico" sizes="any" type="image/png">
@@ -1033,6 +1044,7 @@
         #plan_draw_dock .plan-draw-btn,
         #plan_draw_dock #plan_draw_undo,
         #plan_draw_dock #plan_draw_redo,
+        #plan_draw_dock #plan_draw_lock,
         #plan_draw_dock #plan_draw_clear {
             padding: 5px !important;
             display: flex;
@@ -1235,6 +1247,7 @@
             #plan_draw_dock #plan_draw_undo,
             #plan_draw_dock #plan_draw_redo,
             #plan_draw_dock #plan_draw_diameter_toggle,
+            #plan_draw_dock #plan_draw_lock,
             #plan_draw_dock #plan_draw_clear {
                 width: 42px !important;
                 height: 42px !important;
@@ -1614,6 +1627,9 @@
                     <div class="plan-dock-sep"></div>
                     <button type="button" id="plan_draw_diameter_toggle" title="Diamètres affichés (cliquer pour masquer)" style="background: transparent; border: 1px solid transparent; color: #22c55e; padding: 7px 10px; border-radius: 4px; cursor: pointer;">
                         <span class="material-symbols-outlined" style="font-size: 24px;">straighten</span>
+                    </button>
+                    <button type="button" id="plan_draw_lock" title="Verrouiller la position des pings/dessins" style="background: transparent; border: 1px solid transparent; color: var(--text-main); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 24px;">lock_open</span>
                     </button>
                     <button type="button" id="plan_draw_clear" title="Effacer tous les dessins" style="background: transparent; border: 1px solid transparent; color: var(--danger-red); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
                         <span class="material-symbols-outlined" style="font-size: 24px;">delete_sweep</span>

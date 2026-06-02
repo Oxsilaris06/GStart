@@ -476,9 +476,43 @@ export const PlanMap = {
         if (!shouldOpen && this.drawTool) this._setTool(null);
     },
 
+    /** Élément actuellement en plein écran (ou null). */
+    _fullscreenEl() {
+        return document.fullscreenElement || document.webkitFullscreenElement || null;
+    },
+
+    /** Reparente un élément dans le conteneur plein écran (sinon il n'est pas
+     *  peint, étant hors du top-layer). Mémorise sa place d'origine via un
+     *  commentaire-ancre pour le restaurer à la fermeture. No-op hors fullscreen. */
+    _adoptIntoFullscreen(el) {
+        if (!el) return;
+        const fsEl = this._fullscreenEl();
+        if (fsEl && !fsEl.contains(el)) {
+            if (!el._fsPlaceholder) {
+                el._fsPlaceholder = document.createComment('fs-anchor');
+                if (el.parentNode) el.parentNode.insertBefore(el._fsPlaceholder, el);
+            }
+            fsEl.appendChild(el);
+        }
+    },
+
+    /** Restaure l'emplacement DOM d'origine d'un élément reparenté. */
+    _restoreFromFullscreen(el) {
+        if (el && el._fsPlaceholder && el._fsPlaceholder.parentNode) {
+            el._fsPlaceholder.parentNode.insertBefore(el, el._fsPlaceholder);
+            el._fsPlaceholder.remove();
+            el._fsPlaceholder = null;
+        }
+    },
     _openPingModal() {
-        document.getElementById('modalBackdrop').style.display = 'block';
-        document.getElementById('pingModal').style.display = 'block';
+        const backdrop = document.getElementById('modalBackdrop');
+        const modal = document.getElementById('pingModal');
+        backdrop.style.display = 'block';
+        modal.style.display = 'block';
+        // En plein écran, backdrop + modale doivent vivre DANS l'élément fullscreen
+        // pour être peints au-dessus de la carte.
+        this._adoptIntoFullscreen(backdrop);
+        this._adoptIntoFullscreen(modal);
         document.getElementById('free_pin_label').value = '';
         const veh = document.getElementById('free_pin_is_vehicle');
         if (veh) veh.checked = false;
@@ -494,8 +528,9 @@ export const PlanMap = {
     _closePingModal() {
         document.getElementById('modalBackdrop').style.display = 'none';
         document.getElementById('pingModal').style.display = 'none';
+        this._restoreFromFullscreen(document.getElementById('pingModal'));
+        this._restoreFromFullscreen(document.getElementById('modalBackdrop'));
     },
-
     /** Rend la liste des entités existantes (Adv/Otage/Ami) dans la modale Ping */
     _renderPingEntities() {
         const list = document.getElementById('ping_entities_list');

@@ -390,14 +390,47 @@ const OICarto = {
     // ------------------------------------------------------------------
     // PINS — membres PATRACDVR + pins OI dédiés
     // ------------------------------------------------------------------
+/** Élément actuellement en plein écran (ou null). */
+    _fullscreenEl() {
+        return document.fullscreenElement || document.webkitFullscreenElement || null;
+    },
 
+    /** Affiche un <dialog> en garantissant sa visibilité au-dessus d'un élément
+     *  en plein écran : un dialog situé HORS de l'élément fullscreen n'est pas
+     *  peint. On le reparente dans l'élément plein écran le temps de l'affichage,
+     *  et on le restaure à sa place d'origine à la fermeture. */
+    _showModalFsAware(modal) {
+        if (!modal) return;
+        const fsEl = this._fullscreenEl();
+        if (fsEl && !fsEl.contains(modal)) {
+            if (!modal._fsPlaceholder) {
+                modal._fsPlaceholder = document.createComment('fs-modal-anchor');
+                if (modal.parentNode) modal.parentNode.insertBefore(modal._fsPlaceholder, modal);
+            }
+            fsEl.appendChild(modal);
+            if (!modal._fsRestoreBound) {
+                modal._fsRestoreBound = true;
+                modal.addEventListener('close', () => this._restoreModalParent(modal));
+            }
+        }
+        if (!modal.open) modal.showModal();
+    },
+
+    /** Restaure l'emplacement DOM d'origine d'un dialog reparenté. */
+    _restoreModalParent(modal) {
+        if (modal && modal._fsPlaceholder && modal._fsPlaceholder.parentNode) {
+            modal._fsPlaceholder.parentNode.insertBefore(modal, modal._fsPlaceholder);
+            modal._fsPlaceholder.remove();
+            modal._fsPlaceholder = null;
+        }
+    },
     _openPingModal() {
         const modal = document.getElementById('oi_carto_ping_modal');
         if (!modal) return;
         const labelInput = document.getElementById('oi_carto_pin_label');
         if (labelInput) labelInput.value = '';
         this._renderPingLists();
-        if (!modal.open) modal.showModal();
+        this._showModalFsAware(modal);
     },
 
     _closePingModal() {
@@ -688,7 +721,7 @@ const OICarto = {
                 ? targets.map(t => `<option value="${t.id}">${t.label}</option>`).join('')
                 : '<option value="">Aucun champ photo disponible</option>';
         }
-        if (!modal.open) modal.showModal();
+        this._showModalFsAware(modal);
     },
 
     _closeCaptureModal() {
@@ -746,20 +779,46 @@ const OICarto = {
         const memo = toHide.map(el => el.style.display);
         toHide.forEach(el => { el.style.display = 'none'; });
 
+        // Police d'icônes prête (les pins utilisent des glyphes Material Symbols)
+        try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (_) {}
+
         this.map.triggerRepaint();
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        // En plein écran, html2canvas clone le DOM HORS du top-layer fullscreen :
+        // le conteneur y reprend sa taille CSS normale (plus petite) et les
+        // marqueurs projetés aux coordonnées plein écran débordent puis sont
+        // rognés → pins/labels/dessins partiellement absents. On fige donc
+        // explicitement les dimensions du conteneur en pixels le temps de la
+        // capture pour que le clone corresponde au rendu réel.
+        const fsEl = document.fullscreenElement || document.webkitFullscreenElement || null;
+        const isFs = (fsEl === mapContainer);
+        const savedW = mapContainer.style.width;
+        const savedH = mapContainer.style.height;
 
         let outCanvas = null;
         try {
             const glCanvas = this.map.getCanvas();
             const w = glCanvas.width;
             const h = glCanvas.height;
-            const dpr = w / glCanvas.clientWidth;
-            const overlay = await html2canvas(mapContainer, {
+            const cw = glCanvas.clientWidth;
+            const ch = glCanvas.clientHeight;
+            const dpr = w / cw;
+
+            const h2cOpts = {
                 useCORS: true, allowTaint: false, backgroundColor: null, logging: false,
-                scale: dpr, width: glCanvas.clientWidth, height: glCanvas.clientHeight,
+                scale: dpr, width: cw, height: ch,
                 ignoreElements: (el) => el.tagName === 'CANVAS'
-            });
+            };
+
+            if (isFs) {
+                mapContainer.style.width = cw + 'px';
+                mapContainer.style.height = ch + 'px';
+                h2cOpts.windowWidth = cw;
+                h2cOpts.windowHeight = ch;
+            }
+
+            const overlay = await html2canvas(mapContainer, h2cOpts);
             outCanvas = document.createElement('canvas');
             outCanvas.width = w;
             outCanvas.height = h;
@@ -771,11 +830,14 @@ const OICarto = {
             alert('Erreur lors de la capture : ' + e.message);
             outCanvas = null;
         } finally {
+            if (isFs) {
+                mapContainer.style.width = savedW;
+                mapContainer.style.height = savedH;
+            }
             toHide.forEach((el, i) => { el.style.display = memo[i] || ''; });
         }
         return outCanvas;
     },
-
     async _downloadCapture() {
         const canvas = await this._captureCanvas();
         if (!canvas) return;

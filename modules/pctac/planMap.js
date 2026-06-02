@@ -3658,7 +3658,7 @@ export const PlanMap = {
      * On ne capture donc jamais le conteneur entier via html2canvas (ce qui
      * cassait en plein écran : taille écran × scale → canvas démesuré).
      */
-    async _takeScreenshot() {
+   async _takeScreenshot() {
         if (typeof html2canvas === 'undefined') {
             alert('Librairie html2canvas indisponible (réseau ?)');
             return;
@@ -3666,7 +3666,6 @@ export const PlanMap = {
         const mapContainer = document.getElementById('plan_map').parentElement;
         if (!mapContainer) return;
 
-        // Éléments UI à masquer temporairement (on garde la boussole MapLibre)
         const toHide = [
             document.getElementById('plan_unified_toolbar'),
             document.getElementById('plan_draw_dock'),
@@ -3677,18 +3676,18 @@ export const PlanMap = {
         const memo = toHide.map(el => el.style.display);
         toHide.forEach(el => { el.style.display = 'none'; });
 
-        // Forcer un repaint pour que le canvas WebGL contienne la frame actuelle
-        this.map.triggerRepaint();
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        // Police d'icônes prête (pins à base de glyphes Material).
+        try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (_) {}
+
+        // Attendre la fin du rendu (tuiles + dessins) avant de lire le buffer WebGL.
+        await this._waitForMapIdle();
 
         let outCanvas;
         try {
             const glCanvas = this.map.getCanvas();
-            const w = glCanvas.width;   // dimensions pixel réelles (déjà × devicePixelRatio)
+            const w = glCanvas.width;
             const h = glCanvas.height;
-
-            // Overlay DOM (markers, boussole) — html2canvas en ignorant tous les <canvas>
-            const dpr = w / glCanvas.clientWidth; // ratio réel appliqué par MapLibre
+            const dpr = w / glCanvas.clientWidth;
             const overlay = await html2canvas(mapContainer, {
                 useCORS: true,
                 allowTaint: false,
@@ -3699,8 +3698,6 @@ export const PlanMap = {
                 height: glCanvas.clientHeight,
                 ignoreElements: (el) => el.tagName === 'CANVAS'
             });
-
-            // Composition finale
             outCanvas = document.createElement('canvas');
             outCanvas.width = w;
             outCanvas.height = h;
@@ -3712,7 +3709,6 @@ export const PlanMap = {
             alert('Erreur lors de la capture : ' + e.message);
             return;
         } finally {
-            // Restaurer l'UI
             toHide.forEach((el, i) => { el.style.display = memo[i] || ''; });
         }
 
@@ -3728,6 +3724,18 @@ export const PlanMap = {
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(url), 1000);
         }, 'image/png');
+    },
+
+    /** Attend la fin du rendu MapLibre (idle) avec garde-fou anti-blocage. */
+    _waitForMapIdle(timeout = 2000) {
+        return new Promise(resolve => {
+            if (!this.map) return resolve();
+            let done = false;
+            const finish = () => { if (done) return; done = true; resolve(); };
+            this.map.once('idle', finish);
+            this.map.triggerRepaint();
+            setTimeout(finish, timeout);
+        });
     },
 
     _showHint(msg) {

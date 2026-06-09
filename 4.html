@@ -3454,6 +3454,7 @@
 <body class="dark-mode">
 
     <input type="file" id="sessionFileInput" accept=".json" style="display: none;">
+    <input type="file" id="archiveFileInput" accept=".zip,.json" style="display: none;">
     <input type="file" id="jsonConfigInput" accept=".json" style="display: none;">
     <dialog id="presentationModal">
         <div id="presentation-content">
@@ -4000,6 +4001,12 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         <div class="dock-menu-item" id="exportSessionBtn" title="Exporter Session (Fichier)">
             <span class="material-symbols-outlined">file_download</span>
         </div>
+        <div class="dock-menu-item" id="exportArchiveBtn" title="Exporter TOUT (archive .oi.zip : champs + photos + carto)">
+            <span class="material-symbols-outlined">folder_zip</span>
+        </div>
+        <div class="dock-menu-item" id="importArchiveBtn" title="Importer une archive (.oi.zip ou .json)">
+            <span class="material-symbols-outlined">unarchive</span>
+        </div>
         <div class="dock-menu-item" id="resetMenuBtn" title="Réinitialiser">
             <span class="material-symbols-outlined">restart_alt</span>
         </div>
@@ -4026,6 +4033,8 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
     
     <!-- HTML2PDF BUNDLE -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- JSZip pour l'archive tout-en-un (export/import .oi.zip : champs + photos + carto) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="modules/notifications.js"></script>
     <script src="modules/init.js"></script>
     <script src="modules/outils.js"></script>
@@ -4174,6 +4183,21 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                     importSessionBtn.addEventListener('click', () => sessionFileInput.click());
                     sessionFileInput.addEventListener('change', (e) => {
                         if (typeof importSession === 'function') importSession(e.target.files[0]);
+                        e.target.value = '';
+                    });
+                }
+
+                const exportArchiveBtn = document.getElementById('exportArchiveBtn');
+                if (exportArchiveBtn && typeof exportArchive === 'function') {
+                    exportArchiveBtn.addEventListener('click', exportArchive);
+                }
+
+                const importArchiveBtn = document.getElementById('importArchiveBtn');
+                const archiveFileInput = document.getElementById('archiveFileInput');
+                if (importArchiveBtn && archiveFileInput) {
+                    importArchiveBtn.addEventListener('click', () => archiveFileInput.click());
+                    archiveFileInput.addEventListener('change', (e) => {
+                        if (typeof importArchive === 'function') importArchive(e.target.files[0]);
                         e.target.value = '';
                     });
                 }

@@ -264,6 +264,17 @@ const dbManager = {
         });
     },
 
+    // Retourne toutes les clés d'images stockées (utilisé par l'archive tout-en-un).
+    getAllKeys() {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.storeName], 'readonly');
+            const store = transaction.objectStore(this.storeName);
+            const request = store.getAllKeys();
+            request.onsuccess = (event) => resolve(event.target.result || []);
+            request.onerror = (event) => reject(event.target.error);
+        });
+    },
+
     deleteItem(key) {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction([this.storeName], 'readwrite');

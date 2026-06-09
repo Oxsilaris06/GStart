@@ -841,6 +841,177 @@ window.importSession = function (file) {
     reader.readAsText(file);
 };
 
+// --- ARCHIVE TOUT-EN-UN (.oi.zip) ---
+// Exporte/importe en un clic l'INTÉGRALITÉ de l'OI : tous les champs
+// (tactical_oi_data, qui inclut la cartographie pins/shapes/vue) + toutes les
+// photos (Blobs IndexedDB : zones photos, fond PDF, membres, annotations).
+// Même principe que l'archive PC-Tac (.pctac.zip).
+const OI_ARCHIVE_KEYS = [LOCAL_STORAGE_KEY]; // tactical_oi_data = champs + cartographie
+
+/**
+ * Exporte toute la session (champs + photos + carto) dans un seul .oi.zip.
+ */
+window.exportArchive = async function () {
+    if (typeof JSZip === 'undefined') {
+        alert("JSZip indisponible (réseau ?). Impossible de générer l'archive.");
+        return;
+    }
+    try {
+        // 1) Flush DOM -> Store -> localStorage (immédiat, non débouncé)
+        if (typeof syncDomToStore === 'function') syncDomToStore();
+        if (window.dbManager && !window.dbManager.db) {
+            try { await window.dbManager.init(); } catch (e) { /* IndexedDB indispo */ }
+        }
+
+        const zip = new JSZip();
+
+        // 2) Données localStorage (champs + cartographie)
+        const data = {};
+        OI_ARCHIVE_KEYS.forEach(k => {
+            const raw = localStorage.getItem(k);
+            if (raw !== null) data[k] = raw;
+        });
+        zip.file('data.json', JSON.stringify(data, null, 2));
+
+        // 3) Images (Blobs IndexedDB) -> octets bruts + table des types MIME
+        const imageMeta = {};
+        const imagesFolder = zip.folder('images');
+        let imgCount = 0;
+        if (window.dbManager && window.dbManager.db) {
+            let keys = [];
+            try { keys = await window.dbManager.getAllKeys(); } catch (e) { keys = []; }
+            for (const key of keys) {
+                try {
+                    const blob = await window.dbManager.getItem(key);
+                    if (!blob) continue;
+                    imageMeta[key] = (blob.type) || '';
+                    // ArrayBuffer plutôt que Blob : entrée JSZip la plus largement supportée.
+                    const ab = (typeof blob.arrayBuffer === 'function')
+                        ? await blob.arrayBuffer()
+                        : blob;
+                    imagesFolder.file(encodeURIComponent(key) + '.bin', ab);
+                    imgCount++;
+                } catch (e) {
+                    console.warn('[OI Archive] image illisible:', key, e);
+                }
+            }
+        }
+        zip.file('images.json', JSON.stringify(imageMeta, null, 2));
+
+        // 4) Manifest
+        zip.file('manifest.json', JSON.stringify({
+            appName: 'OI',
+            version: 1,
+            createdAt: new Date().toISOString(),
+            imageCount: imgCount
+        }, null, 2));
+
+        const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `OI-Archive-${stamp}.oi.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        if (typeof toast === 'function') toast(`Archive exportée (${imgCount} photo${imgCount > 1 ? 's' : ''})`, 'success');
+    } catch (e) {
+        console.error('[OI Archive] export échec:', e);
+        alert("Erreur d'export d'archive : " + e.message);
+    }
+};
+
+/**
+ * Importe une archive .oi.zip (champs + photos + carto). Accepte aussi un
+ * ancien fichier .json de session (compat : délègue à importSession).
+ */
+window.importArchive = async function (file) {
+    if (!file) return;
+    const name = (file.name || '').toLowerCase();
+
+    // Compat : ancienne session JSON -> on délègue à importSession
+    if (name.endsWith('.json')) {
+        return window.importSession(file);
+    }
+
+    if (typeof JSZip === 'undefined') {
+        alert("JSZip indisponible (réseau ?). Impossible de lire l'archive.");
+        return;
+    }
+
+    try {
+        const buf = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(buf);
+
+        const dataFile = zip.file('data.json');
+        if (!dataFile) throw new Error('Archive invalide : data.json manquant');
+        const dataJson = JSON.parse(await dataFile.async('string'));
+
+        // Garde-fou : refuser une archive d'une autre app (ex. PC-Tac .pctac.zip)
+        // avant tout écrasement des données OI.
+        const manifestFile = zip.file('manifest.json');
+        if (manifestFile) {
+            try {
+                const manifest = JSON.parse(await manifestFile.async('string'));
+                if (manifest && manifest.appName && manifest.appName !== 'OI') {
+                    throw new Error(`Cette archive provient de « ${manifest.appName} », pas de l'OI. Import annulé.`);
+                }
+            } catch (e) {
+                if (e instanceof SyntaxError) { /* manifest illisible : on tolère */ }
+                else throw e;
+            }
+        }
+        if (!Object.prototype.hasOwnProperty.call(dataJson, OI_ARCHIVE_KEYS[0])) {
+            throw new Error("Archive non reconnue : aucune donnée OI (tactical_oi_data) trouvée.");
+        }
+
+        if (!confirm('Importer cette archive ? Les données actuelles (champs, photos, cartographie) seront remplacées.')) {
+            return;
+        }
+
+        // Types MIME des images
+        let imageMeta = {};
+        const metaFile = zip.file('images.json');
+        if (metaFile) {
+            try { imageMeta = JSON.parse(await metaFile.async('string')); } catch (e) { imageMeta = {}; }
+        }
+
+        // 1) Restaurer localStorage (champs + cartographie)
+        Object.entries(dataJson).forEach(([k, v]) => {
+            localStorage.setItem(k, v);
+        });
+
+        // 2) Vider puis restaurer les images IndexedDB
+        if (window.dbManager) {
+            if (!window.dbManager.db) { try { await window.dbManager.init(); } catch (e) { /* indispo */ } }
+            try { await window.dbManager.clearAllImages(); } catch (e) { /* déjà vide */ }
+
+            const imagesFolder = zip.folder('images');
+            if (imagesFolder) {
+                const tasks = [];
+                imagesFolder.forEach((relPath, entry) => {
+                    if (entry.dir) return;
+                    const key = decodeURIComponent(relPath.replace(/\.bin$/, '').replace(/\.txt$/, ''));
+                    tasks.push(
+                        entry.async('arraybuffer').then(ab => {
+                            const blob = new Blob([ab], { type: imageMeta[key] || '' });
+                            return window.dbManager.putItem(key, blob);
+                        })
+                    );
+                });
+                await Promise.all(tasks);
+            }
+        }
+
+        alert('Archive importée avec succès. Rechargement du formulaire…');
+        location.reload();
+    } catch (e) {
+        console.error('[OI Archive] import échec:', e);
+        alert("Erreur d'import d'archive : " + e.message);
+    }
+};
+
 /**
  * Réinitialise tous les champs de la page active.
  */

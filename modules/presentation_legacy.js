@@ -251,7 +251,7 @@ async function buildPresentationHtml() {
     htmlContent += drawSubTitleHtml("Population"); htmlContent += drawTextHtml(getVal('population'));
     htmlContent += drawSubTitleHtml("Cadre juridique"); htmlContent += drawTextHtml(getVal('cadre_juridique'));
 
-    htmlContent += drawTitleHtml("4. MISSION DU PSIG");
+    htmlContent += drawTitleHtml("4. MISSION DE L'UNITÉ");
     htmlContent += drawTextHtml(getVal('missions_psig'), true, dangerColor, '1.6em', '0');
 
     htmlContent += drawTitleHtml("5. EXÉCUTION");
@@ -1369,7 +1369,7 @@ async function buildPdf() {
 
         // --- SECTION 4 : MISSION ---
         addNewPage();
-        drawSectionHeader("4. MISSION DU PSIG", context.colors.danger);
+        drawSectionHeader("4. MISSION DE L'UNITÉ", context.colors.danger);
         const missions = (getVal('missions_psig') || '').split('\n').filter(m => m.trim() !== '');
         if (missions.length > 0) {
             const headerPadding = 60;

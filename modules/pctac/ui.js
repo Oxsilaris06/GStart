@@ -3,6 +3,13 @@ import { Storage } from './storage.js';
 import { ImageStore } from './imageStore.js';
 import { LogManager } from './logManager.js';
 
+// Échappement HTML de toute valeur utilisateur injectée en innerHTML
+// (noms, titres de photo éditables, etc.) — anti-corruption d'affichage et anti-XSS.
+const esc = (v) => (window.UIPlatform
+    ? window.UIPlatform.esc(v)
+    : String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'));
+
 /**
  * Gestionnaire de l'interface utilisateur PC TAC
  */
@@ -374,14 +381,14 @@ export const UI = {
                 </td>
                 <td>
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 0.85em;">
-                        <div><strong style="color: var(--accent-blue);">NOM:</strong> ${item.nom}</div>
-                        <div><strong style="color: var(--accent-blue);">PRÉNOM:</strong> ${item.prenom}</div>
-                        <div><strong style="color: var(--accent-blue);"><span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">cake</span>:</strong> ${item.dob || 'N/C'}</div>
-                        <div><strong style="color: var(--accent-blue);">LIEN VICTIMES:</strong> ${item.lien || 'N/C'}</div>
-                        <div><strong style="color: var(--accent-blue);">ATTITUDE:</strong> ${item.attitude || 'N/C'}</div>
-                        <div><strong style="color: var(--accent-blue);">SUBSTANCE:</strong> ${item.substance || 'N/C'}</div>
-                        <div style="grid-column: span 3;"><strong style="color: var(--accent-blue);">ANTÉCÉDENTS:</strong> ${item.antecedents || 'N/C'}</div>
-                        <div style="grid-column: span 3;"><strong style="color: var(--accent-blue);">ARMES:</strong> ${item.armes || 'N/C'}</div>
+                        <div><strong style="color: var(--accent-blue);">NOM:</strong> ${esc(item.nom)}</div>
+                        <div><strong style="color: var(--accent-blue);">PRÉNOM:</strong> ${esc(item.prenom)}</div>
+                        <div><strong style="color: var(--accent-blue);"><span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">cake</span>:</strong> ${esc(item.dob) || 'N/C'}</div>
+                        <div><strong style="color: var(--accent-blue);">LIEN VICTIMES:</strong> ${esc(item.lien) || 'N/C'}</div>
+                        <div><strong style="color: var(--accent-blue);">ATTITUDE:</strong> ${esc(item.attitude) || 'N/C'}</div>
+                        <div><strong style="color: var(--accent-blue);">SUBSTANCE:</strong> ${esc(item.substance) || 'N/C'}</div>
+                        <div style="grid-column: span 3;"><strong style="color: var(--accent-blue);">ANTÉCÉDENTS:</strong> ${esc(item.antecedents) || 'N/C'}</div>
+                        <div style="grid-column: span 3;"><strong style="color: var(--accent-blue);">ARMES:</strong> ${esc(item.armes) || 'N/C'}</div>
                     </div>
                 </td>
                 <td style="width: 50px;">
@@ -406,12 +413,12 @@ export const UI = {
                 </td>
                 <td>
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 0.85em;">
-                        <div><strong style="color: var(--civil-yellow);">NOM:</strong> ${item.nom}</div>
-                        <div><strong style="color: var(--civil-yellow);">PRÉNOM:</strong> ${item.prenom}</div>
-                        <div><strong style="color: var(--civil-yellow);"><span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">cake</span>:</strong> ${item.dob || 'N/C'}</div>
-                        <div><strong style="color: var(--civil-yellow);">LIEN ADV:</strong> ${item.lien || 'N/C'}</div>
-                        <div><strong style="color: var(--civil-yellow);">ÉTAT:</strong> ${item.etat || 'N/C'}</div>
-                        <div><strong style="color: var(--civil-yellow);">BLESSURES:</strong> ${item.blessures || 'N/C'}</div>
+                        <div><strong style="color: var(--civil-yellow);">NOM:</strong> ${esc(item.nom)}</div>
+                        <div><strong style="color: var(--civil-yellow);">PRÉNOM:</strong> ${esc(item.prenom)}</div>
+                        <div><strong style="color: var(--civil-yellow);"><span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">cake</span>:</strong> ${esc(item.dob) || 'N/C'}</div>
+                        <div><strong style="color: var(--civil-yellow);">LIEN ADV:</strong> ${esc(item.lien) || 'N/C'}</div>
+                        <div><strong style="color: var(--civil-yellow);">ÉTAT:</strong> ${esc(item.etat) || 'N/C'}</div>
+                        <div><strong style="color: var(--civil-yellow);">BLESSURES:</strong> ${esc(item.blessures) || 'N/C'}</div>
                     </div>
                 </td>
                 <td style="width: 50px;">
@@ -430,16 +437,22 @@ export const UI = {
         if (!tbody) return;
         tbody.innerHTML = list.map(item => `
             <tr>
-                <td>${item.nom} ${item.prenom}</td>
-                <td>${item.unite}</td>
-                <td>${item.tph}</td>
-                <td>${item.mission}</td>
+                <td>${esc(item.nom)} ${esc(item.prenom)}</td>
+                <td>${esc(item.unite)}</td>
+                <td>${esc(item.tph)}</td>
+                <td>${esc(item.mission)}</td>
                 <td><button class="delete-btn" onclick="window.deleteCollectionItem('pcTacFriends', '${item.id}', 'view-amis')"><span class="material-symbols-outlined" style="font-size: 18px;">delete</span></button></td>
             </tr>
         `).join('');
     },
 
-    async renderPhotos(filterCategory = 'all') {
+    async renderPhotos(filterCategory) {
+        // PC4 — sans argument explicite, conserver le dernier filtre choisi : les
+        // appels après ajout / renommage / suppression ne doivent pas réinitialiser
+        // l'affichage à « tout » et perdre la catégorie en cours de consultation.
+        if (filterCategory === undefined) {
+            filterCategory = localStorage.getItem('lastPhotoFilter') || 'all';
+        }
         const raw = Storage.loadCollection('pcTacPhotos') || [];
         const board = document.getElementById('photo-board');
         if (!board) return;
@@ -465,10 +478,10 @@ export const UI = {
 
         board.innerHTML = filteredList.map((item, index) => `
             <div class="photo-card" draggable="true" data-id="${item.id}" data-category="${item.category}" data-status="${item.status || 'active'}" ondragstart="UI.handlePhotoDragStart(event)" ondragover="UI.handlePhotoDragOver(event)" ondrop="UI.handlePhotoDrop(event)">
-                <img src="${item.data}" onclick="UI.openLightbox('${item.data}', '${item.title.replace(/'/g, "\\'")}')" alt="${item.title}">
+                <img src="${item.data}" onclick="UI.openLightbox('${item.data}', '${esc(String(item.title || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"))}')" alt="${esc(item.title)}">
                 <div style="padding: 10px; display: flex; flex-direction: column; gap: 5px;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span class="photo-title-text" style="font-size: 0.9em; font-weight: bold;">${item.title}</span>
+                        <span class="photo-title-text" style="font-size: 0.9em; font-weight: bold;">${esc(item.title)}</span>
                         <div style="display: flex; gap: 5px;">
                             <button class="action-btn-small edit" title="Renommer" onclick="window.UI.editPhotoTitle('${item.id}')"><span class="material-symbols-outlined" style="font-size: 16px;">edit</span></button>
                             <button class="action-btn-small delete" title="Supprimer" onclick="window.deleteCollectionItem('pcTacPhotos', '${item.id}', 'view-photos')"><span class="material-symbols-outlined" style="font-size: 16px;">delete</span></button>

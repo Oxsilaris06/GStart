@@ -109,24 +109,51 @@ export const Archive = {
             return { ok: false, cancelled: true };
         }
 
-        // Wipe puis restaurer
-        Storage.clearAllData();
+        // PC1 — Import ATOMIQUE avec rollback. On ne wipe plus aveuglément :
+        // 1) snapshot mémoire de tout ce que clearAllData efface,
+        // 2) on écrit le localStorage D'ABORD (rollback intégral si une écriture jette,
+        //    typiquement un dépassement de quota) — les fiches ne restent jamais à moitié
+        //    effacées,
+        // 3) on restaure les images ENSUITE (best-effort, après validation du localStorage).
+        const SNAPSHOT_KEYS = COLLECTION_KEYS.concat(['pcTacLieuHistory', 'lastView', 'lastPhotoFilter']);
+        const snapshot = {};
+        SNAPSHOT_KEYS.forEach(k => { snapshot[k] = localStorage.getItem(k); });
+
+        // 1) localStorage d'abord, atomique
+        try {
+            Storage.clearAllData();
+            Object.entries(dataJson).forEach(([k, v]) => {
+                localStorage.setItem(k, v);
+            });
+        } catch (e) {
+            // Rollback : on remet exactement l'état précédent.
+            try { Storage.clearAllData(); } catch (_) {}
+            Object.entries(snapshot).forEach(([k, v]) => { if (v !== null) localStorage.setItem(k, v); });
+            console.error('[Archive] import localStorage échec, rollback effectué:', e);
+            alert("Échec de l'import (stockage insuffisant). Vos données précédentes ont été conservées.");
+            return { ok: false, error: e };
+        }
+
+        // 2) Images ensuite (best-effort ; le localStorage est déjà validé)
         try { await ImageStore.clear(); } catch (e) {}
-
-        Object.entries(dataJson).forEach(([k, v]) => {
-            localStorage.setItem(k, v);
-        });
-
-        // Restaurer les images
         const imagesFolder = zip.folder('images');
+        let imgError = null;
         if (imagesFolder) {
             const tasks = [];
             imagesFolder.forEach((relPath, entry) => {
                 if (entry.dir) return;
                 const id = relPath.replace(/\.txt$/, '').replace(/\.bin$/, '');
-                tasks.push(entry.async('string').then(dataUrl => ImageStore.put(id, dataUrl)));
+                tasks.push(
+                    entry.async('string')
+                        .then(dataUrl => ImageStore.put(id, dataUrl))
+                        .catch(err => { imgError = err; })
+                );
             });
             await Promise.all(tasks);
+        }
+        if (imgError) {
+            console.warn('[Archive] certaines images non restaurées:', imgError);
+            alert("Import terminé, mais certaines photos n'ont pas pu être restaurées (stockage). Les fiches sont intactes.");
         }
         return { ok: true };
     },

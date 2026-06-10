@@ -582,14 +582,18 @@ const OICarto = {
         try {
             const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`;
             const r = await fetch(url, { headers: { 'Accept-Language': 'fr' } });
-            if (!r.ok) throw new Error('HTTP ' + r.status);
+            if (!r.ok) {
+                if (r.status === 429 || r.status === 403) throw new Error('QUOTA');
+                throw new Error('HTTP ' + r.status);
+            }
             const list = await r.json();
             if (!list.length) {
                 resultsBox.innerHTML = '<em style="color: var(--text-muted);">Aucun résultat.</em>';
                 return;
             }
+            const esc = (s) => (window.UIPlatform ? UIPlatform.esc(s) : s);
             resultsBox.innerHTML = list.map((item, i) =>
-                `<div class="oi-carto-search-result" data-idx="${i}">${item.display_name}</div>`
+                `<div class="oi-carto-search-result" data-idx="${i}">${esc(item.display_name)}</div>`
             ).join('');
             resultsBox.querySelectorAll('.oi-carto-search-result').forEach(div => {
                 div.onclick = () => {
@@ -600,7 +604,10 @@ const OICarto = {
             });
         } catch (e) {
             console.error('[OICarto] Nominatim échec:', e);
-            resultsBox.innerHTML = '<em style="color: var(--danger-red);">Erreur réseau. Vérifiez la connexion.</em>';
+            const msg = (e && e.message === 'QUOTA')
+                ? 'Quota de recherche atteint. Réessayez dans un instant.'
+                : 'Erreur réseau. Vérifiez la connexion.';
+            resultsBox.innerHTML = `<em style="color: var(--danger-red);">${msg}</em>`;
         }
     },
 

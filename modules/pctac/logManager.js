@@ -122,5 +122,7 @@ export const LogManager = {
     }
 };
 
-window.deleteLogEntry = LogManager.deleteEntry.bind(LogManager);
+// NB : window.deleteLogEntry est défini dans main.js (delete + re-render de la table).
+// L'ancienne définition ici (bind sans re-render) était systématiquement écrasée
+// au DOMContentLoaded et donc morte — retirée pour lever l'ambiguïté (PC6).
 window.LogManager = LogManager;

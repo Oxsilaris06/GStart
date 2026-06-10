@@ -37,11 +37,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialiser les écouteurs d'onglets
     document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.setAttribute('role', 'tab'); // T13 (a11y)
         btn.addEventListener('click', () => {
             const viewId = btn.dataset.view;
             UI.switchMainView(viewId);
         });
     });
+    // T13 (a11y) — navigation aux flèches entre onglets (les .tab-btn sont déjà
+    // des <button>, donc focusables et activables au clavier nativement).
+    const tabBar = document.querySelector('.main-tab-bar');
+    if (tabBar && window.UIPlatform && typeof UIPlatform.makeTablist === 'function') {
+        UIPlatform.makeTablist(tabBar, {
+            tabSelector: '.tab-btn',
+            activate: (tab) => { if (tab && tab.dataset.view) UI.switchMainView(tab.dataset.view); }
+        });
+    }
 
     // Charger la dernière vue
     const lastView = localStorage.getItem('lastView') || 'view-main-courante';
@@ -425,4 +435,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const dockToggleBtn = document.getElementById('dockToggleBtn');
     if (dockToggleBtn) dockToggleBtn.onclick = () => UI.toggleDock();
+    // T17 — restaure l'état réduit/déployé du dock (le markup est figé 'collapsed',
+    // et la préférence enregistrée n'était jamais relue au démarrage).
+    try {
+        const savedDock = localStorage.getItem('dockCollapsed');
+        if (savedDock !== null && UI.elements && UI.elements.dockMenu) {
+            const collapsed = savedDock === 'true';
+            UI.elements.dockMenu.classList.toggle('collapsed', collapsed);
+            if (UI.elements.dockToggleIcon) UI.elements.dockToggleIcon.textContent = collapsed ? 'expand_less' : 'expand_more';
+        }
+    } catch (e) { /* localStorage indispo */ }
 });

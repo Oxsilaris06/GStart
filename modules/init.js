@@ -249,8 +249,12 @@ const dbManager = {
             const transaction = this.db.transaction([this.storeName], 'readwrite');
             const store = transaction.objectStore(this.storeName);
             const request = store.put(blob, key);
-            request.onsuccess = () => resolve();
             request.onerror = (event) => reject(event.target.error);
+            // On résout sur le COMMIT de la transaction (oncomplete), pas sur onsuccess :
+            // garantit que l'écriture est persistée avant un éventuel location.reload().
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = (event) => reject(event.target.error);
+            transaction.onabort = (event) => reject(event.target.error || new Error('transaction abort'));
         });
     },
 

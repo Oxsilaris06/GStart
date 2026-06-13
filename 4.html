@@ -552,7 +552,9 @@
             /* Un label qui précède une zone de texte passe pleine largeur, à gauche,
                juste au-dessus de sa zone (au lieu de flotter, seul, à droite). */
             .wizard-step.oi-grid.active > label:has(+ textarea),
-            .oi-fields-grid > label:has(+ textarea) {
+            .oi-fields-grid > label:has(+ textarea),
+            .oi-fields-grid > label:has(+ .chip-container),
+            .oi-fields-grid > .adv-chip-label {
                 grid-column: 1 / -1;
                 text-align: left;
                 align-self: end;
@@ -845,6 +847,140 @@
         body.light-mode #createAdversaryBtn:hover {
             color: #000000;
         }
+
+        /* ==========================================================================
+           FICHE ADVERSAIRE — même grammaire visuelle que les autres étapes :
+           sections sémantiques, titres discrets, et champs alignés via .oi-fields-grid.
+           ========================================================================== */
+        .adv-section { margin-block-end: 4px; }
+        /* Séparateur fin entre sections (au lieu de <hr> ponctuels). */
+        .adv-section + .adv-section {
+            margin-block-start: 24px;
+            padding-block-start: 22px;
+            border-top: 1px solid var(--border-light);
+        }
+        .adv-section-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-block-end: 18px;
+        }
+        .adv-section-head h4 {
+            margin: 0;
+            font-family: 'Oswald', sans-serif;
+            font-size: 0.95em;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+        .adv-section-head .material-symbols-outlined {
+            font-size: 1.3em;
+            color: var(--accent-blue);
+        }
+        .adv-section-head.danger .material-symbols-outlined { color: var(--danger-red); }
+
+        /* Paire de champs courts (date+lieu, stature+ethnie) logée dans la colonne
+           « champ » de la grille — sur une ligne en desktop, empilée en mobile.
+           align-items:stretch + reset de marge (!important pour battre la règle
+           globale `input:not()…` de spécificité (0,5,1)) → les deux champs ont
+           EXACTEMENT la même hauteur, sinon date/select dépassent les inputs texte. */
+        .adv-duo {
+            display: flex;
+            align-items: stretch;
+            gap: 12px;
+            margin-block-end: var(--space-5);
+        }
+        .adv-duo > input,
+        .adv-duo > select {
+            flex: 1;
+            min-width: 0;
+            margin-block-end: 0 !important;
+        }
+        @media (max-width: 560px) {
+            .adv-duo { flex-direction: column; }
+        }
+
+        /* Boutons d'ajout des listes (ME, Véhicules) : pleine largeur comme les
+           boutons photo → tous les boutons de la fiche partagent les mêmes bords. */
+        .adv-section .me-container + .add-btn,
+        .adv-section .vehicules-container + .add-btn {
+            width: 100%;
+            justify-content: center;
+            margin-block-start: 8px;
+        }
+
+        /* Boutons d'ajout photo : pleine largeur, sobres, alignés sous la dropzone. */
+        .adv-photo-btn {
+            width: 100%;
+            justify-content: center;
+            margin-block-end: 16px;
+        }
+        /* Libellé « Renforts potentiels » : icône + ton danger, sans casser la grille. */
+        .adv-sublabel-danger {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--danger-red);
+            font-weight: 600;
+        }
+        .adv-sublabel-danger .material-symbols-outlined { font-size: 1.15em; }
+
+        /* Libellés de blocs « liste » (ME, Véhicules) hors grille : pleine largeur. */
+        .adv-block-label {
+            display: block;
+            margin-block-end: 8px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* ----- Section repliable (Photos) : en-tête cliquable, repli fluide ----- */
+        button.adv-section-toggle {
+            width: 100%;
+            background: transparent;
+            border: none;
+            padding: 0;
+            text-transform: none;
+            letter-spacing: normal;
+            cursor: pointer;
+            /* hérite display:flex / gap / align-items / margin de .adv-section-head */
+        }
+        button.adv-section-toggle:active { transform: none; }
+        button.adv-section-toggle:hover h4 { color: var(--text-primary); }
+        button.adv-section-toggle:hover .adv-section-chevron { color: var(--accent-blue); }
+
+        /* Indice « replier/déplier » discret, masqué sur petits écrans. */
+        .adv-section-hint {
+            margin-inline-start: auto;
+            font-size: 0.72em;
+            font-weight: 500;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--text-muted, var(--text-secondary));
+        }
+        .adv-section-chevron {
+            margin-inline-start: 6px;
+            color: var(--text-secondary);
+            transition: transform 0.3s var(--ease-out-spring), color var(--transition-fast);
+        }
+        .adv-collapsible[data-collapsed="true"] .adv-section-chevron { transform: rotate(-90deg); }
+        @media (max-width: 480px) { .adv-section-hint { display: none; } }
+
+        /* Animation de hauteur sans clipping ni valeur magique :
+           grille à 1 ligne qui passe de 1fr à 0fr. */
+        .adv-section-body {
+            display: grid;
+            grid-template-rows: 1fr;
+            transition: grid-template-rows 0.38s ease;
+        }
+        .adv-collapsible[data-collapsed="true"] .adv-section-body { grid-template-rows: 0fr; }
+        .adv-section-body-inner {
+            overflow: hidden;
+            min-height: 0;
+            transition: opacity 0.3s ease;
+        }
+        .adv-collapsible[data-collapsed="true"] .adv-section-body-inner { opacity: 0; }
+        .adv-collapsible[data-collapsed="true"] .adv-section-toggle { margin-block-end: 0; }
 
         /* Bouton « retirer » : icône close, rouge danger, sobre et compact. */
         button.remove-btn {

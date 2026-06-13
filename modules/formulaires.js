@@ -203,84 +203,110 @@ function addAdversary(data = null) {
             </div>
         </div>
         <div class="collapsible-content">
-            <h3 style="margin: 0 0 10px 0; color: var(--accent-blue); font-size: 1.1em;"><span class="material-symbols-outlined">photo_camera</span> Gestion Photos</h3>
-            
-            <label for="input_main_${id}">Photo principale (Aperçu):</label>
-            <div id="photo_main_${id}" class="image-preview-container single-photo photo-display-area" data-is-single="true" style="margin-bottom: 5px;"></div>
-            <button type="button" class="add-btn" style="width:100%; margin-bottom: 15px;" onclick="document.getElementById('input_main_${id}').click()"><span class="material-symbols-outlined">photo_camera</span> Ajouter Photo Principale</button>
-            <input type="file" id="input_main_${id}" name="input_main_${id}" class="sr-only-input" accept="image/*" onchange="handleFileChange(this, 'photo_main_${id}', true)">
-            
-            <label for="input_extra_${id}">Photos supplémentaires (Aperçu):</label>
-            <div id="photo_extra_${id}" class="image-preview-container extra-photos photo-display-area" style="margin-bottom: 5px;"></div>
-            <button type="button" class="add-btn" style="width:100%; margin-bottom: 15px;" onclick="document.getElementById('input_extra_${id}').click()"><span class="material-symbols-outlined">photo_camera</span> Ajouter Photos Supplémentaires</button>
-            <input type="file" id="input_extra_${id}" name="input_extra_${id}" class="sr-only-input" accept="image/*" multiple onchange="handleFileChange(this, 'photo_extra_${id}', false)">
-            
-            <h3 style="margin-top: 10px; color: var(--danger-red); font-size: 1.1em;"><span class="material-symbols-outlined">photo_camera</span> Renforts Potentiels</h3>
-            <div id="photo_renforts_${id}" class="image-preview-container photo-display-area" style="margin-bottom: 5px;"></div>
-            <button type="button" class="add-btn" style="width:100%; justify-content: center; margin-bottom: 20px;" onclick="document.getElementById('input_renforts_${id}').click()"><span class="material-symbols-outlined">add</span> Ajouter Photo(s) Renforts</button>
-            <input type="file" id="input_renforts_${id}" class="sr-only-input" accept="image/*" multiple onchange="handleFileChange(this, 'photo_renforts_${id}', false)">
 
-            <hr style="border: 0; border-top: 1px solid var(--border-light); margin: 15px 0;">
+            <!-- SECTION : Photos & signalement visuel (repliable pour se concentrer sur la saisie) -->
+            <section class="adv-section adv-collapsible" data-collapsed="false">
+                <button type="button" class="adv-section-head adv-section-toggle" aria-expanded="true" aria-label="Replier ou déplier les photos" onclick="toggleAdvSection(this)">
+                    <span class="material-symbols-outlined">photo_camera</span>
+                    <h4>Photos &amp; signalement</h4>
+                    <span class="adv-section-hint">replier</span>
+                    <span class="material-symbols-outlined adv-section-chevron">expand_more</span>
+                </button>
+                <div class="adv-section-body">
+                    <div class="adv-section-body-inner">
+                        <label for="input_main_${id}">Photo principale&nbsp;:</label>
+                        <div id="photo_main_${id}" class="image-preview-container single-photo photo-display-area" data-is-single="true" style="margin-bottom: 5px;"></div>
+                        <button type="button" class="add-btn adv-photo-btn" onclick="document.getElementById('input_main_${id}').click()"><span class="material-symbols-outlined">add_a_photo</span> Photo principale</button>
+                        <input type="file" id="input_main_${id}" name="input_main_${id}" class="sr-only-input" accept="image/*" onchange="handleFileChange(this, 'photo_main_${id}', true)">
 
-            <label for="nom_adv_${id}">Nom/Prénom:</label>
-            <input type="text" id="nom_adv_${id}" name="nom_adv_${id}" class="adv-field" data-field="nom_adversaire" placeholder="Nom et Prénom..." value="${nameValSafe}" oninput="updateAdvTitle('${id}', this.value); syncDomToStore()">
+                        <label for="input_extra_${id}">Photos supplémentaires&nbsp;:</label>
+                        <div id="photo_extra_${id}" class="image-preview-container extra-photos photo-display-area" style="margin-bottom: 5px;"></div>
+                        <button type="button" class="add-btn adv-photo-btn" onclick="document.getElementById('input_extra_${id}').click()"><span class="material-symbols-outlined">add_photo_alternate</span> Photos supplémentaires</button>
+                        <input type="file" id="input_extra_${id}" name="input_extra_${id}" class="sr-only-input" accept="image/*" multiple onchange="handleFileChange(this, 'photo_extra_${id}', false)">
 
-            <label for="domicile_adv_${id}">Domicile:</label>
-            <textarea id="domicile_adv_${id}" name="domicile_adv_${id}" class="adv-field" data-field="domicile_adversaire" rows="2" oninput="syncDomToStore()">${e(data?.domicile_adversaire)}</textarea>
-            
-            <label>Moyens Employés (ME):</label>
-            <div id="me_${id}" class="me-container"></div>
-            <button type="button" class="add-btn" onclick="addMeField('', 'me_${id}')"><span class="material-symbols-outlined">add</span> ME</button>
-            
-            <h3>Informations Target</h3>
-            <div class="dynamic-list-item">
-                <label for="naissance_adv_${id}" class="sr-only">Date de naissance</label>
-                <input type="date" id="naissance_adv_${id}" name="naissance_adv_${id}" class="adv-field" data-field="date_naissance" value="${data?.date_naissance || ''}" oninput="syncDomToStore()">
-                <label for="lieu_adv_${id}" class="sr-only">Lieu de naissance</label>
-                <input type="text" id="lieu_adv_${id}" name="lieu_adv_${id}" class="adv-field" data-field="lieu_naissance" placeholder="Lieu de naissance" value="${e(data?.lieu_naissance)}" oninput="syncDomToStore()">
-            </div>
-            <div class="dynamic-list-item">
-                <label for="stature_adv_${id}" class="sr-only">Stature</label>
-                <input type="text" id="stature_adv_${id}" name="stature_adv_${id}" class="adv-field" data-field="stature_adversaire" placeholder="Stature" value="${e(data?.stature_adversaire)}" oninput="syncDomToStore()">
-                <label for="ethnie_adv_${id}" class="sr-only">Ethnie</label>
-                <select id="ethnie_adv_${id}" name="ethnie_adv_${id}" class="adv-field" data-field="ethnie_adversaire" onchange="syncDomToStore()">
-                    <option value="" ${!data?.ethnie_adversaire ? 'selected' : ''} disabled>Ethnie</option>
-                    <option ${data?.ethnie_adversaire === 'Caucasien' ? 'selected' : ''}>Caucasien</option>
-                    <option ${data?.ethnie_adversaire === 'Nord africain' ? 'selected' : ''}>Nord africain</option>
-                    <option ${data?.ethnie_adversaire === 'Afro-antillais' ? 'selected' : ''}>Afro-antillais</option>
-                    <option ${data?.ethnie_adversaire === 'Asiatique' ? 'selected' : ''}>Asiatique</option>
-                </select>
-            </div>
-            <label for="signes_adv_${id}">Signes particuliers:</label>
-            <input type="text" id="signes_adv_${id}" name="signes_adv_${id}" class="adv-field" data-field="signes_particuliers" value="${e(data?.signes_particuliers)}" oninput="syncDomToStore()">
+                        <label for="input_renforts_${id}" class="adv-sublabel-danger"><span class="material-symbols-outlined">group_add</span> Renforts potentiels&nbsp;:</label>
+                        <div id="photo_renforts_${id}" class="image-preview-container photo-display-area" style="margin-bottom: 5px;"></div>
+                        <button type="button" class="add-btn adv-photo-btn" onclick="document.getElementById('input_renforts_${id}').click()"><span class="material-symbols-outlined">add</span> Photo(s) renforts</button>
+                        <input type="file" id="input_renforts_${id}" class="sr-only-input" accept="image/*" multiple onchange="handleFileChange(this, 'photo_renforts_${id}', false)">
+                    </div>
+                </div>
+            </section>
 
-            <label for="sitfam_adv_${id}">Situation familiale:</label>
-            <input type="text" id="sitfam_adv_${id}" name="sitfam_adv_${id}" class="adv-field" data-field="situation_familiale" value="${e(data?.situation_familiale)}" oninput="syncDomToStore()">
+            <!-- SECTION : Identité — même grille alignée que les autres étapes -->
+            <section class="adv-section">
+                <div class="adv-section-head"><span class="material-symbols-outlined">badge</span><h4>Identité</h4></div>
+                <div class="oi-fields-grid">
+                    <label for="nom_adv_${id}">Nom / Prénom&nbsp;:</label>
+                    <input type="text" id="nom_adv_${id}" name="nom_adv_${id}" class="adv-field" data-field="nom_adversaire" placeholder="Nom et prénom" value="${nameValSafe}" oninput="updateAdvTitle('${id}', this.value); syncDomToStore()">
 
-            <label for="profession_adv_${id}">Profession:</label>
-            <input type="text" id="profession_adv_${id}" name="profession_adv_${id}" class="adv-field" data-field="profession_adversaire" value="${e(data?.profession_adversaire)}" oninput="syncDomToStore()">
+                    <label for="naissance_adv_${id}">Naissance&nbsp;:</label>
+                    <div class="adv-duo">
+                        <input type="date" id="naissance_adv_${id}" name="naissance_adv_${id}" class="adv-field" data-field="date_naissance" value="${data?.date_naissance || ''}" oninput="syncDomToStore()">
+                        <input type="text" id="lieu_adv_${id}" name="lieu_adv_${id}" class="adv-field" data-field="lieu_naissance" placeholder="Lieu de naissance" value="${e(data?.lieu_naissance)}" oninput="syncDomToStore()">
+                    </div>
 
-            <label for="antecedents_adv_${id}">Antécédents:</label>
-            <textarea id="antecedents_adv_${id}" name="antecedents_adv_${id}" class="adv-field" data-field="antecedents_adversaire" rows="2" oninput="syncDomToStore()">${e(data?.antecedents_adversaire)}</textarea>
-            
-            <label>État d'esprit:</label>
-            <div id="esprit_${id}" class="chip-container" data-options='["Serein", "Hostile", "Conciliant", "Sur ses gardes"]'></div>
-            
-            <label for="attitude_adv_${id}">Attitude (connue):</label>
-            <textarea id="attitude_adv_${id}" name="attitude_adv_${id}" class="adv-field" data-field="attitude_adversaire" rows="2" oninput="syncDomToStore()">${e(data?.attitude_adversaire)}</textarea>
-            
-            <label>Volume (renfort potentiel):</label>
-            <div id="volume_${id}" class="chip-container" data-options='["Seul", "Famille", "BO", "Conjointe", "2-3", "4+"]'></div>
+                    <label for="stature_adv_${id}">Stature / Ethnie&nbsp;:</label>
+                    <div class="adv-duo">
+                        <input type="text" id="stature_adv_${id}" name="stature_adv_${id}" class="adv-field" data-field="stature_adversaire" placeholder="Taille, corpulence" value="${e(data?.stature_adversaire)}" oninput="syncDomToStore()">
+                        <select id="ethnie_adv_${id}" name="ethnie_adv_${id}" class="adv-field" data-field="ethnie_adversaire" onchange="syncDomToStore()">
+                            <option value="" ${!data?.ethnie_adversaire ? 'selected' : ''} disabled>Ethnie</option>
+                            <option ${data?.ethnie_adversaire === 'Caucasien' ? 'selected' : ''}>Caucasien</option>
+                            <option ${data?.ethnie_adversaire === 'Nord africain' ? 'selected' : ''}>Nord africain</option>
+                            <option ${data?.ethnie_adversaire === 'Afro-antillais' ? 'selected' : ''}>Afro-antillais</option>
+                            <option ${data?.ethnie_adversaire === 'Asiatique' ? 'selected' : ''}>Asiatique</option>
+                        </select>
+                    </div>
 
-            <label for="substances_adv_${id}">Substances:</label>
-            <input type="text" id="substances_adv_${id}" name="substances_adv_${id}" class="adv-field" data-field="substances_adversaire" value="${e(data?.substances_adversaire)}" oninput="syncDomToStore()">
-            
-            <label>Véhicules:</label>
-            <div id="vehicules_${id}" class="vehicules-container"></div>
-            <button type="button" class="add-btn" onclick="addDynamicField('vehicules_${id}')"><span class="material-symbols-outlined">add</span></button>
-            
-            <label for="armes_adv_${id}">Armes connues:</label>
-            <input type="text" id="armes_adv_${id}" name="armes_adv_${id}" class="adv-field" data-field="armes_connues" value="${e(data?.armes_connues)}" oninput="syncDomToStore()">
+                    <label for="signes_adv_${id}">Signes particuliers&nbsp;:</label>
+                    <input type="text" id="signes_adv_${id}" name="signes_adv_${id}" class="adv-field" data-field="signes_particuliers" placeholder="Tatouages, cicatrices, lunettes…" value="${e(data?.signes_particuliers)}" oninput="syncDomToStore()">
+
+                    <label for="sitfam_adv_${id}">Situation familiale&nbsp;:</label>
+                    <input type="text" id="sitfam_adv_${id}" name="sitfam_adv_${id}" class="adv-field" data-field="situation_familiale" placeholder="Célibataire, en couple, enfants…" value="${e(data?.situation_familiale)}" oninput="syncDomToStore()">
+
+                    <label for="profession_adv_${id}">Profession&nbsp;:</label>
+                    <input type="text" id="profession_adv_${id}" name="profession_adv_${id}" class="adv-field" data-field="profession_adversaire" placeholder="Activité professionnelle" value="${e(data?.profession_adversaire)}" oninput="syncDomToStore()">
+
+                    <label for="domicile_adv_${id}">Domicile&nbsp;:</label>
+                    <textarea id="domicile_adv_${id}" name="domicile_adv_${id}" class="adv-field" data-field="domicile_adversaire" rows="2" placeholder="Adresse, étage, particularités d'accès…" oninput="syncDomToStore()">${e(data?.domicile_adversaire)}</textarea>
+                </div>
+            </section>
+
+            <!-- SECTION : Évaluation de la menace -->
+            <section class="adv-section">
+                <div class="adv-section-head danger"><span class="material-symbols-outlined">gpp_maybe</span><h4>Évaluation de la menace</h4></div>
+                <div class="oi-fields-grid">
+                    <label for="antecedents_adv_${id}">Antécédents&nbsp;:</label>
+                    <textarea id="antecedents_adv_${id}" name="antecedents_adv_${id}" class="adv-field" data-field="antecedents_adversaire" rows="2" placeholder="Judiciaires, comportementaux…" oninput="syncDomToStore()">${e(data?.antecedents_adversaire)}</textarea>
+
+                    <label class="adv-chip-label">État d'esprit&nbsp;:</label>
+                    <div id="esprit_${id}" class="chip-container full-row" data-options='["Serein", "Hostile", "Conciliant", "Sur ses gardes"]'></div>
+
+                    <label for="attitude_adv_${id}">Attitude connue&nbsp;:</label>
+                    <textarea id="attitude_adv_${id}" name="attitude_adv_${id}" class="adv-field" data-field="attitude_adversaire" rows="2" placeholder="Comportement observé, réactions…" oninput="syncDomToStore()">${e(data?.attitude_adversaire)}</textarea>
+
+                    <label class="adv-chip-label">Volume (renfort)&nbsp;:</label>
+                    <div id="volume_${id}" class="chip-container full-row" data-options='["Seul", "Famille", "BO", "Conjointe", "2-3", "4+"]'></div>
+
+                    <label for="substances_adv_${id}">Substances&nbsp;:</label>
+                    <input type="text" id="substances_adv_${id}" name="substances_adv_${id}" class="adv-field" data-field="substances_adversaire" placeholder="Stupéfiants, alcool, traitement…" value="${e(data?.substances_adversaire)}" oninput="syncDomToStore()">
+
+                    <label for="armes_adv_${id}">Armes connues&nbsp;:</label>
+                    <input type="text" id="armes_adv_${id}" name="armes_adv_${id}" class="adv-field" data-field="armes_connues" placeholder="Type, nombre, accessibilité…" value="${e(data?.armes_connues)}" oninput="syncDomToStore()">
+                </div>
+            </section>
+
+            <!-- SECTION : Moyens & véhicules -->
+            <section class="adv-section">
+                <div class="adv-section-head"><span class="material-symbols-outlined">build</span><h4>Moyens &amp; véhicules</h4></div>
+
+                <label class="adv-block-label">Moyens employés (ME)&nbsp;:</label>
+                <div id="me_${id}" class="me-container"></div>
+                <button type="button" class="add-btn" onclick="addMeField('', 'me_${id}')"><span class="material-symbols-outlined">add</span> Moyen employé</button>
+
+                <label class="adv-block-label" style="margin-top: 18px;">Véhicules&nbsp;:</label>
+                <div id="vehicules_${id}" class="vehicules-container"></div>
+                <button type="button" class="add-btn" onclick="addDynamicField('vehicules_${id}')"><span class="material-symbols-outlined">add</span> Véhicule</button>
+            </section>
         </div>
     `;
 
@@ -298,6 +324,19 @@ function addAdversary(data = null) {
     }
 
     if (!data) syncDomToStore();
+}
+
+// Repli/dépli d'une section repliable de la fiche adversaire (ex. Photos).
+// Bascule data-collapsed + aria-expanded ; l'animation est gérée en CSS
+// (grid-template-rows 1fr↔0fr — sans clipping ni hauteur magique).
+function toggleAdvSection(btn) {
+    const sec = btn.closest('.adv-collapsible');
+    if (!sec) return;
+    const collapsed = sec.getAttribute('data-collapsed') === 'true';
+    sec.setAttribute('data-collapsed', collapsed ? 'false' : 'true');
+    btn.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
+    const hint = btn.querySelector('.adv-section-hint');
+    if (hint) hint.textContent = collapsed ? 'replier' : 'déplier';
 }
 
 function addHypothesis(val = '') {
@@ -328,6 +367,7 @@ window.addMeField = addMeField;
 window.addTimeEvent = addTimeEvent;
 window.updateAdvTitle = updateAdvTitle;
 window.addAdversary = addAdversary;
+window.toggleAdvSection = toggleAdvSection;
 window.addHypothesis = addHypothesis;
 
 // Debounce helper

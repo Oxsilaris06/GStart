@@ -929,6 +929,51 @@
             .patracdvr-toolbar { grid-template-columns: 1fr; }
         }
 
+        /* PROPOSITION 4 — Déplacement en lot (batch) */
+        .patrac-batch-controls { margin-block: var(--space-3); }
+        #patracBatchToggleBtn.active {
+            background-color: var(--accent-blue);
+            color: #fff;
+            border-color: var(--accent-blue);
+        }
+        .patrac-batch-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: var(--space-2, 8px);
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            background: var(--bg-card, #1a1a1a);
+            border: 1.5px solid var(--accent-blue, #3b82f6);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-block: var(--space-3);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+        }
+        .patrac-batch-bar .add-btn { width: auto; min-height: 42px; }
+        .patrac-batch-count {
+            font-weight: 700;
+            color: var(--accent-blue, #3b82f6);
+            min-width: 140px;
+        }
+        .patrac-batch-targets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            width: 100%;
+            margin-top: 6px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border-color, #333);
+        }
+        .patrac-batch-targets .patrac-batch-target-btn { width: auto; min-height: 40px; }
+        .patracdvr-member-btn.batch-selected {
+            outline: 3px solid var(--accent-blue, #3b82f6);
+            outline-offset: 1px;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35);
+        }
+        body.patrac-batch-mode .patracdvr-member-btn { cursor: copy; }
+
         /* Bouton « Réinitialiser » PATRACDVR : bordure + icône ROUGES dans les deux thèmes ;
            texte blanc en sombre, texte noir en clair ; fond neutre. */
         #resetPatracdvrBtn.patracdvr-reset-btn {
@@ -3160,44 +3205,8 @@
                 width: auto;
             }
 
-            /* App Native en Plein Écran (Desktop uniquement) */
-            html:fullscreen body {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 0 !important;
-                overflow: hidden;
-            }
-
-            html:fullscreen .container {
-                width: 90vw;
-                max-width: 1400px;
-                height: 90vh;
-                margin: 0;
-                overflow-y: auto;
-                border-radius: var(--radius-lg);
-                padding-bottom: 120px;
-                /* Espace pour le dock */
-            }
-
-            html:-webkit-full-screen body {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 0 !important;
-                overflow: hidden;
-            }
-
-            html:-webkit-full-screen .container {
-                width: 90vw;
-                max-width: 1400px;
-                height: 90vh;
-                margin: 0;
-                overflow-y: auto;
-                border-radius: var(--radius-lg);
-                padding-bottom: 120px;
-            }
         }
+
 
         /* Thème spécifique pour la modale d'annotation (Immersion Photo) */
         #annotationModal .modal-form {
@@ -3703,6 +3712,12 @@
                 </div>
                 <span id="pdfFormatDims" class="toggle-label" style="color: var(--text-muted); font-size:0.72em;">297×210 mm</span>
             </div>
+            <button id="presentHereBtn" type="button" class="wizard-nav-btn"
+                title="Ouvrir la présentation plein écran dans un nouvel onglet (téléphone, bureau, TV, projecteur)"
+                style="background-color: var(--accent-blue);">
+                Présenter ici <span class="material-symbols-outlined"
+                    style="font-size: 1.2em;">slideshow</span>
+            </button>
             <button id="downloadPdfBtn" type="button" class="wizard-nav-btn">
                 Télécharger le PDF <span class="material-symbols-outlined"
                     style="font-size: 1.2em;">picture_as_pdf</span>
@@ -4148,6 +4163,34 @@ présumé de (Nom Adversaire 1) et (Nom Adversaire 2) après avoir bouclé celui
                         </button>
                     </div>
 
+                    <!-- PROPOSITION 4 — Déplacement en lot (batch) par sélection ou cellule -->
+                    <div class="patrac-batch-controls">
+                        <button type="button" id="patracBatchToggleBtn" class="add-btn"
+                            title="Sélectionner plusieurs PAX (ou une cellule entière) pour les déplacer d'un seul geste">
+                            <span class="material-symbols-outlined">checklist</span> Déplacement groupé
+                        </button>
+                    </div>
+                    <div id="patracBatchBar" class="patrac-batch-bar" style="display:none;">
+                        <span id="patracBatchCount" class="patrac-batch-count">0 PAX sélectionné</span>
+                        <button type="button" id="patracBatchSelectCell" class="add-btn" disabled
+                            title="Étendre la sélection à toute la cellule des PAX déjà sélectionnés">
+                            <span class="material-symbols-outlined">select_all</span> Toute la cellule
+                        </button>
+                        <button type="button" id="patracBatchMove" class="add-btn" disabled
+                            title="Déplacer les PAX sélectionnés vers un véhicule">
+                            <span class="material-symbols-outlined">drive_file_move</span> Déplacer vers…
+                        </button>
+                        <button type="button" id="patracBatchUnassign" class="add-btn" disabled
+                            title="Renvoyer les PAX sélectionnés vers « Personnel à attribuer »">
+                            <span class="material-symbols-outlined">logout</span> Désattribuer
+                        </button>
+                        <button type="button" id="patracBatchClear" class="add-btn" disabled
+                            style="background: var(--bg-interactive);">
+                            <span class="material-symbols-outlined">close</span> Effacer
+                        </button>
+                        <div id="patracBatchTargets" class="patrac-batch-targets" style="display:none;"></div>
+                    </div>
+
                     <div id="quickEditPanel" style="display:none;">
                         <div class="member-info-header">
                             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -4317,9 +4360,6 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
         <div class="dock-menu-item" id="darkModeToggle" title="Changer le thème">
             <span class="material-symbols-outlined" id="darkModeIcon">nightlight</span>
         </div>
-        <div class="dock-menu-item" id="fullscreenToggle" title="Plein écran">
-            <span class="material-symbols-outlined" id="fullscreenIcon">fullscreen</span>
-        </div>
     </div>
 
 
@@ -4431,20 +4471,10 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 if (darkModeIcon) darkModeIcon.textContent = isDarkMode ? 'nightlight' : 'clear_day';
 
                 // 4. Dock initialization
-                const fullscreenToggleBtn = document.getElementById('fullscreenToggle');
                 const darkModeToggleBtn = document.getElementById('darkModeToggle');
                 const dockToggleBtn = document.getElementById('dockToggleBtn');
                 const dock = document.getElementById('dockMenu');
 
-                if (fullscreenToggleBtn) {
-                    fullscreenToggleBtn.addEventListener('click', toggleFullscreen);
-                    const updateIcons = () => typeof updateFullscreenIcon === 'function' && updateFullscreenIcon();
-                    document.addEventListener('fullscreenchange', updateIcons);
-                    document.addEventListener('webkitfullscreenchange', updateIcons);
-                    document.addEventListener('mozfullscreenchange', updateIcons);
-                    document.addEventListener('msfullscreenchange', updateIcons);
-                    updateIcons();
-                }
                 if (darkModeToggleBtn) {
                     darkModeToggleBtn.addEventListener('click', handleThemeToggle);
                 }
@@ -4548,6 +4578,28 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                         if (typeof addCellBatch === 'function') addCellBatch(btn.dataset.cell);
                     });
                 });
+
+                // Proposition 4 — Déplacement en lot (batch) par sélection ou cellule
+                const patracBatchToggleBtn = document.getElementById('patracBatchToggleBtn');
+                if (patracBatchToggleBtn) patracBatchToggleBtn.addEventListener('click', () => {
+                    if (typeof togglePatracBatchMode === 'function') togglePatracBatchMode();
+                });
+                const patracBatchMoveBtn = document.getElementById('patracBatchMove');
+                if (patracBatchMoveBtn) patracBatchMoveBtn.addEventListener('click', () => {
+                    if (typeof patracBatchShowTargets === 'function') patracBatchShowTargets();
+                });
+                const patracBatchCellBtn = document.getElementById('patracBatchSelectCell');
+                if (patracBatchCellBtn) patracBatchCellBtn.addEventListener('click', () => {
+                    if (typeof patracBatchSelectWholeCell === 'function') patracBatchSelectWholeCell();
+                });
+                const patracBatchUnassignBtn = document.getElementById('patracBatchUnassign');
+                if (patracBatchUnassignBtn) patracBatchUnassignBtn.addEventListener('click', () => {
+                    if (typeof patracBatchUnassign === 'function') patracBatchUnassign();
+                });
+                const patracBatchClearBtn = document.getElementById('patracBatchClear');
+                if (patracBatchClearBtn) patracBatchClearBtn.addEventListener('click', () => {
+                    if (typeof patracBatchClear === 'function') patracBatchClear();
+                });
                 
                 const addMoicpBtn = document.getElementById('addMoicpBtn');
                 if (addMoicpBtn) addMoicpBtn.addEventListener('click', () => typeof addMoicp === 'function' && addMoicp());
@@ -4561,6 +4613,12 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
                 if (previewBtn) previewBtn.addEventListener('click', openPresentationMode);
                 const dlPdfBtn = document.getElementById('downloadPdfBtn');
                 if (dlPdfBtn) dlPdfBtn.addEventListener('click', downloadOiPdf);
+
+                // « Présenter ici » : ouvre la présentation HTML adaptative dans un nouvel onglet.
+                const presentHereBtn = document.getElementById('presentHereBtn');
+                if (presentHereBtn) presentHereBtn.addEventListener('click', () => {
+                    if (typeof openPresentInPlace === 'function') openPresentInPlace();
+                });
 
                 const closePBtn = document.getElementById('closePresentationModalBtn');
                 if (closePBtn) {
@@ -4612,6 +4670,7 @@ Gestuelle et visuelle entre les éléments INDIA</textarea>
             const saved = localStorage.getItem('pdfOutputFormat') || 'a4';
             window.setPdfFormat(saved);
         })();
+
     </script>
     <!-- MODAL OUTILS EFFRACTION (MASTERCLASS) -->
     <dialog id="effractionToolsModal">

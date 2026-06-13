@@ -20,6 +20,10 @@ function persistAfterDrag() {
 }
 
 function handleTouchStart(e) {
+    // Proposition 4 — en mode « déplacement groupé », le tap sert à (dé)sélectionner :
+    // on neutralise le glisser-déposer tactile pour éviter tout conflit de geste.
+    if (document.body.classList.contains('patrac-batch-mode')) return;
+
     // Si on touche le bouton de suppression ou d'édition à l'intérieur, on ne drag pas
     if (e.target.classList.contains('remove-btn') || e.target.closest('.remove-btn')) return;
 

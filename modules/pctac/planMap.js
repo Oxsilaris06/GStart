@@ -59,6 +59,80 @@ const RASTER_STYLE = {
     layers: [{ id: 'satellite', type: 'raster', source: 'satellite' }]
 };
 
+/* =====================================================================
+ * CACHE CARTOGRAPHIQUE FORCÉ & HORS-LIGNE (Proposition 3 de l'audit)
+ *
+ * Objectif : disposer EN PERMANENCE d'une vue satellite de la France, même sans
+ * réseau (zone rurale, sous-sol). On pré-télécharge la pyramide de tuiles de la
+ * métropole à bas niveaux de zoom et on la stocke via la Cache Storage API ; le
+ * Service Worker (sw.js) la sert ensuite en « cache-first » en mode déconnecté.
+ * ===================================================================== */
+const OFFLINE_MAP_CACHE = 'pctac-map-v1';   // doit correspondre à MAP_CACHE dans sw.js
+const SAT_TILE_TEMPLATE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+// Métropole + marge (DOM-TOM exclus du cache de base, trop dispersés).
+const FRANCE_BBOX = { west: -5.6, south: 41.1, east: 9.8, north: 51.3 };
+
+function _lon2tile(lon, z) {
+    return Math.floor((lon + 180) / 360 * Math.pow(2, z));
+}
+function _lat2tile(lat, z) {
+    const r = lat * Math.PI / 180;
+    return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * Math.pow(2, z));
+}
+function _tileUrl(z, x, y) {
+    return SAT_TILE_TEMPLATE.replace('{z}', z).replace('{y}', y).replace('{x}', x);
+}
+
+/** Énumère les tuiles XYZ couvrant la France pour la plage de zoom [minZ, maxZ]. */
+function _franceTiles(minZ, maxZ) {
+    const out = [];
+    for (let z = minZ; z <= maxZ; z++) {
+        const n = Math.pow(2, z);
+        const clamp = (v) => Math.max(0, Math.min(n - 1, v));
+        const x0 = clamp(_lon2tile(FRANCE_BBOX.west, z));
+        const x1 = clamp(_lon2tile(FRANCE_BBOX.east, z));
+        const y0 = clamp(_lat2tile(FRANCE_BBOX.north, z)); // nord = y le plus petit
+        const y1 = clamp(_lat2tile(FRANCE_BBOX.south, z));
+        for (let x = x0; x <= x1; x++) {
+            for (let y = y0; y <= y1; y++) out.push({ z, x, y });
+        }
+    }
+    return out;
+}
+
+/**
+ * Pré-télécharge et met en cache la pyramide de tuiles France.
+ * @param {number} minZ  zoom minimal (0 = monde)
+ * @param {number} maxZ  zoom maximal (≈7 = échelle régionale, vue opérationnelle de base)
+ * @param {function} onProgress  (done, total, ok, fail) — facultatif
+ */
+async function _prefetchFranceTiles(minZ, maxZ, onProgress) {
+    if (typeof caches === 'undefined') throw new Error('Cache Storage indisponible.');
+    const tiles = _franceTiles(minZ, maxZ);
+    const cache = await caches.open(OFFLINE_MAP_CACHE);
+    let done = 0, ok = 0, fail = 0, cursor = 0;
+    const CONCURRENCY = 6;
+
+    async function worker() {
+        while (cursor < tiles.length) {
+            const t = tiles[cursor++];
+            const url = _tileUrl(t.z, t.x, t.y);
+            try {
+                const already = await cache.match(url);
+                if (!already) {
+                    const resp = await fetch(url, { mode: 'cors', cache: 'force-cache' });
+                    if (resp && (resp.ok || resp.type === 'opaque')) await cache.put(url, resp.clone());
+                }
+                ok++;
+            } catch (e) { fail++; }
+            done++;
+            if (onProgress) { try { onProgress(done, tiles.length, ok, fail); } catch (e) {} }
+        }
+    }
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    return { total: tiles.length, ok, fail };
+}
+
 export const PlanMap = {
     map: null,
     markers: new Map(), // id -> { pin: Marker, label: Marker }
@@ -156,6 +230,96 @@ export const PlanMap = {
 
         this._renderPins();
         this.initialized = true;
+
+        // Cache cartographique hors-ligne : bouton + pré-chargement auto léger.
+        this._initOfflineCache();
+    },
+
+    /* ----- CACHE CARTOGRAPHIQUE HORS-LIGNE (Proposition 3) ----- */
+
+    /** Branche le bouton hors-ligne et déclenche un pré-chargement de base unique (si en ligne). */
+    _initOfflineCache() {
+        this._bindOfflineButton();
+        try {
+            const cached = localStorage.getItem('pcTacFranceTilesCached') === '1';
+            if (!cached && navigator.onLine && typeof caches !== 'undefined') {
+                // « Phase de connexion » : on force en tâche de fond le cache de base
+                // (zoom 0→6 ≈ vue France), silencieusement, une seule fois.
+                _prefetchFranceTiles(0, 6).then(r => {
+                    try { localStorage.setItem('pcTacFranceTilesCached', '1'); } catch (e) {}
+                    this._refreshOfflineButton();
+                    console.log('[PlanMap] Cache France de base prêt:', r);
+                }).catch(e => console.warn('[PlanMap] auto-cache France échoué:', e));
+            }
+        } catch (e) { /* localStorage / caches indispo : non bloquant */ }
+    },
+
+    _bindOfflineButton() {
+        const btn = document.getElementById('plan_btn_offline');
+        if (!btn || btn._offlineBound) return;
+        btn._offlineBound = true;
+        btn.addEventListener('click', () => this.cacheFranceOffline());
+        this._refreshOfflineButton();
+    },
+
+    _refreshOfflineButton() {
+        const btn = document.getElementById('plan_btn_offline');
+        if (!btn) return;
+        let cached = false;
+        try { cached = localStorage.getItem('pcTacFranceTilesCached') === '1'; } catch (e) {}
+        const icon = btn.querySelector('.material-symbols-outlined');
+        if (icon) icon.textContent = cached ? 'offline_pin' : 'download_for_offline';
+        if (cached) btn.classList.add('plan-tool-fab--done');
+        btn.title = cached
+            ? 'Carte de France disponible hors-ligne — recliquer pour compléter le niveau de détail'
+            : 'Télécharger la carte de France pour le mode hors-ligne';
+    },
+
+    /** Pré-télécharge la carte de France (zoom 0→7) avec retour de progression visuel. */
+    async cacheFranceOffline() {
+        const btn = document.getElementById('plan_btn_offline');
+        if (btn && btn.dataset.busy === '1') return;
+        if (typeof caches === 'undefined') {
+            this._offlineStatus('Cache cartographique indisponible sur ce navigateur.', 'error');
+            return;
+        }
+        if (btn) btn.dataset.busy = '1';
+        this._offlineStatus('Téléchargement de la carte de France…', 'info', true);
+        try {
+            const res = await _prefetchFranceTiles(0, 8, (done, total) => {
+                if (done % 10 === 0 || done === total) {
+                    this._offlineStatus('Carte de France hors-ligne : ' + done + ' / ' + total + ' tuiles…', 'info', true);
+                }
+            });
+            try { localStorage.setItem('pcTacFranceTilesCached', '1'); } catch (e) {}
+            this._refreshOfflineButton();
+            this._offlineStatus('Carte de France disponible hors-ligne ✓ (' + res.ok + ' tuiles)', 'success');
+        } catch (e) {
+            console.error('[PlanMap] cache France échec:', e);
+            this._offlineStatus('Échec du téléchargement de la carte (réseau ?).', 'error');
+        } finally {
+            if (btn) btn.dataset.busy = '0';
+        }
+    },
+
+    _offlineStatus(msg, kind, sticky) {
+        let el = document.getElementById('plan_offline_status');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'plan_offline_status';
+            el.style.cssText = 'position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:30;'
+                + 'padding:8px 14px;border-radius:8px;font:600 13px/1.2 system-ui,sans-serif;color:#fff;'
+                + 'background:rgba(10,12,16,.92);border:1px solid rgba(255,255,255,.18);'
+                + 'box-shadow:0 6px 18px rgba(0,0,0,.4);pointer-events:none;max-width:90%;text-align:center;';
+            const mapEl = document.getElementById('plan_map');
+            const host = (mapEl && mapEl.parentElement) ? mapEl.parentElement : document.body;
+            host.appendChild(el);
+        }
+        el.textContent = msg;
+        el.style.borderColor = kind === 'error' ? '#ef4444' : (kind === 'success' ? '#22c55e' : 'rgba(255,255,255,.18)');
+        el.style.display = 'block';
+        clearTimeout(this._offlineStatusTimer);
+        if (!sticky) this._offlineStatusTimer = setTimeout(() => { if (el) el.style.display = 'none'; }, 4500);
     },
 
     /** Appelé à chaque switch sur la vue Plan (resize quand le conteneur devient visible) */

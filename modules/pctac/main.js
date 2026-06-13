@@ -424,6 +424,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
+    // --- PASSERELLE OI → PC TAC (Proposition 1) ---
+    // Importe l'équipe (PATRACDVR) et les adversaires depuis une archive .oi.zip
+    // générée par le Générateur d'Ordre Initial (4.html). Zéro double saisie.
+    const importOiBtn = document.getElementById('importOiDockBtn');
+    const oiFileInput = document.getElementById('oiImportInput');
+    if (importOiBtn && oiFileInput) {
+        importOiBtn.onclick = () => oiFileInput.click();
+        oiFileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            try {
+                const res = await Archive.importOiArchive(file);
+                await UI.renderAdversaries();
+                await UI.renderPhotos();
+                UI.renderCustomPaxOptions();
+
+                const parts = [`${res.advAdded} adversaire(s)`];
+                if (res.advPhotos) parts.push(`${res.advPhotos} photo(s)`);
+                parts.push(`${res.paxAdded} intervenant(s)`);
+                const skipped = (res.advSkipped || 0) + (res.paxSkipped || 0);
+                alert(
+                    `Passerelle OI → PC TAC : ${parts.join(', ')} importé(s) avec succès.` +
+                    (skipped ? `\n${skipped} doublon(s) déjà présent(s) ignoré(s).` : '')
+                );
+            } catch (err) {
+                console.error('[OI→PCTAC] import échec:', err);
+                alert('Import OI impossible : ' + err.message);
+            }
+            oiFileInput.value = '';
+        };
+    }
+
     const darkModeToggle = document.getElementById('darkModeToggle');
     if (darkModeToggle) darkModeToggle.onclick = () => UI.handleThemeToggle();
 

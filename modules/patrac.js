@@ -477,6 +477,13 @@ function handleMemberSelection(event) {
         event.stopPropagation();
     }
 
+    // PROPOSITION 4 — Déplacement groupé : en mode sélection multiple, un clic
+    // (dé)sélectionne le PAX au lieu d'ouvrir l'édition rapide.
+    if (_patracBatchMode) {
+        _patracBatchToggle(clickedButton);
+        return;
+    }
+
     if (activeMemberId === clickedButton.id) {
         clickedButton.classList.remove('member-active');
         activeMemberId = null;
@@ -498,6 +505,187 @@ function handleMemberSelection(event) {
     panel.style.display = 'flex';
     panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     syncDomToStore();
+}
+
+/* =====================================================================
+ * PROPOSITION 4 — DÉPLACEMENT EN LOT (BATCH) PAR SÉLECTION OU CELLULE
+ *
+ * Objectif (audit §4.2) : sur petit écran, en environnement stressant, éviter
+ * le glisser-déposer unitaire. On sélectionne plusieurs PAX (ou une cellule
+ * tactique entière) d'un geste, puis on les réaffecte à un véhicule en un clic.
+ * ===================================================================== */
+let _patracBatchMode = false;
+const _patracBatchSel = new Set();
+
+/** Active/désactive le mode sélection multiple. */
+function togglePatracBatchMode(force) {
+    _patracBatchMode = (typeof force === 'boolean') ? force : !_patracBatchMode;
+    document.body.classList.toggle('patrac-batch-mode', _patracBatchMode);
+
+    const toggleBtn = document.getElementById('patracBatchToggleBtn');
+    if (toggleBtn) toggleBtn.classList.toggle('active', _patracBatchMode);
+
+    const bar = document.getElementById('patracBatchBar');
+    if (bar) bar.style.display = _patracBatchMode ? 'flex' : 'none';
+
+    if (!_patracBatchMode) {
+        patracBatchClear();
+    } else {
+        // En entrant en mode sélection, on referme l'édition rapide pour éviter la confusion.
+        if (activeMemberId) {
+            const act = document.getElementById(activeMemberId);
+            if (act) act.classList.remove('member-active');
+            activeMemberId = null;
+            const qp = document.getElementById('quickEditPanel');
+            if (qp) qp.style.display = 'none';
+        }
+        _patracBatchUpdateBar();
+    }
+}
+
+/** (Dé)sélectionne un PAX dans la sélection courante. */
+function _patracBatchToggle(btn) {
+    if (!btn) return;
+    if (_patracBatchSel.has(btn.id)) {
+        _patracBatchSel.delete(btn.id);
+        btn.classList.remove('batch-selected');
+    } else {
+        _patracBatchSel.add(btn.id);
+        btn.classList.add('batch-selected');
+    }
+    _patracBatchUpdateBar();
+}
+
+/** Met à jour le compteur et l'état actif/inactif des actions de la barre. */
+function _patracBatchUpdateBar() {
+    // Purge des id disparus (membre supprimé entre-temps).
+    Array.from(_patracBatchSel).forEach(id => { if (!document.getElementById(id)) _patracBatchSel.delete(id); });
+    const n = _patracBatchSel.size;
+    const countEl = document.getElementById('patracBatchCount');
+    if (countEl) countEl.textContent = n + ' PAX sélectionné' + (n > 1 ? 's' : '');
+    ['patracBatchMove', 'patracBatchUnassign', 'patracBatchSelectCell', 'patracBatchClear'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.disabled = (n === 0);
+    });
+}
+
+/** Étend la sélection à TOUTE la (ou les) cellule(s) des PAX déjà sélectionnés. */
+function patracBatchSelectWholeCell() {
+    const cells = new Set();
+    _patracBatchSel.forEach(id => {
+        const el = document.getElementById(id);
+        const cel = el && el.dataset.cellule;
+        if (cel && cel !== 'Sans') cells.add(cel);
+    });
+    if (!cells.size) {
+        alert("Sélectionnez d'abord au moins un PAX appartenant à une cellule (India, AO, Effraction…).");
+        return;
+    }
+    document.querySelectorAll('.patracdvr-member-btn').forEach(btn => {
+        if (cells.has(btn.dataset.cellule)) {
+            _patracBatchSel.add(btn.id);
+            btn.classList.add('batch-selected');
+        }
+    });
+    _patracBatchUpdateBar();
+}
+
+/** Affiche/masque la liste des cibles (véhicules + « Non affectés »). */
+function patracBatchShowTargets() {
+    const wrap = document.getElementById('patracBatchTargets');
+    if (!wrap) return;
+    if (wrap.style.display === 'flex') { wrap.style.display = 'none'; return; }
+    if (!_patracBatchSel.size) return;
+
+    wrap.innerHTML = '';
+    const vehicles = Array.from(document.querySelectorAll('#patracdvr_container .patracdvr-vehicle-row'));
+    if (!vehicles.length) {
+        const span = document.createElement('span');
+        span.textContent = "Aucun véhicule. Ajoutez un VL d'abord.";
+        span.style.opacity = '0.7';
+        wrap.appendChild(span);
+    }
+    vehicles.forEach(row => {
+        const name = row.dataset.vehicleName || 'VL';
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'add-btn patrac-batch-target-btn';
+        b.innerHTML = '<span class="material-symbols-outlined">directions_car</span> ' + name;
+        b.onclick = () => patracBatchMoveTo(row.querySelector('.patracdvr-members-container'));
+        wrap.appendChild(b);
+    });
+    const u = document.createElement('button');
+    u.type = 'button';
+    u.className = 'add-btn patrac-batch-target-btn';
+    u.style.background = 'var(--bg-interactive, #333)';
+    u.innerHTML = '<span class="material-symbols-outlined">logout</span> Non affectés';
+    u.onclick = () => patracBatchUnassign();
+    wrap.appendChild(u);
+
+    wrap.style.display = 'flex';
+}
+
+/** Déplace tous les PAX sélectionnés dans le conteneur de membres cible (véhicule). */
+function patracBatchMoveTo(container) {
+    if (!container) return;
+    const ids = Array.from(_patracBatchSel);
+    if (!ids.length) return;
+    let moved = 0;
+    ids.forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        container.appendChild(btn);
+        // On PRÉSERVE la cellule/fonction (déplacer une cellule entière garde son identité).
+        // Seul cas particulier : un PAX « Sans » cellule reçoit une cellule par défaut,
+        // cohérent avec le glisser-déposer unitaire existant.
+        if ((btn.dataset.cellule || 'Sans') === 'Sans') btn.dataset.cellule = 'India 1';
+        btn.classList.remove('batch-selected');
+        updateMemberButtonVisuals(btn);
+        moved++;
+    });
+    _patracBatchSel.clear();
+    const wrap = document.getElementById('patracBatchTargets');
+    if (wrap) wrap.style.display = 'none';
+    persistAfterDrag();
+    _patracBatchUpdateBar();
+    if (moved && typeof toast === 'function') toast(moved + ' PAX déplacé(s).', 'success');
+}
+
+/** Renvoie les PAX sélectionnés vers « Personnel à attribuer ». */
+function patracBatchUnassign() {
+    const container = getUnassignedContainer();
+    if (!container) return;
+    const ids = Array.from(_patracBatchSel);
+    if (!ids.length) return;
+    let moved = 0;
+    ids.forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        container.appendChild(btn);
+        btn.dataset.cellule = 'Sans';
+        btn.dataset.fonction = 'Sans';
+        btn.classList.remove('batch-selected');
+        updateMemberButtonVisuals(btn);
+        moved++;
+    });
+    _patracBatchSel.clear();
+    const wrap = document.getElementById('patracBatchTargets');
+    if (wrap) wrap.style.display = 'none';
+    persistAfterDrag();
+    _patracBatchUpdateBar();
+    if (moved && typeof toast === 'function') toast(moved + ' PAX désattribué(s).', 'success');
+}
+
+/** Vide la sélection courante (sans quitter le mode). */
+function patracBatchClear() {
+    _patracBatchSel.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('batch-selected');
+    });
+    _patracBatchSel.clear();
+    const wrap = document.getElementById('patracBatchTargets');
+    if (wrap) wrap.style.display = 'none';
+    _patracBatchUpdateBar();
 }
 
 function populateQuickEditPanel(memberId) {
@@ -852,6 +1040,14 @@ window.cloneMemberFromContext = cloneMemberFromContext;
 window.deleteMemberFromContext = deleteMemberFromContext;
 window.resetPatracdvrUI = resetPatracdvrUI;
 window.loadConfigObject = loadConfigObject;
+
+// Proposition 4 — déplacement en lot (batch)
+window.togglePatracBatchMode = togglePatracBatchMode;
+window.patracBatchSelectWholeCell = patracBatchSelectWholeCell;
+window.patracBatchShowTargets = patracBatchShowTargets;
+window.patracBatchMoveTo = patracBatchMoveTo;
+window.patracBatchUnassign = patracBatchUnassign;
+window.patracBatchClear = patracBatchClear;
 
 // ============================================================
 // CONFIGURATION UNITÉ — édition de memberConfig depuis l'OI

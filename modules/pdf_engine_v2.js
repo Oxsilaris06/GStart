@@ -65,6 +65,128 @@ const PDFEngineV2 = {
     },
 
     /**
+     * MODE PRÉSENTATION DÉDIÉ « Présenter ici » (Proposition 4 de l'audit).
+     *
+     * Ouvre un NOUVEL ONGLET autonome contenant le rapport d'aperçu (même contenu,
+     * même format A4/16:9), mais transformé en présentation plein écran adaptative :
+     *   - Mode « Diapo » : une page = une diapositive, mise à l'échelle pour remplir
+     *     n'importe quel écran (téléphone, bureau, TV, projecteur) sans rognage.
+     *   - Mode « Liste » : défilement vertical lisible (idéal mobile).
+     *   - Navigation clavier (← → Espace Début Fin), tactile (swipe), plein écran.
+     *
+     * Le document généré est 100 % autonome (styles + images en base64 inline) :
+     * il fonctionne donc dans un onglet vierge, sans dépendre des feuilles de style
+     * de 4.html. On l'ouvre via un Blob URL (déclenché par un clic utilisateur).
+     */
+    async openPresentInPlace() {
+        try {
+            const data = await this.collectAllData();
+            const is169 = (window.pdfOutputFormat === '16:9');
+            const pageOpts = is169 ? { pageW: 338, pageH: 190.125 } : { pageW: 297, pageH: 210 };
+            const inner = this.generateHTML(data, true, pageOpts);
+            const docHtml = this._buildPresentationDocument(inner, pageOpts.pageW, pageOpts.pageH, data);
+
+            const blob = new Blob([docHtml], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const win = window.open(url, '_blank');
+            if (!win) {
+                URL.revokeObjectURL(url);
+                alert("La fenêtre de présentation a été bloquée par le navigateur.\nAutorisez les pop-ups pour ce site, puis réessayez.");
+                return;
+            }
+            // On révoque l'URL après un délai large : l'onglet a eu le temps de charger.
+            setTimeout(() => URL.revokeObjectURL(url), 120000);
+        } catch (e) {
+            console.error("[Présenter ici] échec:", e);
+            if (typeof toast === 'function') toast("Erreur lors de l'ouverture de la présentation.", "error");
+            else alert("Erreur lors de l'ouverture de la présentation.");
+        }
+    },
+
+    /** Assemble le document HTML autonome de présentation (shell + navigation). */
+    _buildPresentationDocument(inner, pageW, pageH, data) {
+        const fd = (data && data.formData) || {};
+        const esc = (s) => String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const titleBits = [fd.date_op, fd.trigramme_redacteur].filter(Boolean).join(' — ');
+        const title = esc('Présentation OI' + (titleBits ? ' · ' + titleBits : ''));
+
+        // CSS du shell de présentation (aucun backtick / ${} ci-dessous : tout est statique).
+        const shellCss = [
+            '*{box-sizing:border-box;}',
+            'html,body{margin:0;height:100%;background:#0b0d12;overflow:hidden;}',
+            ".deck-stage{position:fixed;inset:0;}",
+            // neutralise le conteneur d'aperçu (padding/fond) hérité de generateHTML
+            '.pdf-export-container{padding:0 !important;margin:0 !important;background:transparent !important;width:100% !important;}',
+            '.pdf-content{display:block;}',
+            // --- MODE DIAPO ---
+            'body.deck-mode .deck-stage{overflow:hidden;}',
+            'body.deck-mode .deck-slide{position:fixed;left:0;right:0;top:0;bottom:60px;display:none;align-items:center;justify-content:center;}',
+            'body.deck-mode .deck-slide.active{display:flex;}',
+            'body.deck-mode .pdf-page{margin:0 !important;max-width:none !important;width:1280px !important;height:auto !important;aspect-ratio:auto !important;overflow:visible !important;box-shadow:0 24px 70px rgba(0,0,0,.65) !important;border-radius:6px;flex:0 0 auto;}',
+            // --- MODE LISTE ---
+            'body.list-mode .deck-stage{overflow-y:auto;padding:16px 10px 84px;-webkit-overflow-scrolling:touch;}',
+            'body.list-mode .deck-slide{display:block;}',
+            'body.list-mode .pdf-page{margin:0 auto 22px !important;width:min(100%,1100px) !important;height:auto !important;aspect-ratio:auto !important;max-width:none !important;overflow:visible !important;box-shadow:0 12px 40px rgba(0,0,0,.5) !important;}',
+            // --- BARRE DE CONTRÔLE ---
+            ".deck-bar{position:fixed;left:0;right:0;bottom:0;min-height:56px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:6px 10px;background:rgba(10,12,16,.9);backdrop-filter:blur(8px);border-top:1px solid rgba(255,255,255,.12);z-index:99999;font-family:'Inter',system-ui,sans-serif;color:#fff;}",
+            '.deck-bar button{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:9px 13px;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;line-height:1;}',
+            '.deck-bar button:hover{background:rgba(255,255,255,.2);}',
+            '.deck-bar button:disabled{opacity:.35;cursor:default;}',
+            '.deck-counter{min-width:78px;text-align:center;font-variant-numeric:tabular-nums;font-weight:600;}',
+            ".deck-title{position:fixed;top:10px;left:14px;color:rgba(255,255,255,.72);font:600 13px/1.2 'Inter',system-ui,sans-serif;z-index:99999;pointer-events:none;max-width:60vw;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;}",
+            '@media print{.deck-bar,.deck-title{display:none !important;}body{overflow:visible !important;}}'
+        ].join('\n');
+
+        // Script de navigation (STRICTEMENT sans backtick ni ${} : on est dans un template literal).
+        const deckScript =
+            '(function(){' +
+            'var body=document.body;' +
+            'var stage=document.getElementById("deckStage");' +
+            'var pages=Array.prototype.slice.call(document.querySelectorAll(".pdf-page"));' +
+            'if(!pages.length){return;}' +
+            'var slides=pages.map(function(p){var s=document.createElement("div");s.className="deck-slide";p.parentNode.insertBefore(s,p);s.appendChild(p);return s;});' +
+            'var idx=0;var mode="deck";' +
+            'var counter=document.getElementById("deckCounter");' +
+            'var btnPrev=document.getElementById("deckPrev");' +
+            'var btnNext=document.getElementById("deckNext");' +
+            'var btnMode=document.getElementById("deckMode");' +
+            'function layout(){if(mode!=="deck"){return;}var s=slides[idx];if(!s){return;}var p=s.querySelector(".pdf-page");if(!p){return;}p.style.transform="none";var pw=p.offsetWidth||1280;var ph=p.offsetHeight||720;var availW=window.innerWidth*0.98;var availH=(window.innerHeight-60)*0.98;var scale=Math.min(availW/pw,availH/ph);p.style.transformOrigin="center center";p.style.transform="scale("+scale+")";}' +
+            'function updateBar(){if(counter){counter.textContent=(idx+1)+" / "+slides.length;}if(btnPrev){btnPrev.disabled=(mode==="deck"&&idx<=0);}if(btnNext){btnNext.disabled=(mode==="deck"&&idx>=slides.length-1);}}' +
+            'function show(i){idx=Math.max(0,Math.min(slides.length-1,i));if(mode==="deck"){slides.forEach(function(s,k){s.classList.toggle("active",k===idx);});layout();}else{var t=slides[idx];if(t&&t.scrollIntoView){t.scrollIntoView({behavior:"smooth",block:"start"});}}updateBar();}' +
+            'function next(){show(idx+1);}function prev(){show(idx-1);}' +
+            'function setMode(m){mode=m;body.classList.remove("deck-mode","list-mode");body.classList.add(m+"-mode");if(btnMode){btnMode.textContent=(m==="deck")?"Mode liste":"Mode diapo";}if(m==="deck"){slides.forEach(function(s,k){s.classList.toggle("active",k===idx);});layout();}else{slides.forEach(function(s){s.classList.remove("active");s.querySelector(".pdf-page").style.transform="none";});}updateBar();}' +
+            'function toggleFs(){if(!document.fullscreenElement){if(document.documentElement.requestFullscreen){document.documentElement.requestFullscreen();}}else if(document.exitFullscreen){document.exitFullscreen();}}' +
+            'if(btnPrev){btnPrev.onclick=prev;}if(btnNext){btnNext.onclick=next;}if(btnMode){btnMode.onclick=function(){setMode(mode==="deck"?"list":"deck");};}' +
+            'var btnFs=document.getElementById("deckFs");if(btnFs){btnFs.onclick=toggleFs;}' +
+            'document.addEventListener("keydown",function(e){if(e.key==="ArrowRight"||e.key==="PageDown"||e.key===" "){e.preventDefault();next();}else if(e.key==="ArrowLeft"||e.key==="PageUp"){e.preventDefault();prev();}else if(e.key==="Home"){e.preventDefault();show(0);}else if(e.key==="End"){e.preventDefault();show(slides.length-1);}else if(e.key==="f"||e.key==="F"){toggleFs();}else if(e.key==="l"||e.key==="L"){setMode(mode==="deck"?"list":"deck");}});' +
+            'var tsx=0,tsy=0;stage.addEventListener("touchstart",function(e){var t=e.changedTouches[0];tsx=t.clientX;tsy=t.clientY;},{passive:true});' +
+            'stage.addEventListener("touchend",function(e){if(mode!=="deck"){return;}var t=e.changedTouches[0];var dx=t.clientX-tsx;var dy=t.clientY-tsy;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)){if(dx<0){next();}else{prev();}}},{passive:true});' +
+            'window.addEventListener("resize",layout);' +
+            'window.addEventListener("load",function(){setMode("deck");show(0);});' +
+            'setMode("deck");show(0);' +
+            '})();';
+
+        return '<!DOCTYPE html><html lang="fr"><head>' +
+            '<meta charset="utf-8">' +
+            '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">' +
+            '<title>' + title + '</title>' +
+            '<style>' + shellCss + '</style>' +
+            '</head><body class="deck-mode">' +
+            '<div class="deck-title">' + title + '</div>' +
+            '<div id="deckStage" class="deck-stage">' + inner + '</div>' +
+            '<div class="deck-bar">' +
+            '<button id="deckPrev" type="button" title="Précédent (←)">◀ Préc.</button>' +
+            '<span id="deckCounter" class="deck-counter">1 / 1</span>' +
+            '<button id="deckNext" type="button" title="Suivant (→)">Suiv. ▶</button>' +
+            '<button id="deckMode" type="button" title="Basculer diapo / liste (L)">Mode liste</button>' +
+            '<button id="deckFs" type="button" title="Plein écran (F)">⛶ Plein écran</button>' +
+            '</div>' +
+            '<script>' + deckScript + '<\/script>' +
+            '</body></html>';
+    },
+
+    /**
      * Télécharge le PDF - Version V4 (Rendu indépendant par page).
      * Cette méthode est la plus robuste : elle capture chaque page séparément dans un canvas dédié.
      */
@@ -1031,3 +1153,4 @@ const PDFEngineV2 = {
 
 window.PDFEngineV2 = PDFEngineV2;
 window.downloadOiPdf = function () { PDFEngineV2.downloadOiPdf(); };
+window.openPresentInPlace = function () { PDFEngineV2.openPresentInPlace(); };

@@ -5,6 +5,7 @@ import { PdfExport } from './pdfExport.js';
 import { Utils } from './utils.js';
 import { ImageStore } from './imageStore.js';
 import './planMap.js'; // expose window.PlanMap (utilisé par UI.switchMainView)
+import './tchapLive.js'; // géoloc équipe live (Tchap) → marqueurs sur PlanMap
 import { CUSTOM_PAX_KEY, ADVERSARIES_KEY, HOSTAGES_KEY, FRIENDS_KEY, PHOTOS_KEY } from './config.js';
 
 /**

@@ -1875,26 +1875,37 @@
                             <input type="text" id="tl_hs" placeholder="https://matrix.agent.interieur.tchap.gouv.fr" style="width: 100%;">
                         </div>
                         <div>
-                            <label style="font-size: 0.8em; color: var(--text-muted);">Token d'accès Tchap (Paramètres → Aide &amp; à propos → Token)</label>
-                            <input type="password" id="tl_token" placeholder="mat_… ou syt_…" style="width: 100%;">
-                        </div>
-                        <div>
                             <label style="font-size: 0.8em; color: var(--text-muted);">Room ID du salon (Forum non chiffré)</label>
                             <input type="text" id="tl_room" placeholder="!xxxxx:agent.interieur.tchap.gouv.fr" style="width: 100%;">
                         </div>
+                        <details style="font-size: 0.8em; color: var(--text-muted);">
+                            <summary style="cursor: pointer;">Repli / avancé (token manuel, client_id)</summary>
+                            <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+                                <div>
+                                    <label style="font-size: 0.9em; color: var(--text-muted);">Token manuel (repli — Tchap Web → Aide &amp; à propos → Token, ~5 min, non renouvelé)</label>
+                                    <input type="password" id="tl_token" placeholder="mat_… ou syt_…" style="width: 100%;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.9em; color: var(--text-muted);">client_id OAuth (optionnel — fourni par l'admin DNUM si l'auto-enregistrement est bloqué)</label>
+                                    <input type="text" id="tl_clientid" placeholder="laisser vide pour auto-enregistrement" style="width: 100%;">
+                                </div>
+                            </div>
+                        </details>
                     </div>
-                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 12px;">
-                        <button type="button" id="tl_connect" class="add-btn" style="width: auto; padding: 8px 16px;">Connecter</button>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px;">
+                        <button type="button" id="tl_oidc" class="add-btn" style="width: auto; padding: 8px 16px;">Se connecter via ProConnect ↻</button>
+                        <button type="button" id="tl_connect" class="add-btn" style="width: auto; padding: 8px 16px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main);">Token manuel</button>
                         <button type="button" id="tl_stop" class="add-btn" style="width: auto; padding: 8px 16px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main);" disabled>Stop</button>
                         <button type="button" id="tl_center" class="add-btn" style="width: auto; padding: 8px 16px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main);">Centrer</button>
                         <span id="tl_count" style="font-size: 0.85em; color: var(--text-muted);">—</span>
                     </div>
+                    <div id="tl_device" style="display: none; margin-top: 10px; font-size: 0.85em; color: var(--text-main); background: var(--bg-input); border: 1px solid var(--inter-blue, #4f8dff); border-radius: var(--radius-sm); padding: 10px;"></div>
                     <div id="tl_status" style="margin-top: 8px; font-size: 0.82em; color: var(--text-muted);">Prêt.</div>
                     <div style="margin-top: 10px; font-size: 0.75em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted);">Opérateurs connectés</div>
                     <div id="tl_ops" style="margin-top: 4px; max-height: 220px; overflow-y: auto;"></div>
                     <div id="tl_log" style="margin-top: 8px; max-height: 120px; overflow-y: auto; font-family: ui-monospace, monospace; font-size: 0.72em; line-height: 1.5; color: var(--text-muted); background: var(--bg-input); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 8px;"></div>
                     <div style="margin-top: 8px; font-size: 0.75em; color: var(--text-muted); line-height: 1.5;">
-                        Les membres partageant leur position dans ce salon apparaissent en <span style="color: #06b6d4; font-weight: 600;">cyan</span> sur la carte (libellé = nom Tchap).
+                        Code couleur des marqueurs : <span style="color: var(--inter-blue,#4f8dff); font-weight:600;">bleu</span>=nouveau · <span style="color: var(--ao-green,#2ecf91); font-weight:600;">vert</span>=déplacement · <span style="color: var(--text-muted); font-weight:600;">gris</span>=actif immobile · <span style="color: var(--danger-red,#f0556a); font-weight:600;">rouge</span>=déconnexion imminente.
                         Un seul token (le tien) reçoit <b>toutes</b> les positions du salon. Salon <b>non chiffré (Forum)</b> requis pour cette voie.
                     </div>
                 </div>

@@ -32,6 +32,8 @@ const ENTITY_COLORS = {
 // Tout sans clé API, sans tracking. Le DEM ne sert qu'au relief 3D (setTerrain).
 const RASTER_STYLE = {
     version: 8,
+    // Polices keyless (OpenMapTiles) — requises pour le rendu texte des noms de rues
+    glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
     sources: {
         satellite: {
             type: 'raster',
@@ -146,6 +148,7 @@ export const PlanMap = {
     history: [],     // pile d'états {shapes} avant chaque modif
     redoStack: [],   // états annulés réutilisables via redo
     is3D: false,     // mode relief 3D actif
+    streetLabelsOn: false, // overlay noms de rues (vectoriel OpenFreeMap)
     _selectedShapeId: null,  // forme actuellement sélectionnée (handles visibles)
     _handleMarkers: [],      // poignées HTML rendues pour la forme sélectionnée
     _textMarkers: [],        // labels HTML pour annotations texte
@@ -198,7 +201,7 @@ export const PlanMap = {
         });
         // NavigationControl avec boussole + bouton pitch visualisé
         this.map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
-        this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right');
+        this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-left');
 
         this.map.on('moveend', this._safe(() => this._saveView(), 'moveend'));
         this.map.on('pitchend', this._safe(() => this._saveView(), 'pitchend'));
@@ -226,100 +229,32 @@ export const PlanMap = {
             this._bindTextModalOnce();
             this._renderShapes();
             this._renderShapeTexts();
+            this._initStreetLabels();
         });
 
         this._renderPins();
         this.initialized = true;
 
-        // Cache cartographique hors-ligne : bouton + pré-chargement auto léger.
+        // Cache cartographique hors-ligne : pré-chargement automatique en tâche de fond.
         this._initOfflineCache();
     },
 
     /* ----- CACHE CARTOGRAPHIQUE HORS-LIGNE (Proposition 3) ----- */
 
-    /** Branche le bouton hors-ligne et déclenche un pré-chargement de base unique (si en ligne). */
+    /**
+     * Chargement cartographique hors-ligne EN TÂCHE DE FOND (aucun bouton).
+     * Au premier passage en ligne, met en cache la pyramide France (zoom 0→8 :
+     * vue nationale + détail régional opérationnel), silencieusement et une seule fois.
+     */
     _initOfflineCache() {
-        this._bindOfflineButton();
         try {
             const cached = localStorage.getItem('pcTacFranceTilesCached') === '1';
-            if (!cached && navigator.onLine && typeof caches !== 'undefined') {
-                // « Phase de connexion » : on force en tâche de fond le cache de base
-                // (zoom 0→6 ≈ vue France), silencieusement, une seule fois.
-                _prefetchFranceTiles(0, 6).then(r => {
-                    try { localStorage.setItem('pcTacFranceTilesCached', '1'); } catch (e) {}
-                    this._refreshOfflineButton();
-                    console.log('[PlanMap] Cache France de base prêt:', r);
-                }).catch(e => console.warn('[PlanMap] auto-cache France échoué:', e));
-            }
+            if (cached || !navigator.onLine || typeof caches === 'undefined') return;
+            _prefetchFranceTiles(0, 8).then(r => {
+                try { localStorage.setItem('pcTacFranceTilesCached', '1'); } catch (e) {}
+                console.log('[PlanMap] Carte France mise en cache (tâche de fond) :', r);
+            }).catch(e => console.warn('[PlanMap] auto-cache France échoué:', e));
         } catch (e) { /* localStorage / caches indispo : non bloquant */ }
-    },
-
-    _bindOfflineButton() {
-        const btn = document.getElementById('plan_btn_offline');
-        if (!btn || btn._offlineBound) return;
-        btn._offlineBound = true;
-        btn.addEventListener('click', () => this.cacheFranceOffline());
-        this._refreshOfflineButton();
-    },
-
-    _refreshOfflineButton() {
-        const btn = document.getElementById('plan_btn_offline');
-        if (!btn) return;
-        let cached = false;
-        try { cached = localStorage.getItem('pcTacFranceTilesCached') === '1'; } catch (e) {}
-        const icon = btn.querySelector('.material-symbols-outlined');
-        if (icon) icon.textContent = cached ? 'offline_pin' : 'download_for_offline';
-        if (cached) btn.classList.add('plan-tool-fab--done');
-        btn.title = cached
-            ? 'Carte de France disponible hors-ligne — recliquer pour compléter le niveau de détail'
-            : 'Télécharger la carte de France pour le mode hors-ligne';
-    },
-
-    /** Pré-télécharge la carte de France (zoom 0→7) avec retour de progression visuel. */
-    async cacheFranceOffline() {
-        const btn = document.getElementById('plan_btn_offline');
-        if (btn && btn.dataset.busy === '1') return;
-        if (typeof caches === 'undefined') {
-            this._offlineStatus('Cache cartographique indisponible sur ce navigateur.', 'error');
-            return;
-        }
-        if (btn) btn.dataset.busy = '1';
-        this._offlineStatus('Téléchargement de la carte de France…', 'info', true);
-        try {
-            const res = await _prefetchFranceTiles(0, 8, (done, total) => {
-                if (done % 10 === 0 || done === total) {
-                    this._offlineStatus('Carte de France hors-ligne : ' + done + ' / ' + total + ' tuiles…', 'info', true);
-                }
-            });
-            try { localStorage.setItem('pcTacFranceTilesCached', '1'); } catch (e) {}
-            this._refreshOfflineButton();
-            this._offlineStatus('Carte de France disponible hors-ligne ✓ (' + res.ok + ' tuiles)', 'success');
-        } catch (e) {
-            console.error('[PlanMap] cache France échec:', e);
-            this._offlineStatus('Échec du téléchargement de la carte (réseau ?).', 'error');
-        } finally {
-            if (btn) btn.dataset.busy = '0';
-        }
-    },
-
-    _offlineStatus(msg, kind, sticky) {
-        let el = document.getElementById('plan_offline_status');
-        if (!el) {
-            el = document.createElement('div');
-            el.id = 'plan_offline_status';
-            el.style.cssText = 'position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:30;'
-                + 'padding:8px 14px;border-radius:8px;font:600 13px/1.2 system-ui,sans-serif;color:#fff;'
-                + 'background:rgba(10,12,16,.92);border:1px solid rgba(255,255,255,.18);'
-                + 'box-shadow:0 6px 18px rgba(0,0,0,.4);pointer-events:none;max-width:90%;text-align:center;';
-            const mapEl = document.getElementById('plan_map');
-            const host = (mapEl && mapEl.parentElement) ? mapEl.parentElement : document.body;
-            host.appendChild(el);
-        }
-        el.textContent = msg;
-        el.style.borderColor = kind === 'error' ? '#ef4444' : (kind === 'success' ? '#22c55e' : 'rgba(255,255,255,.18)');
-        el.style.display = 'block';
-        clearTimeout(this._offlineStatusTimer);
-        if (!sticky) this._offlineStatusTimer = setTimeout(() => { if (el) el.style.display = 'none'; }, 4500);
     },
 
     /** Appelé à chaque switch sur la vue Plan (resize quand le conteneur devient visible) */
@@ -419,6 +354,78 @@ export const PlanMap = {
         this._saveView();
     },
 
+    /* ----- OVERLAY NOMS DE RUES (vectoriel OpenFreeMap, keyless) -----
+     * Réutilise la source vectorielle 'openfreemap' déjà chargée (schéma OpenMapTiles).
+     * Couches ajoutées paresseusement (1er affichage) → aucune tuile vectorielle
+     * téléchargée tant que l'overlay reste masqué. Couleur jaune vif + halo sombre
+     * pour ressortir nettement sur l'imagerie satellite. */
+    _streetLabelPaint() {
+        return { 'text-color': '#ffe14d', 'text-halo-color': '#0a0c10', 'text-halo-width': 1.6 };
+    },
+    _ensureStreetLabelLayers() {
+        if (!this.map || this.map.getLayer('street-labels')) return true;
+        // NB : NE PAS gater sur isStyleLoaded() — la source vectorielle 'openfreemap'
+        // n'ayant aucune couche active, son TileJSON n'est pas encore chargé, donc
+        // isStyleLoaded() reste false et les couches ne seraient jamais ajoutées.
+        // La source est déclarée dans le style (sync) ; si absente, on diffère.
+        if (!this.map.getSource('openfreemap')) { this.map.once('idle', () => this._ensureStreetLabelLayers()); return false; }
+        const vis = this.streetLabelsOn ? 'visible' : 'none';
+        try {
+            // Villes / quartiers
+            this.map.addLayer({
+                id: 'place-labels', type: 'symbol', source: 'openfreemap', 'source-layer': 'place',
+                layout: {
+                    visibility: vis,
+                    'text-field': ['get', 'name'],
+                    'text-font': ['Noto Sans Bold'],
+                    'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 12, 15, 16, 18],
+                    'text-max-width': 8
+                },
+                paint: this._streetLabelPaint()
+            });
+            // Noms de rues / routes (placés le long de la voie)
+            this.map.addLayer({
+                id: 'street-labels', type: 'symbol', source: 'openfreemap', 'source-layer': 'transportation_name',
+                layout: {
+                    visibility: vis,
+                    'text-field': ['get', 'name'],
+                    'text-font': ['Noto Sans Regular'],
+                    'symbol-placement': 'line',
+                    'text-rotation-alignment': 'map',
+                    'text-size': ['interpolate', ['linear'], ['zoom'], 12, 10, 18, 13]
+                },
+                paint: this._streetLabelPaint()
+            });
+            return true;
+        } catch (e) { console.warn('[PlanMap] couches noms de rues indisponibles:', e); return false; }
+    },
+    _applyStreetLabelsVisibility() {
+        const vis = this.streetLabelsOn ? 'visible' : 'none';
+        for (const id of ['street-labels', 'place-labels']) {
+            if (this.map.getLayer(id)) this.map.setLayoutProperty(id, 'visibility', vis);
+        }
+        this._updateStreetLabelsBtn();
+    },
+    _toggleStreetLabels() {
+        if (!this.map) return;
+        this.streetLabelsOn = !this.streetLabelsOn;
+        if (this.streetLabelsOn) this._ensureStreetLabelLayers();
+        this._applyStreetLabelsVisibility();
+        try { localStorage.setItem('pcTacStreetLabels', this.streetLabelsOn ? '1' : '0'); } catch (_) {}
+    },
+    /** Restaure l'état persistant au chargement de la carte. */
+    _initStreetLabels() {
+        try { this.streetLabelsOn = localStorage.getItem('pcTacStreetLabels') === '1'; } catch (_) { this.streetLabelsOn = false; }
+        if (this.streetLabelsOn) this._ensureStreetLabelLayers();
+        this._applyStreetLabelsVisibility();
+    },
+    _updateStreetLabelsBtn() {
+        const btn = document.getElementById('plan_btn_labels');
+        if (!btn) return;
+        btn.classList.toggle('active', !!this.streetLabelsOn);
+        btn.title = this.streetLabelsOn ? 'Masquer les noms de rues' : 'Afficher les noms de rues';
+    },
+
     _bindUi() {
         const searchInput = document.getElementById('plan_address_input');
         const searchBtn = document.getElementById('plan_search_btn');
@@ -455,6 +462,9 @@ export const PlanMap = {
 
         const drawBtn = document.getElementById('plan_btn_draw');
         if (drawBtn) drawBtn.onclick = () => this._toggleDrawDock();
+
+        const labelsBtn = document.getElementById('plan_btn_labels');
+        if (labelsBtn) labelsBtn.onclick = () => this._toggleStreetLabels();
 
         // --- Modale Ping hybride ---
         const pingClose = document.getElementById('pingModalCloseBtn');
@@ -3908,22 +3918,30 @@ export const PlanMap = {
     /**
      * Capture haute qualité de la carte avec ses annotations.
      *
-     * Approche robuste (fonctionne aussi en plein écran) :
-     *  1. Base = canvas WebGL natif de MapLibre (tuiles, terrain, bâtiments,
-     *     dessins) — toujours aux dimensions correctes quel que soit l'état.
-     *  2. Overlay = markers DOM (pins + libellés + boussole) via html2canvas,
-     *     en IGNORANT le canvas WebGL pour ne capturer que le DOM léger.
-     *  3. Composition des deux dans un canvas final → PNG.
+     * Approche robuste (plein écran 2D ET 3D, après défilement) :
+     *  1. Base = canvas WebGL natif de MapLibre (tuiles, relief 3D, bâtiments,
+     *     dessins) — toujours aux dimensions pixel correctes quel que soit l'état.
+     *  2. Overlay = markers DOM (pins + libellés + boussole) via html2canvas sur
+     *     le conteneur #plan_map (même repère que le canvas), en IGNORANT tout
+     *     <canvas>, avec fenêtre/scroll figés pour ne pas dépendre du viewport.
+     *  3. Composition des deux dans un canvas final w×h → PNG.
      *
-     * On ne capture donc jamais le conteneur entier via html2canvas (ce qui
-     * cassait en plein écran : taille écran × scale → canvas démesuré).
+     * Clés anti-régression plein écran : on capture #plan_map (pas le cadre parent
+     * qui se redimensionne), on fixe windowWidth/Height + scrollX/Y, et on borne le
+     * scale (DPR) contre un clientWidth transitoirement nul.
      */
     async _takeScreenshot() {
         if (typeof html2canvas === 'undefined') {
             alert('Librairie html2canvas indisponible (réseau ?)');
             return;
         }
-        const mapContainer = document.getElementById('plan_map').parentElement;
+        if (!this.map) return;
+        // Conteneur MapLibre (#plan_map) : markers, libellés et boussole y vivent et
+        // partagent EXACTEMENT le repère du canvas WebGL (inset:0). On capture ce
+        // conteneur — et non le cadre parent — pour que l'origine de l'overlay coïncide
+        // au pixel près avec le canvas, y compris en plein écran (où le cadre parent
+        // change de taille et décalait l'ancienne capture).
+        const mapContainer = this.map.getContainer();
         if (!mapContainer) return;
 
         // Éléments UI à masquer temporairement (on garde la boussole MapLibre)
@@ -3946,21 +3964,37 @@ export const PlanMap = {
             const glCanvas = this.map.getCanvas();
             const w = glCanvas.width;   // dimensions pixel réelles (déjà × devicePixelRatio)
             const h = glCanvas.height;
+            const cssW = glCanvas.clientWidth;
+            const cssH = glCanvas.clientHeight;
 
-            // Overlay DOM (markers, boussole) — html2canvas en ignorant tous les <canvas>
-            const dpr = w / glCanvas.clientWidth; // ratio réel appliqué par MapLibre
+            // Ratio réel appliqué par MapLibre, avec garde-fou : en plein écran le
+            // clientWidth peut être transitoirement 0 (resize pas encore propagé),
+            // ce qui donnait un scale Infinity/NaN → capture cassée.
+            let dpr = cssW > 0 ? (w / cssW) : (window.devicePixelRatio || 1);
+            if (!isFinite(dpr) || dpr <= 0) dpr = window.devicePixelRatio || 1;
+
+            // Overlay DOM (markers, boussole) — html2canvas en ignorant tous les <canvas>.
+            // windowWidth/Height + scrollX/Y figés = robustesse en PLEIN ÉCRAN et après
+            // défilement : sinon html2canvas infère une fenêtre/position document erronée
+            // (viewport hors plein écran) et décale ou tronque l'overlay.
             const overlay = await html2canvas(mapContainer, {
                 useCORS: true,
                 allowTaint: false,
                 backgroundColor: null,
                 logging: false,
                 scale: dpr,
-                width: glCanvas.clientWidth,
-                height: glCanvas.clientHeight,
+                width: cssW,
+                height: cssH,
+                windowWidth: cssW,
+                windowHeight: cssH,
+                scrollX: 0,
+                scrollY: 0,
                 ignoreElements: (el) => el.tagName === 'CANVAS'
             });
 
-            // Composition finale
+            // Composition finale : base WebGL (tuiles + relief 3D + dessins) puis overlay.
+            // On force la destination à w×h pour aligner l'overlay au pixel quel que soit
+            // l'arrondi de dimension produit par html2canvas.
             outCanvas = document.createElement('canvas');
             outCanvas.width = w;
             outCanvas.height = h;

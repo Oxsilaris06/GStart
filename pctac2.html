@@ -1781,11 +1781,8 @@
                     <button type="button" id="plan_btn_draw" class="plan-tool-fab" title="Outils de dessin">
                         <span class="material-symbols-outlined">draw</span>
                     </button>
-                    <button type="button" id="plan_btn_offline" class="plan-tool-fab" title="Télécharger la carte de France pour le mode hors-ligne">
-                        <span class="material-symbols-outlined">download_for_offline</span>
-                    </button>
-                    <button type="button" id="tl_btn_trail" class="plan-tool-fab" title="Trace / historique des positions équipe (Tchap)">
-                        <span class="material-symbols-outlined">route</span>
+                    <button type="button" id="plan_btn_labels" class="plan-tool-fab" title="Afficher les noms de rues">
+                        <span class="material-symbols-outlined">signpost</span>
                     </button>
                 </div>
 
@@ -1853,12 +1850,19 @@
                 </div>
 
                 <!-- Légende OTAN -->
-                <div id="plan_legend" style="position: absolute; bottom: 10px; left: 10px; background: var(--bg-glass-heavy); backdrop-filter: blur(10px); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 0.9em; z-index: 10; display: flex; gap: 14px; align-items: center;">
-                    <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: var(--danger-red); display: inline-block;"></span>Adv</span>
-                    <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: var(--civil-yellow); display: inline-block;"></span>Otage</span>
-                    <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: var(--inter-blue); display: inline-block;"></span>Inter</span>
-                    <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: var(--ao-green); display: inline-block;"></span>Oscar</span>
-                </div>
+                <!-- Légende repliable (réduite par défaut) : statuts des membres connectés -->
+                <details id="plan_legend" style="position: absolute; bottom: 10px; right: 10px; z-index: 10; background: var(--bg-glass-heavy); backdrop-filter: blur(10px); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); font-size: 0.85em; max-width: 70%;">
+                    <summary style="cursor: pointer; padding: 8px 12px; display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text-main); list-style: none;">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">legend_toggle</span>Légende
+                    </summary>
+                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 2px 12px 10px;">
+                        <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: var(--inter-blue); display: inline-block;"></span>Nouveau</span>
+                        <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: var(--ao-green); display: inline-block;"></span>En mouvement</span>
+                        <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: var(--text-muted); display: inline-block;"></span>Immobile</span>
+                        <span style="display: inline-flex; align-items: center; gap: 5px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: var(--danger-red); display: inline-block;"></span>Déco imminente</span>
+                    </div>
+                </details>
+                <style>#plan_legend > summary::-webkit-details-marker, #plan_legend > summary::marker { display: none; }</style>
             </div>
 
             <!-- ===== Géoloc équipe live (Tchap) — panneau paramètres sous la carte ===== -->
@@ -1868,6 +1872,36 @@
                     <span>Géoloc équipe (Tchap)</span>
                     <span id="tl_dot" style="width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); display: inline-block;"></span>
                 </button>
+                <style id="tl-orbat-style">
+                /* Liste opérateurs — tableau d'ordre de bataille (accordéon par fonction/cellule) */
+                #tl_ops { display: flex; flex-direction: column; gap: 6px; }
+                .tl-ops-bar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 2px 6px; position: sticky; top: 0; background: var(--bg-glass-heavy); z-index: 2; }
+                .tl-ops-states { display: inline-flex; gap: 9px; font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+                .tl-ops-states b { font-weight: 700; color: var(--text-main); }
+                .tl-grp { border: 1px solid var(--border-glass); border-radius: var(--radius-sm, 8px); overflow: hidden; background: rgba(255,255,255,.02); }
+                .tl-grp-head { display: flex; align-items: center; gap: 8px; padding: 7px 9px; cursor: pointer; user-select: none; }
+                .tl-grp-head:hover { background: rgba(255,255,255,.05); }
+                .tl-grp-caret { font-size: 10px; color: var(--text-muted); width: 10px; flex: 0 0 auto; }
+                .tl-grp-icon { font-size: 18px; color: var(--text-main); flex: 0 0 auto; }
+                .tl-grp-name { font-weight: 700; font-size: 12.5px; color: var(--text-main); white-space: nowrap; }
+                .tl-grp-count { font-size: 11px; color: var(--text-muted); background: var(--bg-input); border-radius: 999px; padding: 1px 7px; flex: 0 0 auto; }
+                .tl-grp-gauge { flex: 1 1 auto; display: flex; height: 5px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.07); min-width: 28px; }
+                .tl-grp-gauge i { display: block; height: 100%; }
+                .tl-grp-follow { flex: 0 0 auto; appearance: none; border: 1px solid var(--border-glass); background: var(--bg-input); color: var(--text-muted); border-radius: 6px; width: 28px; height: 24px; cursor: pointer; font-size: 13px; line-height: 1; }
+                .tl-grp-follow:hover { color: #fff; border-color: var(--inter-blue, #4f8dff); }
+                .tl-grp.collapsed .tl-grp-body { display: none; }
+                .tl-grp-body { display: flex; flex-direction: column; }
+                .tl-op { display: flex; align-items: center; gap: 7px; padding: 6px 9px 6px 13px; border-top: 1px solid var(--border-glass); }
+                .tl-op-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; box-shadow: 0 0 0 2px rgba(0,0,0,.25); }
+                .tl-op-dot.moving { animation: tlDotPulse 1.2s ease-in-out infinite; }
+                @keyframes tlDotPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: .65; } }
+                .tl-op-name { flex: 1 1 auto; min-width: 0; font-size: 12px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .tl-op-age { flex: 0 0 auto; font-size: 10.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; }
+                .tl-op-fn { flex: 0 0 auto; font-size: 10.5px; max-width: 120px; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-glass); border-radius: 5px; padding: 2px 4px; }
+                .tl-op-follow { flex: 0 0 auto; appearance: none; border: 1px solid var(--border-glass); background: var(--bg-input); color: var(--text-muted); border-radius: 6px; width: 28px; height: 24px; cursor: pointer; }
+                .tl-op-follow.on { color: #fff; border-color: var(--inter-blue, #4f8dff); background: var(--inter-blue, #4f8dff); }
+                .tl-empty { color: var(--text-muted); font-size: .8em; padding: 6px 0; }
+                </style>
                 <div id="tl_panel" style="display: none; margin-top: 10px; background: var(--bg-glass-heavy); backdrop-filter: blur(10px); border: 1px solid var(--border-glass); border-radius: var(--radius-md); padding: 16px; max-width: 580px;">
                     <div style="display: flex; flex-direction: column; gap: 10px;">
                         <div>

@@ -32,11 +32,11 @@ const STATE_COLORS = {
 const DEFAULT_ICON = "person_pin_circle";
 const FUNCTION_ICONS = {
   "Chef inter": "military_tech", "Chef dispo": "stars", "Chef Oscar": "shield_person",
-  "Conducteur": "directions_car", "Chef de bord": "airline_seat_recline_normal",
-  "DE": "bomb", "Cyno": "pets", "Inter": "local_police", "Effrac": "hardware",
-  "AO": "visibility", "Sans": "person_pin_circle",
+  "Négociateur": "record_voice_over", "PC": "dvr", "Cyno": "pets",
+  "Inter": "local_police", "Effrac": "hardware", "AO": "visibility",
+  "Medic": "medical_services", "Pompier": "local_fire_department", "Sans": "person_pin_circle",
 };
-let FONCTIONS = ["Chef inter", "Chef dispo", "Chef Oscar", "Conducteur", "Chef de bord", "DE", "Cyno", "Inter", "Effrac", "AO", "Sans"];
+let FONCTIONS = ["Chef inter", "Chef dispo", "Chef Oscar", "Négociateur", "PC", "Cyno", "Inter", "Effrac", "AO", "Medic", "Pompier", "Sans"];
 let CELLULES = ["AO1", "AO2", "AO3", "AO4", "AO5", "AO6", "AO7", "AO8", "India 1", "India 2", "India 3", "India 4", "India 5", "Effrac", "Sans"];
 
 let cfg = loadCfg();
@@ -78,15 +78,9 @@ function injectStyle() {
     .tl-label { margin-top:1px; font-family:var(--font-ui,system-ui); font-size:12px; font-weight:600; color:#fff;
       white-space:nowrap; background:rgba(0,0,0,.78); padding:2px 7px; border-radius:4px; border-left:4px solid currentColor;
       text-shadow:0 1px 2px rgba(0,0,0,.8); box-shadow:0 1px 3px rgba(0,0,0,.6); }
-    .tl-team { font-size:.72em; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-muted);
-      margin:8px 0 3px; border-bottom:1px solid var(--border-glass); padding-bottom:2px; }
-    .tl-op { display:flex; align-items:center; gap:6px; padding:4px 0; font-size:.82em; }
-    .tl-op-dot { width:10px; height:10px; border-radius:50%; flex:0 0 auto; }
-    .tl-op-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .tl-op select { font-size:.92em; background:var(--bg-input); color:var(--text-main); border:1px solid var(--border-glass); border-radius:4px; padding:2px; max-width:88px; }
-    .tl-op-follow { cursor:pointer; background:var(--bg-input); border:1px solid var(--border-glass); color:var(--text-main); border-radius:4px; padding:2px 7px; font-weight:700; }
-    .tl-op-follow.on { background:var(--inter-blue,#4f8dff); color:#fff; border-color:var(--inter-blue,#4f8dff); }
   `;
+  // NB : les styles de la LISTE opérateurs (.tl-ops-bar/.tl-grp/.tl-op…) sont définis
+  // statiquement dans pctac2.html (#tl-orbat-style). On ne garde ici que le marqueur carte.
   document.head.appendChild(s);
 }
 
@@ -258,40 +252,122 @@ function toggleTrails() {
 let renderTimer = null;
 function scheduleRenderOps() { if (renderTimer) return; renderTimer = setTimeout(() => { renderTimer = null; renderOps(); }, 400); }
 function optionTags(list, sel) { return `<option value=""${sel ? "" : " selected"}>—</option>` + list.map((v) => `<option value="${v}"${v === sel ? " selected" : ""}>${v}</option>`).join(""); }
-function renderOps() {
+// ─── liste opérateurs : tableau d'ordre de bataille (accordéon) ───────────────
+// Regroupement par fonction (défaut) ou cellule, sections repliables, jauge d'état.
+let collapsed = new Set();                       // sections repliées : clé "mode:groupe"
+const FONCTION_RANK = { "Chef inter": 0, "Chef dispo": 1, "Chef Oscar": 2, "Négociateur": 3, "PC": 4, "Inter": 5, "AO": 6, "Effrac": 7, "Cyno": 8, "Medic": 9, "Pompier": 10, "Sans": 98 };
+const GAUGE_ORDER = ["moving", "new", "idle", "expiring"];
+
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function fmtAge(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return s + "s";
+  const mn = Math.floor(s / 60);
+  return mn < 60 ? mn + "m" : Math.floor(mn / 60) + "h";
+}
+function stateCounts(list) { const c = {}; for (const [, m] of list) { const st = m.state || "idle"; c[st] = (c[st] || 0) + 1; } return c; }
+function gaugeHtml(counts) {
+  let seg = "";
+  for (const st of GAUGE_ORDER) { const n = counts[st]; if (n) seg += `<i style="flex-grow:${n};background:${STATE_COLORS[st] || "var(--text-muted)"}"></i>`; }
+  return `<span class="tl-grp-gauge">${seg}</span>`;
+}
+function renderOps(force) {
   const box = $("tl_ops"); if (!box) return;
+  // Ne pas reconstruire la liste tant qu'un menu déroulant (select) est ouvert/focalisé :
+  // sinon le <select> est détruit et le menu se referme aussitôt. On reporte le rendu.
+  // Les rendus explicites (après un choix, un repli…) passent force=true.
+  if (!force) {
+    const ae = document.activeElement;
+    if (ae && ae.tagName === "SELECT" && box.contains(ae)) { scheduleRenderOps(); return; }
+  }
   const cnt = $("tl_count"); if (cnt) cnt.textContent = members.size ? `${members.size} opérateur(s)` : "—";
-  if (!members.size) { box.innerHTML = '<div style="color:var(--text-muted);font-size:.8em;padding:6px 0;">Aucun opérateur connecté.</div>'; return; }
+  if (!members.size) { box.innerHTML = '<div class="tl-empty">Aucun opérateur connecté.</div>'; return; }
+
+  const now = Date.now();
+
+  // Regroupement par FONCTION
   const groups = new Map();
-  for (const [s, m] of members) { const a = cfg.assign[s] || {}; const team = a.cellule || "Non assigné"; if (!groups.has(team)) groups.set(team, []); groups.get(team).push([s, m, a]); }
-  let html = "";
-  for (const [team, list] of groups) {
-    html += `<div class="tl-team">${team} · ${list.length}</div>`;
-    for (const [s, m, a] of list) {
+  for (const [s, m] of members) {
+    const key = (cfg.assign[s] || {}).fonction || "Sans";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push([s, m]);
+  }
+  // Tri par priorité tactique
+  const keys = [...groups.keys()].sort((x, y) => ((FONCTION_RANK[x] ?? 50) - (FONCTION_RANK[y] ?? 50)) || x.localeCompare(y, "fr"));
+
+  // Bandeau : compteurs d'état globaux
+  const glob = stateCounts([...members]);
+  const pill = (st, label) => glob[st] ? `<span title="${label}"><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${STATE_COLORS[st]};vertical-align:middle"></i> <b>${glob[st]}</b></span>` : "";
+  let html = `<div class="tl-ops-bar"><span class="tl-ops-states">${pill("new", "Nouveau")}${pill("moving", "En mouvement")}${pill("idle", "Immobile")}${pill("expiring", "Déco imminente")}</span></div>`;
+
+  for (const key of keys) {
+    const list = groups.get(key);
+    const isCol = collapsed.has(key);
+    html += `<div class="tl-grp ${isCol ? "collapsed" : ""}">`
+      + `<div class="tl-grp-head" data-g="${encodeURIComponent(key)}">`
+      + `<span class="tl-grp-caret">${isCol ? "▶" : "▼"}</span>`
+      + `<span class="material-symbols-outlined tl-grp-icon">${fnIcon(key)}</span>`
+      + `<span class="tl-grp-name">${escapeHtml(key)}</span>`
+      + `<span class="tl-grp-count">${list.length}</span>`
+      + gaugeHtml(stateCounts(list))
+      + `<button type="button" class="tl-grp-follow" title="Centrer ce groupe">⊙</button>`
+      + `</div><div class="tl-grp-body">`;
+    for (const [s, m] of list) {
+      const a = cfg.assign[s] || {};
       const name = names.get(s) || s.replace(/^@/, "").split(":")[0];
       const color = STATE_COLORS[m.state] || "var(--text-muted)";
       const tag = a.fonction && a.fonction !== "Sans" ? `[${a.fonction.toUpperCase()}] ` : "";
-      html += `<div class="tl-op" data-s="${encodeURIComponent(s)}"><span class="tl-op-dot" style="background:${color}"></span><span class="tl-op-name" title="${name}">${tag}${name}</span><select class="tl-op-fn" title="Fonction">${optionTags(FONCTIONS, a.fonction)}</select><select class="tl-op-cell" title="Équipe">${optionTags(CELLULES, a.cellule)}</select><button type="button" class="tl-op-follow ${followed === s ? "on" : ""}" title="Suivre">${followed === s ? "◉" : "◎"}</button></div>`;
+      html += `<div class="tl-op" data-s="${encodeURIComponent(s)}">`
+        + `<span class="tl-op-dot${m.state === "moving" ? " moving" : ""}" style="background:${color}"></span>`
+        + `<span class="tl-op-name" title="${escapeHtml(name)}">${escapeHtml(tag + name)}</span>`
+        + `<span class="tl-op-age">${fmtAge(now - (m.ts || now))}</span>`
+        + `<select class="tl-op-fn" title="Fonction">${optionTags(FONCTIONS, a.fonction)}</select>`
+        + `<button type="button" class="tl-op-follow ${followed === s ? "on" : ""}" title="Suivre (centrage live)">${followed === s ? "◉" : "◎"}</button>`
+        + `</div>`;
     }
+    html += `</div></div>`;
   }
   box.innerHTML = html;
 }
 function onOpsChange(e) {
   const row = e.target.closest(".tl-op"); if (!row) return;
+  if (!e.target.classList.contains("tl-op-fn")) return;
   const s = decodeURIComponent(row.dataset.s); const a = cfg.assign[s] = cfg.assign[s] || {};
-  if (e.target.classList.contains("tl-op-fn")) a.fonction = e.target.value || null;
-  if (e.target.classList.contains("tl-op-cell")) a.cellule = e.target.value || null;
+  a.fonction = e.target.value || null;
   persist();
   const m = members.get(s); if (m) applyVisual(s, m);
-  renderOps();
+  renderOps(true);
+}
+function fitGroup(key) {
+  const map = getMap(); if (!map) return;
+  const pts = [];
+  for (const [s, m] of members) {
+    if ((((cfg.assign[s] || {}).fonction) || "Sans") === key && Number.isFinite(m.lng) && Number.isFinite(m.lat)) pts.push([m.lng, m.lat]);
+  }
+  if (!pts.length) return;
+  if (pts.length === 1) map.flyTo({ center: pts[0], zoom: Math.max(map.getZoom(), 14) });
+  else { const b = new maplibregl.LngLatBounds(); for (const p of pts) b.extend(p); map.fitBounds(b, { padding: 80, maxZoom: 15 }); }
+  jlog(`centré sur « ${key} » (${pts.length})`, "var(--inter-blue)");
 }
 function onOpsClick(e) {
+  // Centrer un groupe (fitBounds one-shot sur ses membres)
+  const gf = e.target.closest(".tl-grp-follow");
+  if (gf) { const h = gf.closest(".tl-grp-head"); if (h) fitGroup(decodeURIComponent(h.dataset.g)); return; }
+  // Replier / déplier une section
+  const head = e.target.closest(".tl-grp-head");
+  if (head) {
+    const k = decodeURIComponent(head.dataset.g);
+    if (collapsed.has(k)) collapsed.delete(k); else collapsed.add(k);
+    renderOps(true);
+    return;
+  }
+  // Suivre un opérateur (centrage live)
   const btn = e.target.closest(".tl-op-follow"); if (!btn) return;
   const s = decodeURIComponent(btn.closest(".tl-op").dataset.s);
   followed = followed === s ? null : s;
   if (followed) { const m = members.get(followed), map = getMap(); if (m && map) map.flyTo({ center: [m.lng, m.lat], zoom: Math.max(map.getZoom(), 14) }); jlog(`suivi : ${names.get(s) || s}`, "var(--inter-blue)"); }
   else jlog("suivi désactivé", "var(--text-muted)");
-  renderOps();
+  renderOps(true);
 }
 
 // ─── /sync ──────────────────────────────────────────────────────────────────
@@ -522,7 +598,6 @@ function wireUI() {
   $("tl_connect").addEventListener("click", startManual);
   $("tl_stop").addEventListener("click", () => stop(true));
   const cen = $("tl_center"); if (cen) cen.addEventListener("click", () => { const map = getMap(); if (!map || !members.size) return; if (members.size === 1) { const m = [...members.values()][0]; map.flyTo({ center: [m.lng, m.lat], zoom: 14 }); } else { const b = new maplibregl.LngLatBounds(); for (const m of members.values()) b.extend([m.lng, m.lat]); map.fitBounds(b, { padding: 80, maxZoom: 15 }); } });
-  const fab = $("tl_btn_trail"); if (fab) fab.addEventListener("click", toggleTrails);
   for (const id of ["tl_hs", "tl_token", "tl_room", "tl_clientid"]) { const el = $(id); if (el) el.addEventListener("change", saveCfg); }
   const ops = $("tl_ops"); if (ops) { ops.addEventListener("change", onOpsChange); ops.addEventListener("click", onOpsClick); }
   // listeners carte attachés paresseusement (wireMapListeners via getMap) — pas d'init carte au boot
@@ -535,7 +610,7 @@ function wireUI() {
   }
 }
 
-export const TchapLive = { startManual, startOidc, stop, wireUI, toggleTrails };
+export const TchapLive = { startManual, startOidc, stop, wireUI };
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wireUI);
 else wireUI();

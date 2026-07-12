@@ -7,6 +7,72 @@ import { PDF_PAX_COLORS, PHOTO_CATEGORIES, FREE_MODE_COLORS } from './config.js'
  * Structure multi-pages ordonnée et respect du thème (clair/sombre).
  */
 
+/**
+ * sanitizeWinAnsi(s)
+ * Helvetica/Standard fonts de pdf-lib n'encodent que le jeu WinAnsi (cp1252).
+ * Tout caractère hors de ce jeu (apostrophes/guillemets courbes, tirets longs,
+ * points de suspension, espaces insécables exotiques, emoji, symboles, lettres
+ * non-latines...) provoque une exception à drawText/widthOfTextAtSize et fait
+ * planter l'export entier. On translittère vers ASCII/WinAnsi quand un équivalent
+ * raisonnable existe, sinon on remplace par '?'. Ne jette jamais.
+ */
+function sanitizeWinAnsi(s) {
+    if (s === null || s === undefined) return '';
+    let str;
+    try {
+        str = String(s);
+    } catch (_e) {
+        return '';
+    }
+
+    // Translittérations ciblées (caractères fréquents en saisie utilisateur FR)
+    const MAP = {
+        '‘': "'", '’': "'", '‚': "'", '‛': "'",   // guillemets simples courbes
+        '“': '"', '”': '"', '„': '"', '‟': '"',   // guillemets doubles courbes
+        '′': "'", '″': '"',                                  // prime / double prime
+        '–': '-', '—': '-', '―': '-', '−': '-',    // tirets longs / signe moins
+        '‐': '-', '‑': '-',                                  // traits d'union
+        '…': '...',                                              // points de suspension
+        ' ': ' ', ' ': ' ', ' ': ' ', ' ': ' ',    // espaces insécables / fines
+        '​': '', '﻿': '',                                   // espaces de largeur nulle / BOM
+        '•': '-', '‣': '-', '●': '-', '·': '.',    // puces
+        '€': '€',                                            // euro (présent en WinAnsi 0x80)
+        '™': 'TM', '«': '"', '»': '"'                   // (chevrons) -> gardés via WinAnsi sinon
+    };
+
+    let out = '';
+    for (const ch of str) {
+        if (Object.prototype.hasOwnProperty.call(MAP, ch)) {
+            out += MAP[ch];
+            continue;
+        }
+        const code = ch.codePointAt(0);
+        // ASCII imprimable + retour/saut acceptés tels quels
+        if (code === 0x09 || code === 0x0A || code === 0x0D || (code >= 0x20 && code <= 0x7E)) {
+            out += ch;
+            continue;
+        }
+        // Plage Latin-1 / WinAnsi haute (0xA0-0xFF) : majoritairement encodable.
+        // On garde les lettres accentuées usuelles (é, è, à, ç, ô, ü, ñ...).
+        if (code >= 0xA0 && code <= 0xFF) {
+            out += ch;
+            continue;
+        }
+        // Quelques caractères WinAnsi spécifiques dans la plage 0x80-0x9F
+        if (ch === 'Œ') { out += 'OE'; continue; }
+        if (ch === 'œ') { out += 'oe'; continue; }
+        if (ch === 'Š') { out += 'S'; continue; }
+        if (ch === 'š') { out += 's'; continue; }
+        if (ch === 'Ÿ') { out += 'Y'; continue; }
+        if (ch === 'Ž') { out += 'Z'; continue; }
+        if (ch === 'ž') { out += 'z'; continue; }
+        if (ch === 'ƒ') { out += 'f'; continue; }
+        // Tout le reste (emoji, idéogrammes, symboles divers...) -> '?'
+        out += '?';
+    }
+    return out;
+}
+
 export const PdfExport = {
     async buildPdf() {
         try {
@@ -56,7 +122,7 @@ export const PdfExport = {
 
             // --- FONCTIONS UTILITAIRES ---
             const wrapText = (text, width, font, size) => {
-                const words = (text || '').toString().split(' ');
+                const words = sanitizeWinAnsi(text).split(' ');
                 const lines = [];
                 let currentLine = '';
                 words.forEach(word => {
@@ -86,7 +152,7 @@ export const PdfExport = {
                 });
 
                 if (title) {
-                    context.currentPage.drawText(title, {
+                    context.currentPage.drawText(sanitizeWinAnsi(title), {
                         x: context.margin, y: context.y, size: 14, font: fontBold, color: themeColors.text
                     });
                     context.y -= 30;
@@ -151,7 +217,7 @@ export const PdfExport = {
                 }
 
                 let currentX = context.margin + 5;
-                context.currentPage.drawText(entry.heure || '', { x: currentX, y: context.y, size: 9, font, color: themeColors.text });
+                context.currentPage.drawText(sanitizeWinAnsi(entry.heure), { x: currentX, y: context.y, size: 9, font, color: themeColors.text });
                 currentX += colWidths[0];
                 
                 // Style Pax (Couleur)
@@ -166,10 +232,10 @@ export const PdfExport = {
                     pColor = pdfRgb(parseInt(hex.slice(1,3),16)/255, parseInt(hex.slice(3,5),16)/255, parseInt(hex.slice(5,7),16)/255);
                 }
                 context.currentPage.drawRectangle({ x: currentX - 2, y: context.y - 2, width: colWidths[1] - 5, height: 12, color: pColor });
-                context.currentPage.drawText(pText.substring(0, 12), { x: currentX, y: context.y, size: 8, font: fontBold, color: pdfRgb(1,1,1) });
+                context.currentPage.drawText(sanitizeWinAnsi(pText).substring(0, 12), { x: currentX, y: context.y, size: 8, font: fontBold, color: pdfRgb(1,1,1) });
                 currentX += colWidths[1];
 
-                context.currentPage.drawText((entry.lieu || '').substring(0, 25), { x: currentX, y: context.y, size: 9, font, color: themeColors.text });
+                context.currentPage.drawText(sanitizeWinAnsi(entry.lieu).substring(0, 25), { x: currentX, y: context.y, size: 9, font, color: themeColors.text });
                 currentX += colWidths[2];
 
                 remarksLines.forEach((line, idx) => {
@@ -192,7 +258,7 @@ export const PdfExport = {
                     if (context.y < 180) addNewPage("FICHIER ADVERSAIRES (SUITE)");
                     
                     context.currentPage.drawRectangle({ x: context.margin, y: context.y - 5, width: context.pageWidth - 2*context.margin, height: 20, color: themeColors.headerBg });
-                    context.currentPage.drawText(`${adv.nom} ${adv.prenom}`, { x: context.margin + 5, y: context.y + 2, size: 11, font: fontBold, color: themeColors.text });
+                    context.currentPage.drawText(sanitizeWinAnsi(`${adv.nom || ''} ${adv.prenom || ''}`), { x: context.margin + 5, y: context.y + 2, size: 11, font: fontBold, color: themeColors.text });
                     context.y -= 25;
 
                     if (adv.photo) {
@@ -209,7 +275,7 @@ export const PdfExport = {
                         `Armement: ${adv.armes || 'N/C'}`
                     ];
                     labels.forEach(l => {
-                        context.currentPage.drawText(l, { x: context.margin + 140, y: infoY, size: 9, font, color: themeColors.text });
+                        context.currentPage.drawText(sanitizeWinAnsi(l), { x: context.margin + 140, y: infoY, size: 9, font, color: themeColors.text });
                         infoY -= 14;
                     });
                     context.y = Math.min(context.y - 130, infoY - 20);
@@ -223,7 +289,7 @@ export const PdfExport = {
                     if (context.y < 180) addNewPage("FICHIER OTAGES (SUITE)");
                     
                     context.currentPage.drawRectangle({ x: context.margin, y: context.y - 5, width: context.pageWidth - 2*context.margin, height: 20, color: themeColors.headerBg });
-                    context.currentPage.drawText(`${host.nom} ${host.prenom}`, { x: context.margin + 5, y: context.y + 2, size: 11, font: fontBold, color: themeColors.text });
+                    context.currentPage.drawText(sanitizeWinAnsi(`${host.nom || ''} ${host.prenom || ''}`), { x: context.margin + 5, y: context.y + 2, size: 11, font: fontBold, color: themeColors.text });
                     context.y -= 25;
 
                     if (host.photo) {
@@ -238,7 +304,7 @@ export const PdfExport = {
                         `Blessures: ${host.blessures || 'N/C'}`
                     ];
                     labels.forEach(l => {
-                        context.currentPage.drawText(l, { x: context.margin + 140, y: infoY, size: 9, font, color: themeColors.text });
+                        context.currentPage.drawText(sanitizeWinAnsi(l), { x: context.margin + 140, y: infoY, size: 9, font, color: themeColors.text });
                         infoY -= 14;
                     });
                     context.y = Math.min(context.y - 130, infoY - 20);
@@ -265,11 +331,11 @@ export const PdfExport = {
                 for (const f of friends) {
                     if (context.y < 50) { addNewPage("FORCES AMIES (SUITE)"); drawFHeader(); }
                     let cx = context.margin + 5;
-                    context.currentPage.drawText(`${f.nom} ${f.prenom}`, { x: cx, y: context.y, size: 9, font, color: themeColors.text });
+                    context.currentPage.drawText(sanitizeWinAnsi(`${f.nom || ''} ${f.prenom || ''}`), { x: cx, y: context.y, size: 9, font, color: themeColors.text });
                     cx += fCols[0];
-                    context.currentPage.drawText(f.unite || '', { x: cx, y: context.y, size: 9, font, color: themeColors.text });
+                    context.currentPage.drawText(sanitizeWinAnsi(f.unite), { x: cx, y: context.y, size: 9, font, color: themeColors.text });
                     cx += fCols[1];
-                    context.currentPage.drawText(`${f.mission || ''} ${f.tph ? '['+f.tph+']':''}`, { x: cx, y: context.y, size: 9, font, color: themeColors.text });
+                    context.currentPage.drawText(sanitizeWinAnsi(`${f.mission || ''} ${f.tph ? '['+f.tph+']':''}`), { x: cx, y: context.y, size: 9, font, color: themeColors.text });
                     context.y -= 20;
                 }
             }
@@ -289,17 +355,121 @@ export const PdfExport = {
                     const photoHeightMax = context.pageHeight - 2 * context.margin - 40; // Presque toute la hauteur
 
                     const p1 = catPhotos[i];
-                    context.currentPage.drawText(p1.title || '', { x: context.margin, y: context.y, size: 10, font: fontBold, color: themeColors.text });
+                    context.currentPage.drawText(sanitizeWinAnsi(p1.title), { x: context.margin, y: context.y, size: 10, font: fontBold, color: themeColors.text });
                     const y1 = await drawImageSafe(context.currentPage, p1.data, context.margin, context.y - 10, photoWidth, photoHeightMax);
 
                     let y2 = context.y;
                     if (i + 1 < catPhotos.length) {
                         const p2 = catPhotos[i+1];
-                        context.currentPage.drawText(p2.title || '', { x: context.margin + photoWidth + context.margin, y: context.y, size: 10, font: fontBold, color: themeColors.text });
+                        context.currentPage.drawText(sanitizeWinAnsi(p2.title), { x: context.margin + photoWidth + context.margin, y: context.y, size: 10, font: fontBold, color: themeColors.text });
                         y2 = await drawImageSafe(context.currentPage, p2.data, context.margin + photoWidth + context.margin, context.y - 10, photoWidth, photoHeightMax);
                     }
                     context.y = Math.min(y1, y2) - 30;
                 }
+            }
+
+            // --- 6. PLAN TACTIQUE (carte MapLibre + liste des points) ---
+            // Défensif de bout en bout : la vue Plan peut n'avoir jamais été ouverte,
+            // PlanMap peut être absent, captureToDataUrl peut renvoyer null ou jeter.
+            // Aucune de ces situations ne doit interrompre l'export.
+            try {
+                if (window.PlanMap && typeof window.PlanMap.captureToDataUrl === 'function') {
+                    let mapDataUrl = null;
+                    try {
+                        mapDataUrl = await window.PlanMap.captureToDataUrl();
+                    } catch (capErr) {
+                        console.warn('PDF Plan capture échouée :', capErr);
+                        mapDataUrl = null;
+                    }
+
+                    if (mapDataUrl && typeof mapDataUrl === 'string' && mapDataUrl.startsWith('data:image')) {
+                        addNewPage('PLAN TACTIQUE', true); // Paysage A4
+                        const imgMaxWidth = context.pageWidth - 2 * context.margin;
+                        const imgMaxHeight = context.pageHeight - 2 * context.margin - 30;
+                        await drawImageSafe(context.currentPage, mapDataUrl, context.margin, context.y - 5, imgMaxWidth, imgMaxHeight);
+                    }
+                }
+
+                // Liste des points (pings) — indépendante de la capture image.
+                if (window.PlanMap && typeof window.PlanMap.getPinsSummary === 'function') {
+                    let pins = [];
+                    try {
+                        const raw = window.PlanMap.getPinsSummary();
+                        if (Array.isArray(raw)) pins = raw;
+                    } catch (pinErr) {
+                        console.warn('PDF Plan getPinsSummary échouée :', pinErr);
+                        pins = [];
+                    }
+
+                    if (pins.length > 0) {
+                        addNewPage('PLAN TACTIQUE - LISTE DES POINTS');
+                        const pCols = [200, 110, 110, 95]; // Label, Latitude, Longitude, Diamètre
+                        const pHeaders = ['Label', 'Latitude', 'Longitude', 'Diamètre (m)'];
+
+                        const drawPinHeader = () => {
+                            context.currentPage.drawRectangle({ x: context.margin, y: context.y - 5, width: context.pageWidth - 2 * context.margin, height: 20, color: themeColors.headerBg });
+                            let px = context.margin + 5;
+                            pHeaders.forEach((h, i) => {
+                                context.currentPage.drawText(h, { x: px, y: context.y + 2, size: 9, font: fontBold, color: themeColors.text });
+                                px += pCols[i];
+                            });
+                            context.y -= 25;
+                        };
+                        drawPinHeader();
+
+                        const fmtCoord = (n) => (typeof n === 'number' && isFinite(n)) ? n.toFixed(6) : 'N/C';
+                        const fmtDiam = (n) => (typeof n === 'number' && isFinite(n)) ? Math.round(n).toString() : '-';
+
+                        for (const pin of pins) {
+                            if (!pin || typeof pin !== 'object') continue;
+                            if (context.y < context.margin + 20) { addNewPage('PLAN TACTIQUE - LISTE DES POINTS (SUITE)'); drawPinHeader(); }
+                            let px = context.margin + 5;
+                            context.currentPage.drawText(sanitizeWinAnsi(pin.label).substring(0, 40), { x: px, y: context.y, size: 9, font, color: themeColors.text });
+                            px += pCols[0];
+                            context.currentPage.drawText(fmtCoord(pin.lat), { x: px, y: context.y, size: 9, font, color: themeColors.text });
+                            px += pCols[1];
+                            context.currentPage.drawText(fmtCoord(pin.lng), { x: px, y: context.y, size: 9, font, color: themeColors.text });
+                            px += pCols[2];
+                            context.currentPage.drawText(fmtDiam(pin.diameterM), { x: px, y: context.y, size: 9, font, color: themeColors.text });
+
+                            context.currentPage.drawLine({
+                                start: { x: context.margin, y: context.y - 5 },
+                                end: { x: context.pageWidth - context.margin, y: context.y - 5 },
+                                thickness: 0.5, color: themeColors.line, opacity: 0.3
+                            });
+                            context.y -= 18;
+                        }
+                    }
+                }
+            } catch (planErr) {
+                // Section entièrement optionnelle : on log et on continue l'export.
+                console.warn('PDF Plan tactique ignoré :', planErr);
+            }
+
+            // --- 7. BOARD RELATIONNEL (capture html2canvas du dashboard) ---
+            // Défensif de bout en bout : Dashboard peut être absent, jamais initialisé,
+            // captureToDataUrl peut renvoyer null ou jeter. Aucun échec ne doit
+            // interrompre l'export : on log et on saute la section.
+            try {
+                if (window.Dashboard && typeof window.Dashboard.captureToDataUrl === 'function') {
+                    let boardDataUrl = null;
+                    try {
+                        boardDataUrl = await window.Dashboard.captureToDataUrl();
+                    } catch (capErr) {
+                        console.warn('PDF Board relationnel capture échouée :', capErr);
+                        boardDataUrl = null;
+                    }
+
+                    if (boardDataUrl && typeof boardDataUrl === 'string' && boardDataUrl.startsWith('data:image')) {
+                        addNewPage('BOARD RELATIONNEL', true); // Paysage A4
+                        const imgMaxWidth = context.pageWidth - 2 * context.margin;
+                        const imgMaxHeight = context.pageHeight - 2 * context.margin - 30;
+                        await drawImageSafe(context.currentPage, boardDataUrl, context.margin, context.y - 5, imgMaxWidth, imgMaxHeight);
+                    }
+                }
+            } catch (boardErr) {
+                // Section entièrement optionnelle : on log et on continue l'export.
+                console.warn('PDF Board relationnel ignoré :', boardErr);
             }
 
             // --- FOOTER : pagination + DIFFUSION RESTREINTE sur toutes les pages ---
@@ -328,7 +498,7 @@ export const PdfExport = {
                     x: context.margin, y: 10, size: 8, font: fontBold, color: restrictColor
                 });
                 // Centre : horodatage export
-                const center = `PC TAC — Export ${exportStamp}`;
+                const center = sanitizeWinAnsi(`PC TAC - Export ${exportStamp}`);
                 const centerWidth = font.widthOfTextAtSize(center, 8);
                 page.drawText(center, {
                     x: (w - centerWidth) / 2, y: 10, size: 8, font, color: footerColor

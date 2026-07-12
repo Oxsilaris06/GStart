@@ -41,18 +41,18 @@
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
 
     <!-- Librairies QR Code -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <script src="./vendor/qrcode.min.js"></script>
+    <script src="./vendor/html5-qrcode.min.js"></script>
 
     <!-- MapLibre GL JS -->
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
-    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <link rel="stylesheet" href="./vendor/maplibre-gl.css" />
+    <script src="./vendor/maplibre-gl.js"></script>
 
     <!-- html2canvas pour le screenshot du plan -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="./vendor/html2canvas.min.js"></script>
 
     <!-- JSZip pour l'archive tout-en-un (export/import .pctac.zip) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="./vendor/jszip.min.js"></script>
 
     <style>
         /* --- THEME TACTICAL GLASS --- */
@@ -1784,6 +1784,9 @@
                     <button type="button" id="plan_btn_labels" class="plan-tool-fab" title="Afficher les noms de rues">
                         <span class="material-symbols-outlined">signpost</span>
                     </button>
+                    <button type="button" id="plan_btn_aoi" class="plan-tool-fab" title="Télécharger la carte d'une zone (hors-ligne)">
+                        <span class="material-symbols-outlined">sim_card_download</span>
+                    </button>
                 </div>
 
                 <!-- Dock dessin réductible (ouvert via le FAB Dessin) -->
@@ -1799,6 +1802,9 @@
                     </button>
                     <button type="button" class="plan-draw-btn" data-tool="text" title="Texte libre (clic sur la carte)" style="background: transparent; border: 1px solid transparent; color: var(--text-main); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
                         <span class="material-symbols-outlined" style="font-size: 24px;">title</span>
+                    </button>
+                    <button type="button" class="plan-draw-btn" data-tool="measure" title="Mesurer distance / azimut" style="background: transparent; border: 1px solid transparent; color: var(--text-main); padding: 7px 10px; border-radius: 4px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 24px;">straighten</span>
                     </button>
                     <div class="plan-dock-sep"></div>
                     <div id="plan_draw_color_picker" style="display: flex; gap: 4px; align-items: center; padding: 0 5px;">
@@ -1877,6 +1883,14 @@
                 #tl_ops { display: flex; flex-direction: column; gap: 6px; }
                 .tl-ops-bar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 2px 6px; position: sticky; top: 0; background: var(--bg-glass-heavy); z-index: 2; }
                 .tl-ops-states { display: inline-flex; gap: 9px; font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+                .tl-batch-toggle { flex: 0 0 auto; appearance: none; border: 1px solid var(--border-glass); background: var(--bg-input); color: var(--text-muted); font: 600 11px/1 inherit; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+                .tl-batch-toggle.active { background: var(--inter-blue, #4f8dff); color: #fff; border-color: var(--inter-blue, #4f8dff); }
+                .tl-batch-bar { display: flex; align-items: center; gap: 6px; padding: 0 2px 8px; }
+                .tl-batch-bar .tl-batch-fn { flex: 1 1 auto; min-width: 0; font-size: 11px; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-glass); border-radius: 5px; padding: 3px 5px; }
+                .tl-batch-all { flex: 0 0 auto; appearance: none; border: 1px solid var(--border-glass); background: var(--bg-input); color: var(--text-main); font: 600 11px/1 inherit; padding: 5px 9px; border-radius: 6px; cursor: pointer; }
+                .tl-batch-apply { flex: 0 0 auto; appearance: none; border: 1px solid var(--ao-green, #2ecf91); background: var(--ao-green, #2ecf91); color: #06281c; font: 700 11px/1 inherit; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+                .tl-op-check { flex: 0 0 auto; width: 15px; height: 15px; accent-color: var(--inter-blue, #4f8dff); cursor: pointer; margin: 0; }
+                .tl-op.selected { background: rgba(79, 141, 255, 0.12); }
                 .tl-ops-states b { font-weight: 700; color: var(--text-main); }
                 .tl-grp { border: 1px solid var(--border-glass); border-radius: var(--radius-sm, 8px); overflow: hidden; background: rgba(255,255,255,.02); }
                 .tl-grp-head { display: flex; align-items: center; gap: 8px; padding: 7px 9px; cursor: pointer; user-select: none; }
@@ -2328,7 +2342,10 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <script src="./vendor/pdf-lib.min.js"></script>
+    <!-- Tutoriel interactif -->
+    <script src="modules/tuto-engine.js"></script>
+    <script src="modules/pctac/tuto_data.js"></script>
     <script type="module" src="modules/pctac/main.js"></script>
 </body>
 

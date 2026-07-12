@@ -32,7 +32,13 @@ function _normName(s) {
 const COLLECTION_KEYS = [
     LOCAL_STORAGE_KEY, TP_ASSOC_KEY,
     ADVERSARIES_KEY, HOSTAGES_KEY, FRIENDS_KEY, PHOTOS_KEY, CUSTOM_PAX_KEY,
-    'pcTacPlanPins', 'pcTacPlanShapes', 'pcTacPlanView'
+    'pcTacPlanPins', 'pcTacPlanShapes', 'pcTacPlanView',
+    // Tableau de liens (dashboard.js) : positions des nœuds + liens manuels.
+    // C-KEY : clé localStorage 'pcTacDashboard' (constante DASHBOARD_KEY de config.js).
+    // Littéral assumé volontairement — le board ne stocke aucune image propre, juste
+    // des positions/liens — pour garder archive.js indépendant de l'ordre de mise à
+    // jour de config.js (un import nommé manquant casserait tout le graphe ESM).
+    'pcTacDashboard'
 ];
 
 export const Archive = {
@@ -110,46 +116,95 @@ export const Archive = {
         }
 
         const buf = await file.arrayBuffer();
-        const zip = await JSZip.loadAsync(buf);
+        let zip;
+        try { zip = await JSZip.loadAsync(buf); }
+        catch (e) { throw new Error("Archive illisible : ce n'est pas un fichier .pctac.zip valide (ou il est corrompu)."); }
+
+        // PC1.a — VALIDATION DU MANIFEST AVANT TOUTE MODIFICATION.
+        // L'export écrit manifest.json { appName: 'PC TAC', version, createdAt }.
+        // On refuse proprement (sans wipe) toute archive d'une autre app : importer
+        // une archive « OI » ou autre effacerait l'opérationnel sans rien restaurer.
+        const manifestFile = zip.file('manifest.json');
+        if (!manifestFile) {
+            throw new Error("Archive invalide : « manifest.json » manquant. Cette archive n'a pas été produite par PC TAC.");
+        }
+        let manifest;
+        try { manifest = JSON.parse(await manifestFile.async('string')); }
+        catch (e) { throw new Error('Archive corrompue : « manifest.json » illisible.'); }
+        const appName = manifest && manifest.appName;
+        if (appName !== 'PC TAC') {
+            throw new Error(
+                appName
+                    ? `Cette archive provient de « ${appName} », pas de PC TAC. Import refusé (aucune donnée modifiée).`
+                    : "Manifest invalide : champ « appName » absent. Import refusé (aucune donnée modifiée)."
+            );
+        }
 
         // Lire data.json
         const dataFile = zip.file('data.json');
         if (!dataFile) throw new Error('Archive invalide : data.json manquant');
-        const dataJson = JSON.parse(await dataFile.async('string'));
+        let dataJson;
+        try { dataJson = JSON.parse(await dataFile.async('string')); }
+        catch (e) { throw new Error('Archive corrompue : « data.json » illisible.'); }
 
         if (!confirm('Importer cette archive ? Les données actuelles seront remplacées.')) {
             return { ok: false, cancelled: true };
         }
 
-        // PC1 — Import ATOMIQUE avec rollback. On ne wipe plus aveuglément :
-        // 1) snapshot mémoire de tout ce que clearAllData efface,
-        // 2) on écrit le localStorage D'ABORD (rollback intégral si une écriture jette,
-        //    typiquement un dépassement de quota) — les fiches ne restent jamais à moitié
-        //    effacées,
-        // 3) on restaure les images ENSUITE (best-effort, après validation du localStorage).
+        // PC1.b — Import ATOMIQUE avec rollback COMPLET (localStorage + images IndexedDB).
+        // clearAllData() ne touche QUE le localStorage ; les images vivent dans IndexedDB.
+        // On prend donc un double snapshot AVANT tout effacement :
+        //   1) localStorage (tout ce que clearAllData efface),
+        //   2) images IndexedDB (collectées par id, comme à l'export).
+        // En cas d'échec à n'importe quelle étape APRÈS clearAllData, on restaure
+        // intégralement les deux — l'état terrain n'est jamais laissé à moitié effacé.
         const SNAPSHOT_KEYS = COLLECTION_KEYS.concat(['pcTacLieuHistory', 'lastView', 'lastPhotoFilter']);
         const snapshot = {};
         SNAPSHOT_KEYS.forEach(k => { snapshot[k] = localStorage.getItem(k); });
 
-        // 1) localStorage d'abord, atomique
+        // Snapshot des images existantes (best-effort) : on collecte les ids depuis
+        // les collections + leurs photos « _sync », exactement comme exportZip.
+        const imgSnapshot = await this._snapshotImages();
+
+        // Restaure intégralement l'état précédent (localStorage + images).
+        const rollback = async () => {
+            try { Storage.clearAllData(); } catch (_) {}
+            Object.entries(snapshot).forEach(([k, v]) => {
+                try { if (v !== null) localStorage.setItem(k, v); } catch (_) {}
+            });
+            try {
+                await ImageStore.clear();
+                for (const [id, dataUrl] of Object.entries(imgSnapshot)) {
+                    try { await ImageStore.put(id, dataUrl); } catch (_) {}
+                }
+            } catch (_) {}
+        };
+
+        // 1) localStorage (rollback intégral si une écriture jette, ex. quota).
         try {
             Storage.clearAllData();
             Object.entries(dataJson).forEach(([k, v]) => {
                 localStorage.setItem(k, v);
             });
         } catch (e) {
-            // Rollback : on remet exactement l'état précédent.
-            try { Storage.clearAllData(); } catch (_) {}
-            Object.entries(snapshot).forEach(([k, v]) => { if (v !== null) localStorage.setItem(k, v); });
+            await rollback();
             console.error('[Archive] import localStorage échec, rollback effectué:', e);
             alert("Échec de l'import (stockage insuffisant). Vos données précédentes ont été conservées.");
             return { ok: false, error: e };
         }
 
-        // 2) Images ensuite (best-effort ; le localStorage est déjà validé)
-        try { await ImageStore.clear(); } catch (e) {}
-        const imagesFolder = zip.folder('images');
+        // 2) Images : on efface puis on restaure depuis l'archive.
+        // Un échec critique (clear ou écriture impossible) déclenche le rollback complet.
         let imgError = null;
+        try {
+            await ImageStore.clear();
+        } catch (e) {
+            await rollback();
+            console.error('[Archive] clear images échec, rollback effectué:', e);
+            alert("Échec de l'import (impossible de réinitialiser les photos). Vos données précédentes ont été conservées.");
+            return { ok: false, error: e };
+        }
+        const imagesFolder = zip.folder('images');
         if (imagesFolder) {
             const tasks = [];
             imagesFolder.forEach((relPath, entry) => {
@@ -164,10 +219,43 @@ export const Archive = {
             await Promise.all(tasks);
         }
         if (imgError) {
+            // Les photos sont best-effort : un échec partiel ne justifie pas de jeter
+            // l'import du localStorage déjà validé. On prévient sans rollback.
             console.warn('[Archive] certaines images non restaurées:', imgError);
             alert("Import terminé, mais certaines photos n'ont pas pu être restaurées (stockage). Les fiches sont intactes.");
         }
         return { ok: true };
+    },
+
+    /**
+     * Snapshot best-effort des images IndexedDB liées aux collections courantes.
+     * Même logique de collecte d'ids que exportZip (fiches + photos « _sync »).
+     * @returns {Promise<Object<string,string>>} map id -> data URL (uniquement celles présentes)
+     */
+    async _snapshotImages() {
+        const out = {};
+        try {
+            const imgIds = new Set();
+            [ADVERSARIES_KEY, HOSTAGES_KEY, PHOTOS_KEY].forEach(k => {
+                Storage.loadCollection(k).forEach(item => {
+                    if (item && item.hasImage && item.id) imgIds.add(item.id);
+                });
+            });
+            [ADVERSARIES_KEY, HOSTAGES_KEY].forEach(k => {
+                Storage.loadCollection(k).forEach(item => {
+                    if (item && item.id) imgIds.add(item.id + '_sync');
+                });
+            });
+            for (const id of imgIds) {
+                try {
+                    const dataUrl = await ImageStore.get(id);
+                    if (dataUrl) out[id] = dataUrl;
+                } catch (_) { /* image absente : on ignore */ }
+            }
+        } catch (e) {
+            console.warn('[Archive] snapshot images partiel:', e);
+        }
+        return out;
     },
 
     /** Compat : ancien export PC-TAC JSON (logs uniquement). */

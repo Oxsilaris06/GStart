@@ -10,6 +10,9 @@ export const HOSTAGES_KEY = 'pcTacHostages';
 export const FRIENDS_KEY = 'pcTacFriends';
 export const PHOTOS_KEY = 'pcTacPhotos';
 export const CUSTOM_PAX_KEY = 'pcTacCustomPax';
+// Clé de persistance du tableau de liens (board "Dashboard")
+// Forme : { positions:{[nodeId]:{x,y}}, links:[{id,from,to,comment}], locked:boolean, layout:'auto'|'manual' }
+export const DASHBOARD_KEY = 'pcTacDashboard';
 
 // Catégories de photos
 export const PHOTO_CATEGORIES = [
@@ -175,6 +178,128 @@ export function suggestPinIcons(label, max = 6) {
 
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, max).map(x => x.ic);
+}
+
+/**
+ * Mapping catégorie de photo → métadonnées de nœud pour le board "Dashboard".
+ *
+ * Chaque entrée décrit comment représenter un nœud :
+ *  - type  : identifiant logique du type de nœud
+ *  - icon  : nom d'icône Material Symbols Outlined
+ *  - label : libellé d'affichage
+ *  - role  : 'hub' (centre de cluster) | 'satellite' (gravite autour du hub)
+ *
+ * Le 'Lieu' (location) est le HUB central de son cluster ; tous les autres
+ * acteurs (adversaire, otage, véhicule, piégeage) sont des satellites.
+ * La catégorie 'all' n'a pas de représentation board (ignorée).
+ */
+export const BOARD_NODE_TYPES = {
+    neutralized: { type: 'adversary', icon: 'person_alert',    label: 'Adversaire', role: 'satellite' },
+    target:      { type: 'vehicle',   icon: 'directions_car',  label: 'Véhicule',   role: 'satellite' },
+    location:    { type: 'location',  icon: 'maps_home_work',  label: 'Lieu',       role: 'hub' },
+    hostage:     { type: 'hostage',   icon: 'person_off',      label: 'Otage',      role: 'satellite' },
+    trap:        { type: 'trap',      icon: 'dangerous',       label: 'Piégeage',   role: 'satellite' }
+};
+
+/**
+ * Découpe un intitulé de photo en tokens normalisés (trim + UPPER).
+ *
+ * - Normalise : suppression des diacritiques, passage en MAJUSCULES, trim.
+ * - Split sur les espaces et la ponctuation courante (tokens = mots entiers).
+ * - Cas particulier "lettres de façade" : si un token est une courte suite de
+ *   lettres de façade A–F uniquement (ex 'AB'), on renvoie AUSSI chacune de ses
+ *   lettres comme tokens individuels (ex 'AB' → 'AB','A','B'). Cela permet à un
+ *   libellé de façade composé de matcher les façades unitaires.
+ *   On NE déstructure PAS les vrais mots (ex 'RENAULT' reste un seul token)
+ *   afin d'éviter les faux positifs lors d'un match par token (cf. C-MATCH cas 2).
+ *
+ * Défensif : title null/undefined → [].
+ *
+ * @param {string} title
+ * @returns {string[]} tokens normalisés, dédupliqués, sans vide.
+ */
+export function labelTokens(title) {
+    if (title == null) return [];
+    const norm = title.toString()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '') // retire les accents
+        .toUpperCase()
+        .trim();
+    if (!norm) return [];
+
+    // Split sur espaces / ponctuation : ne conserve que [A-Z0-9]
+    const rawTokens = norm.split(/[^A-Z0-9]+/).filter(Boolean);
+
+    const out = new Set();
+    for (const tok of rawTokens) {
+        out.add(tok);
+        // Lettres de façade uniquement (A–F, suite courte ≤ 6) → exploser en
+        // lettres individuelles. Borne longueur pour ne pas éclater un mot.
+        if (tok.length > 1 && tok.length <= 6 && /^[A-F]+$/.test(tok)) {
+            for (const ch of tok) out.add(ch);
+        }
+    }
+    return Array.from(out);
+}
+
+/**
+ * Matche un libellé (lettre(s) de façade ou token quelconque) contre une
+ * liste de photos, selon le CONTRAT C-MATCH.
+ *
+ * Normalisation : trim + UPPER (via labelTokens / regex internes).
+ *
+ * Règles :
+ *  1. Si le label est une/deux lettre(s) de façade (/^[A-F]{1,2}$/ après
+ *     normalisation) → on ne considère que les photos de catégorie 'location',
+ *     et on les retient si l'ENSEMBLE des lettres du titre INTERSECTE
+ *     l'ensemble des lettres du label.
+ *       ex : label 'A'  matche titres 'A','AB','BA'
+ *            label 'AB' matche 'A','B','AB','BC' (via 'B')
+ *  2. Sinon → égalité de token normalisé sur le titre (toutes catégories) :
+ *     la photo matche si l'un de ses tokens (labelTokens du titre) est
+ *     strictement égal au label normalisé.
+ *
+ * Pure, sans I/O. Défensif : label/photos null → [].
+ *
+ * @param {string} label
+ * @param {Array<{title?:string, category?:string}>} photos
+ * @returns {Array} sous-ensemble de `photos` correspondant.
+ */
+export function matchPhotosByLabel(label, photos) {
+    if (label == null || !Array.isArray(photos)) return [];
+
+    // Normalisation du label : trim + UPPER + sans accents
+    const normLabel = label.toString()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .toUpperCase()
+        .trim();
+    if (!normLabel) return [];
+
+    // --- Cas 1 : lettres de façade A–F (1 ou 2 lettres) ---
+    if (/^[A-F]{1,2}$/.test(normLabel)) {
+        const labelLetters = new Set(normLabel.split(''));
+        return photos.filter(p => {
+            if (!p || p.category !== 'location') return false;
+            // Ensemble des lettres (A-Z) présentes dans le titre de la photo
+            const titleLetters = new Set(
+                (p.title == null ? '' : p.title.toString())
+                    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+                    .toUpperCase()
+                    .replace(/[^A-Z]/g, '')
+                    .split('')
+            );
+            // Intersection non vide ?
+            for (const ch of labelLetters) {
+                if (titleLetters.has(ch)) return true;
+            }
+            return false;
+        });
+    }
+
+    // --- Cas 2 : égalité de token normalisé (toutes catégories) ---
+    return photos.filter(p => {
+        if (!p) return false;
+        return labelTokens(p.title).includes(normLabel);
+    });
 }
 
 window.PIN_ICONS = PIN_ICONS;

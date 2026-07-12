@@ -16,7 +16,10 @@
  * équipe + suivi, trace togglable. Tout est isolé sous les ids #tl_* et la map PlanMap.
  */
 
+import { Persist } from "./persist.js";
+
 const LS_KEY = "pcTacTchapLive";
+const LS_SINCE_KEY = "pcTacTchapLiveSince";  // curseur next_batch persisté (reprise long-poll)
 const DEFAULT_HS = "https://matrix.agent.interieur.tchap.gouv.fr";
 const DEFAULT_ISSUER = "https://auth.agent.interieur.tchap.gouv.fr";
 const CLIENT_URI = "https://pc-tac.app"; // métadonnée DCR (https + suffixe public valides)
@@ -28,6 +31,7 @@ const ANIM_MS = 900, DECLUTTER_PX = 30, TRAIL_MAX = 80;
 const STATE_COLORS = {
   new: "var(--inter-blue, #4f8dff)", moving: "var(--ao-green, #2ecf91)",
   idle: "var(--text-muted, #8a8a91)", expiring: "var(--danger-red, #f0556a)",
+  stale: "var(--text-muted, #6b6b72)",   // réhydraté du disque, pas encore confirmé live
 };
 const DEFAULT_ICON = "person_pin_circle";
 const FUNCTION_ICONS = {
@@ -46,8 +50,129 @@ let authMode = null, accessToken = null, refreshToken = null, expiresAt = 0, cli
 const members = new Map(), names = new Map(), beacons = new Map();
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-function loadCfg() { try { const c = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); c.assign = c.assign || {}; return c; } catch (_) { return { assign: {} }; } }
-function persist() { localStorage.setItem(LS_KEY, JSON.stringify(cfg)); }
+// Sleep interruptible par l'AbortController courant : un stop() (aborter.abort())
+// réveille immédiatement la boucle de backoff au lieu d'attendre la fin du délai.
+function sleepAbortable(ms) {
+  return new Promise((resolve) => {
+    const sig = aborter?.signal;
+    if (sig?.aborted) return resolve();
+    const t = setTimeout(() => { if (sig) sig.removeEventListener("abort", onAbort); resolve(); }, ms);
+    function onAbort() { clearTimeout(t); resolve(); }
+    if (sig) sig.addEventListener("abort", onAbort, { once: true });
+  });
+}
+function loadCfg() {
+  const c = Persist.get(LS_KEY, { validator: (v) => v && typeof v === "object", fallback: null });
+  if (c && typeof c === "object") { c.assign = c.assign || {}; return c; }
+  return { assign: {} };
+}
+function persist() { Persist.set(LS_KEY, cfg); }
+
+// ─── résilience : état last-known persisté (IndexedDB) ───────────────────────
+// Store dédié, helper IndexedDB interne (NE PAS toucher imageStore.js). On y
+// écrit à chaque upsert l'état last-known par sender pour réhydrater au boot,
+// AVANT tout réseau, en mode 'stale' (gris + âge). Lecture seule côté Tchap :
+// rien n'est exfiltré, tout reste dans le navigateur. Purgé au stop().
+const TL_DB_NAME = "pcTacTchapLive";
+const TL_STORE = "tchapLiveState";
+const TL_DB_VERSION = 1;
+let tlDbPromise = null;
+function tlSupportsIdb() { try { return typeof indexedDB !== "undefined"; } catch (_) { return false; } }
+function tlOpenDb() {
+  if (!tlSupportsIdb()) return Promise.resolve(null);
+  if (!tlDbPromise) {
+    tlDbPromise = new Promise((resolve) => {
+      try {
+        const req = indexedDB.open(TL_DB_NAME, TL_DB_VERSION);
+        req.onupgradeneeded = () => { const db = req.result; if (!db.objectStoreNames.contains(TL_STORE)) db.createObjectStore(TL_STORE); };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      } catch (_) { resolve(null); }
+    });
+  }
+  return tlDbPromise;
+}
+function tlWithStore(mode, fn) {
+  return tlOpenDb().then((db) => {
+    if (!db) return null;
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction(TL_STORE, mode);
+        const store = tx.objectStore(TL_STORE);
+        let result;
+        try { result = fn(store); } catch (_) { resolve(null); return; }
+        tx.oncomplete = () => resolve(result);
+        tx.onerror = () => resolve(null);
+        tx.onabort = () => resolve(null);
+      } catch (_) { resolve(null); }
+    });
+  }).catch(() => null);
+}
+// Écrit (best-effort, fire-and-forget) l'état last-known d'un sender.
+function persistState(sender, m) {
+  if (!sender || !m) return;
+  const rec = {
+    lat: m.lat, lon: m.lng, ts: m.ts || Date.now(),
+    trail: Array.isArray(m.trail) ? m.trail.slice(-TRAIL_MAX) : undefined,
+    fonction: (cfg.assign?.[sender] || {}).fonction || null,
+    name: names.get(sender) || null,
+    room: cfg.room || null,
+    savedAt: Date.now(),
+  };
+  tlWithStore("readwrite", (store) => store.put(rec, sender)).catch(() => {});
+}
+function loadAllState() {
+  return tlWithStore("readonly", (store) => {
+    return new Promise((resolve) => {
+      const out = [];
+      let req;
+      try { req = store.openCursor(); } catch (_) { resolve(out); return; }
+      req.onsuccess = () => {
+        const cur = req.result;
+        if (cur) { out.push({ sender: cur.key, rec: cur.value }); cur.continue(); }
+        else resolve(out);
+      };
+      req.onerror = () => resolve(out);
+    });
+  }).then((r) => (Array.isArray(r) ? r : r || [])).catch(() => []);
+}
+function purgeState() { tlWithStore("readwrite", (store) => store.clear()).catch(() => {}); }
+
+// ─── résilience : buffer mémoire des positions reçues hors-carte ──────────────
+// Si une position arrive alors que la carte n'est pas disponible, on la met en
+// tampon (par sender, dernière connue) au lieu de la jeter, et on la rejoue au
+// premier getMap() réussi.
+const pendingPositions = new Map();   // sender -> {lat, lon, ts}
+let bufferDrainScheduled = false;
+let rehydratePending = false;          // réhydratation différée si carte absente au boot
+function bufferPosition(sender, lat, lon, ts) { pendingPositions.set(sender, { lat, lon, ts }); }
+function drainBuffer() {
+  if (bufferDrainScheduled || !pendingPositions.size) return;
+  const map = getMap();
+  if (!map || typeof maplibregl === "undefined") return; // toujours pas de carte : on garde le tampon
+  bufferDrainScheduled = true;
+  const queued = [...pendingPositions.entries()];
+  pendingPositions.clear();
+  bufferDrainScheduled = false;
+  for (const [sender, p] of queued) upsert(sender, p.lat, p.lon, p.ts);
+  if (pendingPositions.size) jlog(`⚠ ${pendingPositions.size} position(s) toujours en attente (carte)`, "var(--civil-yellow)");
+}
+
+// ─── résilience : indicateur 'hors-réseau depuis Xs' ─────────────────────────
+let offlineSince = 0;            // ts du début de coupure réseau, 0 = en ligne
+let offlineTimer = null;         // tick d'affichage de l'âge de coupure
+function startOfflineTicker() {
+  if (offlineTimer) return;
+  offlineTimer = setInterval(() => {
+    if (!offlineSince) return;
+    const age = Date.now() - offlineSince;
+    setDot("var(--danger-red)");
+    status(`Hors-réseau depuis ${fmtAge(age)} — reprise auto…`, "var(--danger-red)");
+  }, 1000);
+}
+function stopOfflineTicker() { if (offlineTimer) { clearInterval(offlineTimer); offlineTimer = null; } }
+function markOffline() { if (!offlineSince) offlineSince = Date.now(); startOfflineTicker(); }
+function markOnline() { offlineSince = 0; stopOfflineTicker(); }
 function saveCfg() { cfg.hs = (val("tl_hs") || DEFAULT_HS).trim(); cfg.token = val("tl_token").trim(); cfg.room = val("tl_room").trim(); cfg.clientId = (val("tl_clientid") || cfg.clientId || "").trim() || undefined; persist(); }
 const $ = (id) => document.getElementById(id);
 const val = (id) => ($(id) ? $(id).value : "");
@@ -98,7 +223,11 @@ function getMap() {
   const PM = window.PlanMap;
   if (!PM) return null;
   if (!PM.initialized) { try { PM.init(); } catch (e) { console.warn("[TchapLive]", e); } }
-  if (PM.map) wireMapListeners(PM.map);
+  if (PM.map && typeof maplibregl !== "undefined") {
+    wireMapListeners(PM.map);
+    if (pendingPositions.size) Promise.resolve().then(drainBuffer);
+    if (rehydratePending) { rehydratePending = false; Promise.resolve().then(rehydrateFromDisk); }
+  }
   return PM.map || null;
 }
 
@@ -136,11 +265,25 @@ function computeState(m, now) {
 function fnIcon(fonction) { return FUNCTION_ICONS[fonction] || DEFAULT_ICON; }
 function applyVisual(sender, m) {
   if (!m || !m.iconEl) return;
-  const st = computeState(m, Date.now()); m.state = st;
-  const color = STATE_COLORS[st] || STATE_COLORS.expiring;
   const a = cfg.assign?.[sender] || {};
   const name = names.get(sender) || sender.replace(/^@/, "").split(":")[0];
   const tag = a.fonction && a.fonction !== "Sans" ? `[${a.fonction.toUpperCase()}] ` : "";
+  // État 'stale' : marqueur réhydraté du disque (avant 1ère trame live).
+  // Gris + âge depuis la dernière position connue ; jamais pulsé.
+  if (m.stale) {
+    m.state = "stale";
+    const color = STATE_COLORS.stale;
+    const age = Date.now() - (m.ts || Date.now());
+    m.iconEl.style.color = color; m.iconEl.style.opacity = "0.6";
+    m.glyphEl.textContent = fnIcon(a.fonction);
+    m.iconEl.classList.remove("pulse");
+    m.labelEl.textContent = `${tag}${name} · ${fmtAge(age)}`;
+    m.labelEl.style.borderLeftColor = color;
+    return;
+  }
+  m.iconEl.style.opacity = "";
+  const st = computeState(m, Date.now()); m.state = st;
+  const color = STATE_COLORS[st] || STATE_COLORS.expiring;
   m.iconEl.style.color = color;
   m.glyphEl.textContent = fnIcon(a.fonction);
   m.iconEl.classList.toggle("pulse", st === "moving" || st === "expiring");
@@ -152,7 +295,14 @@ function applyVisual(sender, m) {
 function upsert(sender, lat, lon, ts) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
   const map = getMap();
-  if (!map || typeof maplibregl === "undefined") { jlog("⚠ carte indisponible (ouvre la vue Plan tactique)", "var(--civil-yellow)"); return; }
+  if (!map || typeof maplibregl === "undefined") {
+    // Carte indisponible : ne PAS jeter la position. On la met en tampon et on
+    // persiste l'état last-known pour réhydratation/reprise ultérieure.
+    bufferPosition(sender, lat, lon, ts);
+    persistState(sender, { lat, lng: lon, ts, trail: [[lon, lat]] });
+    jlog("⚠ carte indisponible — position mise en tampon (ouvre la vue Plan tactique)", "var(--civil-yellow)");
+    return;
+  }
   let m = members.get(sender); const now = Date.now();
   if (!m) {
     const root = document.createElement("div"); root.className = "tl-marker";
@@ -165,6 +315,8 @@ function upsert(sender, lat, lon, ts) {
     members.set(sender, m);
     jlog(`👤 ${names.get(sender) || sender} connecté`, "var(--inter-blue)");
   } else {
+    // 1ère trame live d'un marqueur réhydraté : on sort de l'état 'stale'.
+    if (m.stale) { m.stale = false; m.firstSeen = now; m.lastMove = now; }
     const moved = metersBetween(m.lat, m.lng, lat, lon);
     if (moved > MOVE_MIN_M) { m.lastMove = now; m.trail.push([lon, lat]); if (m.trail.length > TRAIL_MAX) m.trail.shift(); }
     m.anim = { fromLng: m.dispLng, fromLat: m.dispLat, toLng: lon, toLat: lat, t0: now };
@@ -177,6 +329,7 @@ function upsert(sender, lat, lon, ts) {
   if (followed === sender) { try { map.easeTo({ center: [lon, lat], duration: 700 }); } catch (_) {} }
   if (trailsOn) updateTrails();
   scheduleDeclutter(); scheduleRenderOps();
+  persistState(sender, m);
 }
 function removeMember(sender) {
   const m = members.get(sender); if (!m) return;
@@ -186,6 +339,47 @@ function removeMember(sender) {
   if (trailsOn) updateTrails();
   scheduleRenderOps();
 }
+
+// Pose un marqueur en état 'stale' (gris + âge) à partir d'un enregistrement
+// persisté. N'effectue AUCUN recadrage carte (pas de flyTo) : c'est de la
+// dernière position connue, pas du live. Devient live au 1er upsert reçu.
+function rehydrateMarker(sender, rec) {
+  if (!rec || !Number.isFinite(rec.lat) || !Number.isFinite(rec.lon)) return false;
+  const map = getMap();
+  if (!map || typeof maplibregl === "undefined") return false;
+  if (members.has(sender)) return false;
+  const lon = rec.lon, lat = rec.lat, ts = rec.ts || rec.savedAt || Date.now();
+  const root = document.createElement("div"); root.className = "tl-marker";
+  const icon = document.createElement("div"); icon.className = "tl-icon";
+  const glyph = document.createElement("span"); glyph.className = "material-symbols-outlined tl-glyph"; glyph.textContent = DEFAULT_ICON;
+  const label = document.createElement("div"); label.className = "tl-label";
+  icon.appendChild(glyph); root.appendChild(icon); root.appendChild(label);
+  const marker = new maplibregl.Marker({ element: root, anchor: "center" }).setLngLat([lon, lat]).addTo(map);
+  const trail = Array.isArray(rec.trail) && rec.trail.length ? rec.trail.slice(-TRAIL_MAX) : [[lon, lat]];
+  const m = { marker, root, iconEl: icon, glyphEl: glyph, labelEl: label, lng: lon, lat, dispLng: lon, dispLat: lat, ts, firstSeen: ts, lastMove: ts, trail, beacon: null, stale: true };
+  members.set(sender, m);
+  if (rec.name) names.set(sender, rec.name);
+  if (rec.fonction) { cfg.assign = cfg.assign || {}; cfg.assign[sender] = cfg.assign[sender] || {}; if (!cfg.assign[sender].fonction) cfg.assign[sender].fonction = rec.fonction; }
+  applyVisual(sender, m);
+  return true;
+}
+
+// Réhydrate immédiatement tous les marqueurs persistés (état 'stale'), AVANT
+// tout réseau. Filtré sur le salon courant. Best-effort.
+async function rehydrateFromDisk() {
+  let records;
+  try { records = await loadAllState(); } catch (_) { return; }
+  if (!records || !records.length) return;
+  const map = getMap();
+  if (!map || typeof maplibregl === "undefined") return; // pas de carte : on réessaiera au prochain wireUI/drain
+  let n = 0;
+  for (const { sender, rec } of records) {
+    if (cfg.room && rec && rec.room && rec.room !== cfg.room) continue;
+    if (rehydrateMarker(sender, rec)) n++;
+  }
+  if (n) { jlog(`↻ ${n} position(s) réhydratée(s) (dernière connue, hors-ligne)`, "var(--text-muted)"); applyVisualAll(); scheduleRenderOps(); }
+}
+function applyVisualAll() { for (const [s, m] of members) applyVisual(s, m); }
 
 // animation gatée : ne tourne QUE s'il y a des opérateurs (aucun coût à vide)
 let animRunning = false;
@@ -254,7 +448,9 @@ function scheduleRenderOps() { if (renderTimer) return; renderTimer = setTimeout
 function optionTags(list, sel) { return `<option value=""${sel ? "" : " selected"}>—</option>` + list.map((v) => `<option value="${v}"${v === sel ? " selected" : ""}>${v}</option>`).join(""); }
 // ─── liste opérateurs : tableau d'ordre de bataille (accordéon) ───────────────
 // Regroupement par fonction (défaut) ou cellule, sections repliables, jauge d'état.
-let collapsed = new Set();                       // sections repliées : clé "mode:groupe"
+let collapsed = new Set();                       // sections repliées : clé "groupe"
+let batchMode = false;                            // mode lot (affectation multiple)
+let batchSel = new Set();                         // opérateurs sélectionnés en mode lot
 const FONCTION_RANK = { "Chef inter": 0, "Chef dispo": 1, "Chef Oscar": 2, "Négociateur": 3, "PC": 4, "Inter": 5, "AO": 6, "Effrac": 7, "Cyno": 8, "Medic": 9, "Pompier": 10, "Sans": 98 };
 const GAUGE_ORDER = ["moving", "new", "idle", "expiring"];
 
@@ -298,7 +494,16 @@ function renderOps(force) {
   // Bandeau : compteurs d'état globaux
   const glob = stateCounts([...members]);
   const pill = (st, label) => glob[st] ? `<span title="${label}"><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${STATE_COLORS[st]};vertical-align:middle"></i> <b>${glob[st]}</b></span>` : "";
-  let html = `<div class="tl-ops-bar"><span class="tl-ops-states">${pill("new", "Nouveau")}${pill("moving", "En mouvement")}${pill("idle", "Immobile")}${pill("expiring", "Déco imminente")}</span></div>`;
+  let html = `<div class="tl-ops-bar">`
+    + `<button type="button" class="tl-batch-toggle${batchMode ? " active" : ""}" title="Mode lot : affecter une fonction à plusieurs opérateurs">Lot</button>`
+    + `<span class="tl-ops-states">${pill("new", "Nouveau")}${pill("moving", "En mouvement")}${pill("idle", "Immobile")}${pill("expiring", "Déco imminente")}</span></div>`;
+  if (batchMode) {
+    html += `<div class="tl-batch-bar">`
+      + `<button type="button" class="tl-batch-all" title="Tout sélectionner / désélectionner">Tout</button>`
+      + `<select class="tl-batch-fn" title="Fonction à affecter aux sélectionnés">${optionTags(FONCTIONS, null)}</select>`
+      + `<button type="button" class="tl-batch-apply">Affecter (<span class="tl-batch-n">${batchSel.size}</span>)</button>`
+      + `</div>`;
+  }
 
   for (const key of keys) {
     const list = groups.get(key);
@@ -317,11 +522,15 @@ function renderOps(force) {
       const name = names.get(s) || s.replace(/^@/, "").split(":")[0];
       const color = STATE_COLORS[m.state] || "var(--text-muted)";
       const tag = a.fonction && a.fonction !== "Sans" ? `[${a.fonction.toUpperCase()}] ` : "";
-      html += `<div class="tl-op" data-s="${encodeURIComponent(s)}">`
+      const checked = batchSel.has(s);
+      const lead = batchMode ? `<input type="checkbox" class="tl-op-check"${checked ? " checked" : ""}>` : "";
+      const fnCtrl = batchMode ? "" : `<select class="tl-op-fn" title="Fonction">${optionTags(FONCTIONS, a.fonction)}</select>`;
+      html += `<div class="tl-op${batchMode && checked ? " selected" : ""}" data-s="${encodeURIComponent(s)}">`
+        + lead
         + `<span class="tl-op-dot${m.state === "moving" ? " moving" : ""}" style="background:${color}"></span>`
         + `<span class="tl-op-name" title="${escapeHtml(name)}">${escapeHtml(tag + name)}</span>`
         + `<span class="tl-op-age">${fmtAge(now - (m.ts || now))}</span>`
-        + `<select class="tl-op-fn" title="Fonction">${optionTags(FONCTIONS, a.fonction)}</select>`
+        + fnCtrl
         + `<button type="button" class="tl-op-follow ${followed === s ? "on" : ""}" title="Suivre (centrage live)">${followed === s ? "◉" : "◎"}</button>`
         + `</div>`;
     }
@@ -330,6 +539,16 @@ function renderOps(force) {
   box.innerHTML = html;
 }
 function onOpsChange(e) {
+  // Mode lot : (dé)sélection d'un opérateur — mise à jour en place (pas de re-render)
+  if (e.target.classList.contains("tl-op-check")) {
+    const row = e.target.closest(".tl-op"); if (!row) return;
+    const s = decodeURIComponent(row.dataset.s);
+    if (e.target.checked) batchSel.add(s); else batchSel.delete(s);
+    row.classList.toggle("selected", e.target.checked);
+    const n = document.querySelector(".tl-batch-n"); if (n) n.textContent = batchSel.size;
+    return;
+  }
+  // Affectation individuelle de fonction
   const row = e.target.closest(".tl-op"); if (!row) return;
   if (!e.target.classList.contains("tl-op-fn")) return;
   const s = decodeURIComponent(row.dataset.s); const a = cfg.assign[s] = cfg.assign[s] || {};
@@ -350,6 +569,28 @@ function fitGroup(key) {
   jlog(`centré sur « ${key} » (${pts.length})`, "var(--inter-blue)");
 }
 function onOpsClick(e) {
+  // Mode lot : activer / désactiver
+  if (e.target.closest(".tl-batch-toggle")) {
+    batchMode = !batchMode; if (!batchMode) batchSel.clear();
+    renderOps(true); return;
+  }
+  // Lot : tout (dé)sélectionner
+  if (e.target.closest(".tl-batch-all")) {
+    if (batchSel.size === members.size) batchSel.clear();
+    else { batchSel.clear(); for (const s of members.keys()) batchSel.add(s); }
+    renderOps(true); return;
+  }
+  // Lot : affecter la fonction choisie à tous les sélectionnés
+  if (e.target.closest(".tl-batch-apply")) {
+    if (!batchSel.size) { jlog("aucun opérateur sélectionné", "var(--text-muted)"); return; }
+    const sel = document.querySelector(".tl-batch-fn");
+    const val = sel ? (sel.value || null) : null;
+    for (const s of batchSel) { const a = cfg.assign[s] = cfg.assign[s] || {}; a.fonction = val; const m = members.get(s); if (m) applyVisual(s, m); }
+    persist();
+    jlog(`fonction « ${val || "—"} » affectée à ${batchSel.size} opérateur(s)`, "var(--inter-blue)");
+    batchSel.clear();
+    renderOps(true); return;
+  }
   // Centrer un groupe (fitBounds one-shot sur ses membres)
   const gf = e.target.closest(".tl-grp-follow");
   if (gf) { const h = gf.closest(".tl-grp-head"); if (h) fitGroup(decodeURIComponent(h.dataset.g)); return; }
@@ -470,26 +711,82 @@ async function api(path, retried) {
 
 function uiBusy(b) { ["tl_connect", "tl_oidc"].forEach((id) => { const el = $(id); if (el) el.disabled = b; }); const st = $("tl_stop"); if (st) st.disabled = !b; }
 
+// Backoff exponentiel borné + jitter (anti-thundering-herd, respectueux du WAF :
+// on RALENTIT en cas d'erreur, on ne contourne rien). delay = min(cap, base*2^n) ± jitter.
+const BACKOFF_BASE = 3000, BACKOFF_CAP = 45000;
+function backoffDelay(n) {
+  const raw = Math.min(BACKOFF_CAP, BACKOFF_BASE * Math.pow(2, n));
+  const jitter = raw * 0.25 * (Math.random() * 2 - 1); // ±25%
+  return Math.max(BACKOFF_BASE, Math.round(raw + jitter));
+}
+
+// Page Visibility : suspend la boucle quand l'onglet est masqué (économie
+// batterie/data terrain) et reprend au retour. Garde-fou de support.
+let visHandlerWired = false;
+let resumeFromHidden = null; // resolver pour réveiller une boucle en pause
+function waitVisible() {
+  if (typeof document === "undefined" || !document.hidden) return Promise.resolve();
+  markOffline(); status("En pause (onglet masqué) — reprise au retour…", "var(--text-muted)"); setDot("var(--civil-yellow)");
+  return new Promise((resolve) => { resumeFromHidden = resolve; });
+}
+function wireVisibility() {
+  if (visHandlerWired || typeof document === "undefined") return; visHandlerWired = true;
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && resumeFromHidden) { const r = resumeFromHidden; resumeFromHidden = null; markOnline(); r(); }
+  });
+}
+
 async function runSync() {
-  uiBusy(true); startSweep();
+  uiBusy(true); startSweep(); wireVisibility();
   const myAborter = aborter; // jeton de génération : si remplacé (stop+start), cette boucle s'arrête
   setDot("var(--civil-yellow)"); status("Connexion…");
   try {
     const who = await api("/_matrix/client/v3/account/whoami");
-    setDot("var(--ao-green)"); status(`Connecté : ${who.user_id}`, "var(--text-muted)"); jlog(`connecté : ${who.user_id}`, "var(--ao-green)");
+    setDot("var(--ao-green)"); markOnline(); status(`Connecté : ${who.user_id}`, "var(--text-muted)"); jlog(`connecté : ${who.user_id}`, "var(--ao-green)");
     const filter = encodeURIComponent(JSON.stringify({ room: { rooms: [cfg.room], timeline: { limit: 50 }, state: { lazy_load_members: false } }, presence: { types: [] } }));
-    let sync = await api(`/_matrix/client/v3/sync?timeout=0&filter=${filter}`);
-    processSync(sync, true); renderOps();
-    let since = sync.next_batch;
-    while (running && aborter === myAborter) {
+    // Reprise du long-poll incrémental après refresh via le curseur persisté.
+    // Fallback propre : si /sync rejette un next_batch expiré, on repart sur un
+    // /sync initial (comportement déjà géré par le catch ci-dessous).
+    let since = Persist.getRaw(LS_SINCE_KEY) || null;
+    let initialDone = false;
+    if (since) {
       try {
-        sync = await api(`/_matrix/client/v3/sync?since=${encodeURIComponent(since)}&timeout=30000&filter=${filter}`);
-        processSync(sync, false); since = sync.next_batch;
+        jlog("reprise du long-poll (curseur persisté)…", "var(--text-muted)");
+        let sync = await api(`/_matrix/client/v3/sync?since=${encodeURIComponent(since)}&timeout=0&filter=${filter}`);
+        processSync(sync, false); renderOps(); since = sync.next_batch; Persist.setRaw(LS_SINCE_KEY, since);
+        initialDone = true;
+      } catch (e) {
+        if (/abort/i.test(e.name || "")) throw e;
+        jlog("curseur expiré → /sync initial", "var(--civil-yellow)"); since = null;
+      }
+    }
+    if (!initialDone) {
+      let sync = await api(`/_matrix/client/v3/sync?timeout=0&filter=${filter}`);
+      processSync(sync, true); renderOps();
+      since = sync.next_batch; Persist.setRaw(LS_SINCE_KEY, since);
+    }
+    let backoffN = 0;
+    while (running && aborter === myAborter) {
+      await waitVisible(); if (!running || aborter !== myAborter) break;
+      try {
+        const sync = await api(`/_matrix/client/v3/sync?since=${encodeURIComponent(since)}&timeout=30000&filter=${filter}`);
+        processSync(sync, false); since = sync.next_batch; Persist.setRaw(LS_SINCE_KEY, since);
+        backoffN = 0; markOnline(); setDot("var(--ao-green)"); // trame réussie : reset du backoff
         status(`À jour — ${new Date().toLocaleTimeString()} · ${members.size} opérateur(s)`, "var(--text-muted)");
       } catch (e) {
         if (!running || aborter !== myAborter) break;
-        setDot("var(--danger-red)"); status("Erreur sync, reprise… " + e.message, "var(--civil-yellow)");
-        await sleep(3000); if (running && aborter === myAborter) setDot("var(--ao-green)");
+        if (/abort/i.test(e.name || "")) break;
+        // Un curseur expiré (souvent 4xx M_UNKNOWN) → reprise propre sur /sync initial.
+        if (/400|410|M_UNKNOWN_TOKEN|unknown.*since|invalid.*since/i.test(e.message || "") && since) {
+          jlog("curseur rejeté → /sync initial", "var(--civil-yellow)");
+          try { const s2 = await api(`/_matrix/client/v3/sync?timeout=0&filter=${filter}`); processSync(s2, false); since = s2.next_batch; Persist.setRaw(LS_SINCE_KEY, since); backoffN = 0; markOnline(); setDot("var(--ao-green)"); continue; }
+          catch (_) { /* on tombe dans le backoff ci-dessous */ }
+        }
+        markOffline();
+        const d = backoffDelay(backoffN); backoffN++;
+        status(`Hors-réseau — reprise dans ${Math.round(d / 1000)}s (${e.message})`, "var(--civil-yellow)");
+        await sleepAbortable(d);
+        if (running && aborter === myAborter && !offlineSince) setDot("var(--ao-green)");
       }
     }
   } catch (e) {
@@ -564,10 +861,14 @@ function hideDevice() { const el = $("tl_device"); if (el) { el.style.display = 
 
 function stop(userInitiated) {
   running = false; deviceAbort = true;
+  if (resumeFromHidden) { const r = resumeFromHidden; resumeFromHidden = null; r(); } // réveille une boucle en pause
   if (aborter) { aborter.abort(); aborter = null; } // remis à null → un nouveau start crée un signal frais
-  stopSweep();
+  stopSweep(); stopOfflineTicker(); markOnline();
   for (const s of [...members.keys()]) removeMember(s); // purge l'affichage (pas de marqueurs périmés au re-start)
   accessToken = null; expiresAt = 0; followed = null; centered = false;
+  pendingPositions.clear();           // tampon mémoire vidé
+  purgeState();                       // purge l'état last-known persisté (IndexedDB)
+  try { Persist.setRaw(LS_SINCE_KEY, ""); } catch (_) {}  // oublie le curseur long-poll
   uiBusy(false); hideDevice();
   setDot("var(--text-muted)"); status("Arrêté.", "var(--text-muted)");
   if (userInitiated) { cfg.connected = false; persist(); }
@@ -602,6 +903,15 @@ function wireUI() {
   const ops = $("tl_ops"); if (ops) { ops.addEventListener("change", onOpsChange); ops.addEventListener("click", onOpsClick); }
   // listeners carte attachés paresseusement (wireMapListeners via getMap) — pas d'init carte au boot
   loadLists().then(renderOps);
+  injectStyle();
+  // RÉHYDRATATION immédiate de l'état last-known (gris/stale + âge) AVANT tout
+  // réseau : la dernière position connue de chaque opérateur est visible dès le
+  // boot, même hors-ligne. La carte n'est posée que si la vue Plan est dispo ;
+  // sinon on retentera quand elle le devient (rehydratePending).
+  if (cfg.connected && cfg.room) {
+    rehydratePending = true;
+    rehydrateFromDisk().then(() => { if (members.size) rehydratePending = false; scheduleRenderOps(); });
+  }
   renderOps();
   // reprise automatique après un simple rafraîchissement (sauf arrêt explicite)
   if (cfg.connected && cfg.hs && cfg.room) {

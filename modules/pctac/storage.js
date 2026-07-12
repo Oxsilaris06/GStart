@@ -1,25 +1,34 @@
 import { LOCAL_STORAGE_KEY, TP_ASSOC_KEY, ADVERSARIES_KEY, HOSTAGES_KEY, FRIENDS_KEY, PHOTOS_KEY, CUSTOM_PAX_KEY } from './config.js';
+import { Persist } from './persist.js';
 
 /**
  * Gestion du stockage LocalStorage pour PC TAC
+ *
+ * Toutes les lectures/écritures localStorage transitent désormais par la
+ * couche `Persist` (persist.js) :
+ *  - écriture : ne jette JAMAIS sur dépassement de quota ; un évènement window
+ *    'pctac:quota' (non bloquant) est émis par Persist et l'UI peut y réagir.
+ *  - lecture : si le JSON est corrompu ou rejeté par le validateur, la chaîne
+ *    brute est sauvegardée dans `<key>.bak` (best-effort) et un fallback sûr
+ *    ([] ou {}) est retourné — aucune donnée opérationnelle perdue en silence.
  */
+
+const isArray = (v) => Array.isArray(v);
+const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 export const Storage = {
     /**
      * Sauvegarde les données du journal
-     * @param {Array} logData 
+     * @param {Array} logData
      */
     saveLogData(logData) {
-        try {
-            // Tri par heure avant de sauvegarder
-            logData.sort((a, b) => {
-                if (a.heure === b.heure) return 0;
-                return a.heure < b.heure ? -1 : 1;
-            });
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(logData));
-        } catch (e) {
-            console.error("Erreur de sauvegarde des données:", e);
-        }
+        // Tri par heure avant de sauvegarder
+        logData.sort((a, b) => {
+            if (a.heure === b.heure) return 0;
+            return a.heure < b.heure ? -1 : 1;
+        });
+        // Persist ne jette jamais sur quota : il émet 'pctac:quota' (non bloquant).
+        Persist.set(LOCAL_STORAGE_KEY, logData);
     },
 
     /**
@@ -27,13 +36,7 @@ export const Storage = {
      * @returns {Array}
      */
     loadLogData() {
-        try {
-            const dataString = localStorage.getItem(LOCAL_STORAGE_KEY);
-            return dataString ? JSON.parse(dataString) : [];
-        } catch (e) {
-            console.error("Erreur de chargement des données:", e);
-            return [];
-        }
+        return Persist.get(LOCAL_STORAGE_KEY, { validator: isArray, fallback: [] });
     },
 
     /**
@@ -41,53 +44,37 @@ export const Storage = {
      * @returns {Object}
      */
     getTpAssociations() {
-        try {
-            return JSON.parse(localStorage.getItem(TP_ASSOC_KEY)) || {};
-        } catch (e) {
-            return {};
-        }
+        return Persist.get(TP_ASSOC_KEY, { validator: isObject, fallback: {} });
     },
 
     /**
      * Sauvegarde une association TP
-     * @param {string} label 
-     * @param {string} color 
+     * @param {string} label
+     * @param {string} color
      */
     saveTpAssociation(label, color) {
         const assoc = this.getTpAssociations();
         assoc[color] = label;
-        localStorage.setItem(TP_ASSOC_KEY, JSON.stringify(assoc));
+        Persist.set(TP_ASSOC_KEY, assoc);
     },
 
     /**
      * Sauvegarde une collection générique
-     * @param {string} key 
-     * @param {Array} data 
+     * @param {string} key
+     * @param {Array} data
      */
     saveCollection(key, data) {
-        try {
-            localStorage.setItem(key, JSON.stringify(data));
-        } catch (e) {
-            console.error(`Erreur de sauvegarde collection ${key}:`, e);
-            if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                alert("Mémoire saturée ! Impossible d'enregistrer plus de photos. Veuillez supprimer des anciennes photos ou réinitialiser les données via le dock.");
-            }
-        }
+        // Quota géré par Persist via l'évènement 'pctac:quota' (plus d'alert bloquant).
+        Persist.set(key, data);
     },
 
     /**
      * Charge une collection générique
-     * @param {string} key 
+     * @param {string} key
      * @returns {Array}
      */
     loadCollection(key) {
-        try {
-            const dataString = localStorage.getItem(key);
-            return dataString ? JSON.parse(dataString) : [];
-        } catch (e) {
-            console.error(`Erreur de chargement collection ${key}:`, e);
-            return [];
-        }
+        return Persist.get(key, { validator: isArray, fallback: [] });
     },
 
     /**
@@ -109,7 +96,13 @@ export const Storage = {
             'lastView',
             'lastPhotoFilter'
         ];
-        keys.forEach(k => localStorage.removeItem(k));
+        keys.forEach(k => {
+            try {
+                localStorage.removeItem(k);
+            } catch (e) {
+                // localStorage indisponible : on dégrade proprement (offline-first).
+            }
+        });
     }
 };
 

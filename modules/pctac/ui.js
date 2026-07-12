@@ -107,6 +107,10 @@ export const UI = {
         if (viewId === 'view-plan' && window.PlanMap) {
             window.PlanMap.refresh();
         }
+        if (viewId === 'view-dashboard' && window.Dashboard && window.Dashboard.show) {
+            // Init paresseuse + render (le conteneur #view-dashboard est construit par dashboard.js)
+            window.Dashboard.show();
+        }
         localStorage.setItem('lastView', viewId);
     },
 

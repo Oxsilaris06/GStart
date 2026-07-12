@@ -15,6 +15,8 @@
 import { Storage } from './storage.js';
 import { ADVERSARIES_KEY, HOSTAGES_KEY, FRIENDS_KEY, PIN_ICONS, suggestPinIcons } from './config.js';
 import { Wheel } from './wheel.js';
+import { Persist } from './persist.js';
+import { formatCoordsClipboard, shortMgrs } from './coords.js';
 
 const PINS_KEY = 'pcTacPlanPins';
 const VIEW_KEY = 'pcTacPlanView';
@@ -32,8 +34,10 @@ const ENTITY_COLORS = {
 // Tout sans clé API, sans tracking. Le DEM ne sert qu'au relief 3D (setTerrain).
 const RASTER_STYLE = {
     version: 8,
-    // Polices keyless (OpenMapTiles) — requises pour le rendu texte des noms de rues
-    glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
+    // Polices keyless servies par OpenFreeMap (même origine que les tuiles vectorielles)
+    // — requises pour le rendu texte des noms de rues. NB : fonts.openmaptiles.org
+    // renvoie du text/html (cassé) ; tiles.openfreemap.org/fonts renvoie le protobuf.
+    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
     sources: {
         satellite: {
             type: 'raster',
@@ -41,6 +45,22 @@ const RASTER_STYLE = {
             tileSize: 256,
             maxzoom: 19,
             attribution: 'Tiles © Esri'
+        },
+        // Ortho HD IGN 20 cm (BD ORTHO, Géoplateforme, SANS clé, schéma XYZ vérifié).
+        // PIÈGE : hors couverture (étranger/mer dans la grille) l'IGN renvoie une tuile
+        // JPEG BLANCHE OPAQUE (~1.6 Ko), pas un 404 → elle masquerait Esri. Comme on ne
+        // peut pas filtrer une tuile raster blanche, on n'affiche l'IGN qu'à partir du
+        // z11 (cf. raster-opacity) — là la vue est dominée par du sol FR, donc pas de
+        // blanc ; à plus bas zoom Esri reste seul (et le 20 cm ne se voit pas avant ~z13).
+        // `bounds` évite en plus de requêter l'IGN loin hors de France.
+        'ign-ortho': {
+            type: 'raster',
+            tiles: ['https://data.geopf.fr/tms/1.0.0/HR.ORTHOIMAGERY.ORTHOPHOTOS/{z}/{x}/{y}.jpeg'],
+            tileSize: 256,
+            minzoom: 11,
+            maxzoom: 19,
+            bounds: [-5.6, 41.1, 9.8, 51.3],
+            attribution: 'BD ORTHO © IGN / Géoplateforme'
         },
         'terrain-dem': {
             type: 'raster-dem',
@@ -56,9 +76,32 @@ const RASTER_STYLE = {
             type: 'vector',
             url: 'https://tiles.openfreemap.org/planet',
             attribution: '© OpenFreeMap © OpenStreetMap'
+        },
+        // BD TOPO IGN (tuiles vectorielles, SANS clé, XYZ) — bâtiments officiels
+        // français + hauteurs dérivées LiDAR HD (extrusion 3D bien plus précise que l'OSM).
+        bdtopo: {
+            type: 'vector',
+            tiles: ['https://data.geopf.fr/tms/1.0.0/BDTOPO/{z}/{x}/{y}.pbf'],
+            minzoom: 0,
+            maxzoom: 16,
+            attribution: 'BD TOPO © IGN / Géoplateforme'
         }
     },
-    layers: [{ id: 'satellite', type: 'raster', source: 'satellite' }]
+    layers: [
+        { id: 'satellite', type: 'raster', source: 'satellite' },
+        {
+            id: 'ign-ortho', type: 'raster', source: 'ign-ortho',
+            paint: {
+                // Fusion seamless Esri → IGN : fondu progressif au zoom sur la bande
+                // z11→z13 (l'IGN monte en transparence par-dessus Esri puis devient
+                // opaque). Volontairement HAUT : à <z11 (vues régionales où mer/étranger
+                // sont dans le champ) on reste sur Esri → pas de tuiles blanches IGN ;
+                // l'IGN HD prend le relais une fois zoomé sur une zone française.
+                'raster-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0, 13, 1],
+                'raster-fade-duration': 500
+            }
+        }
+    ]
 };
 
 /* =====================================================================
@@ -73,6 +116,35 @@ const OFFLINE_MAP_CACHE = 'pctac-map-v1';   // doit correspondre à MAP_CACHE da
 const SAT_TILE_TEMPLATE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 // Métropole + marge (DOM-TOM exclus du cache de base, trop dispersés).
 const FRANCE_BBOX = { west: -5.6, south: 41.1, east: 9.8, north: 51.3 };
+// Clé de l'index des AOI confirmées (Persist) : remplace le flag binaire.
+const AOI_INDEX_KEY = 'pcTacAoiIndex';
+// Garde-fou : nombre max de tuiles d'une AOI (évite d'exploser le volume / le WAF).
+const AOI_MAX_TILES = 60000;
+
+/**
+ * Construit la LISTE des templates XYZ réellement actifs, lue depuis RASTER_STYLE.
+ * On ne code en dur aucune URL : on extrait l'imagerie Esri (satellite), l'IGN BD
+ * ORTHO (ign-ortho) et le DEM (terrain-dem) tels que déclarés dans le style. Chaque
+ * template porte ses bornes de zoom (minzoom/maxzoom) et son `bounds` éventuel afin
+ * de ne pas requêter une source hors de sa couverture (ex. IGN hors métropole).
+ * @returns {Array<{id:string, url:string, minzoom:number, maxzoom:number, bounds:(number[]|null)}>}
+ */
+function _styleTileTemplates() {
+    const out = [];
+    const src = (RASTER_STYLE.sources) || {};
+    for (const id of ['satellite', 'ign-ortho', 'terrain-dem']) {
+        const s = src[id];
+        if (!s || !Array.isArray(s.tiles) || !s.tiles.length) continue;
+        out.push({
+            id,
+            url: s.tiles[0],
+            minzoom: (typeof s.minzoom === 'number') ? s.minzoom : 0,
+            maxzoom: (typeof s.maxzoom === 'number') ? s.maxzoom : 19,
+            bounds: Array.isArray(s.bounds) ? s.bounds : null  // [west, south, east, north]
+        });
+    }
+    return out;
+}
 
 function _lon2tile(lon, z) {
     return Math.floor((lon + 180) / 360 * Math.pow(2, z));
@@ -81,63 +153,146 @@ function _lat2tile(lat, z) {
     const r = lat * Math.PI / 180;
     return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * Math.pow(2, z));
 }
+/** Remplit un template XYZ ({z}/{x}/{y}, ordre quelconque) avec z/x/y. */
+function _fillTileTemplate(tpl, z, x, y) {
+    return tpl.replace('{z}', z).replace('{y}', y).replace('{x}', x);
+}
 function _tileUrl(z, x, y) {
-    return SAT_TILE_TEMPLATE.replace('{z}', z).replace('{y}', y).replace('{x}', x);
+    return _fillTileTemplate(SAT_TILE_TEMPLATE, z, x, y);
 }
 
-/** Énumère les tuiles XYZ couvrant la France pour la plage de zoom [minZ, maxZ]. */
-function _franceTiles(minZ, maxZ) {
+/**
+ * Énumère les requêtes de tuiles XYZ couvrant `bbox` sur [minZ, maxZ] pour CHAQUE
+ * template fourni, en respectant les bornes de zoom et le `bounds` de chaque source.
+ * @param {{west,south,east,north}} bbox
+ * @param {number} minZ
+ * @param {number} maxZ
+ * @param {Array} templates  issus de _styleTileTemplates()
+ * @returns {Array<{url:string}>}
+ */
+function _enumerateTiles(bbox, minZ, maxZ, templates) {
     const out = [];
-    for (let z = minZ; z <= maxZ; z++) {
-        const n = Math.pow(2, z);
-        const clamp = (v) => Math.max(0, Math.min(n - 1, v));
-        const x0 = clamp(_lon2tile(FRANCE_BBOX.west, z));
-        const x1 = clamp(_lon2tile(FRANCE_BBOX.east, z));
-        const y0 = clamp(_lat2tile(FRANCE_BBOX.north, z)); // nord = y le plus petit
-        const y1 = clamp(_lat2tile(FRANCE_BBOX.south, z));
-        for (let x = x0; x <= x1; x++) {
-            for (let y = y0; y <= y1; y++) out.push({ z, x, y });
+    for (const tpl of templates) {
+        const zMin = Math.max(minZ, tpl.minzoom);
+        const zMax = Math.min(maxZ, tpl.maxzoom);
+        // Intersection de l'emprise demandée avec le `bounds` de la source.
+        let w = bbox.west, s = bbox.south, e = bbox.east, n = bbox.north;
+        if (tpl.bounds) {
+            w = Math.max(w, tpl.bounds[0]); s = Math.max(s, tpl.bounds[1]);
+            e = Math.min(e, tpl.bounds[2]); n = Math.min(n, tpl.bounds[3]);
+        }
+        if (w > e || s > n) continue; // pas d'intersection
+        for (let z = zMin; z <= zMax; z++) {
+            const nbT = Math.pow(2, z);
+            const clamp = (v) => Math.max(0, Math.min(nbT - 1, v));
+            const x0 = clamp(_lon2tile(w, z));
+            const x1 = clamp(_lon2tile(e, z));
+            const y0 = clamp(_lat2tile(n, z)); // nord = y le plus petit
+            const y1 = clamp(_lat2tile(s, z));
+            for (let x = x0; x <= x1; x++) {
+                for (let y = y0; y <= y1; y++) {
+                    out.push({ url: _fillTileTemplate(tpl.url, z, x, y) });
+                }
+            }
         }
     }
     return out;
 }
 
+/** Estime le nombre de tuiles d'une AOI sans construire le tableau (rapide). */
+function _estimateTileCount(bbox, minZ, maxZ, templates) {
+    let total = 0;
+    for (const tpl of templates) {
+        const zMin = Math.max(minZ, tpl.minzoom);
+        const zMax = Math.min(maxZ, tpl.maxzoom);
+        let w = bbox.west, s = bbox.south, e = bbox.east, n = bbox.north;
+        if (tpl.bounds) {
+            w = Math.max(w, tpl.bounds[0]); s = Math.max(s, tpl.bounds[1]);
+            e = Math.min(e, tpl.bounds[2]); n = Math.min(n, tpl.bounds[3]);
+        }
+        if (w > e || s > n) continue;
+        for (let z = zMin; z <= zMax; z++) {
+            const nbT = Math.pow(2, z);
+            const clamp = (v) => Math.max(0, Math.min(nbT - 1, v));
+            const x0 = clamp(_lon2tile(w, z));
+            const x1 = clamp(_lon2tile(e, z));
+            const y0 = clamp(_lat2tile(n, z));
+            const y1 = clamp(_lat2tile(s, z));
+            total += (x1 - x0 + 1) * (y1 - y0 + 1);
+        }
+    }
+    return total;
+}
+
 /**
- * Pré-télécharge et met en cache la pyramide de tuiles France.
- * @param {number} minZ  zoom minimal (0 = monde)
- * @param {number} maxZ  zoom maximal (≈7 = échelle régionale, vue opérationnelle de base)
+ * Pré-télécharge et met en cache une pyramide de tuiles XYZ pour une emprise et
+ * une liste de sources réelles. Backoff exponentiel + RÉESSAI des tuiles
+ * manquantes (pas de bypass WAF : on respecte un délai croissant sur échec).
+ * @param {{west,south,east,north}} bbox
+ * @param {number} minZ
+ * @param {number} maxZ
+ * @param {Array} templates  issus de _styleTileTemplates()
  * @param {function} onProgress  (done, total, ok, fail) — facultatif
+ * @param {{signal?:{aborted:boolean}}} opts  signal.aborted = true → arrêt coopératif
  */
-async function _prefetchFranceTiles(minZ, maxZ, onProgress) {
+async function _prefetchTiles(bbox, minZ, maxZ, templates, onProgress, opts = {}) {
     if (typeof caches === 'undefined') throw new Error('Cache Storage indisponible.');
-    const tiles = _franceTiles(minZ, maxZ);
+    const signal = opts.signal || null;
+    const tiles = _enumerateTiles(bbox, minZ, maxZ, templates);
     const cache = await caches.open(OFFLINE_MAP_CACHE);
     let done = 0, ok = 0, fail = 0, cursor = 0;
     const CONCURRENCY = 6;
+    const MAX_RETRY = 3;
+
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    async function fetchOne(url) {
+        // Backoff exponentiel normal (pas d'évasion WAF) : 400ms, 800ms, 1600ms…
+        for (let attempt = 0; attempt <= MAX_RETRY; attempt++) {
+            if (signal && signal.aborted) return false;
+            try {
+                const already = await cache.match(url);
+                if (already) return true;
+                const resp = await fetch(url, { mode: 'cors', cache: 'force-cache' });
+                if (resp && (resp.ok || resp.type === 'opaque')) {
+                    await cache.put(url, resp.clone());
+                    return true;
+                }
+            } catch (e) { /* réseau/CORS : on réessaie après backoff */ }
+            if (attempt < MAX_RETRY) await sleep(400 * Math.pow(2, attempt));
+        }
+        return false;
+    }
 
     async function worker() {
         while (cursor < tiles.length) {
+            if (signal && signal.aborted) return;
             const t = tiles[cursor++];
-            const url = _tileUrl(t.z, t.x, t.y);
-            try {
-                const already = await cache.match(url);
-                if (!already) {
-                    const resp = await fetch(url, { mode: 'cors', cache: 'force-cache' });
-                    if (resp && (resp.ok || resp.type === 'opaque')) await cache.put(url, resp.clone());
-                }
-                ok++;
-            } catch (e) { fail++; }
+            const okTile = await fetchOne(t.url);
+            if (okTile) ok++; else fail++;
             done++;
             if (onProgress) { try { onProgress(done, tiles.length, ok, fail); } catch (e) {} }
         }
     }
     await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-    return { total: tiles.length, ok, fail };
+    return { total: tiles.length, ok, fail, aborted: !!(signal && signal.aborted) };
+}
+
+/**
+ * Compat : pré-cache léger de la France (imagerie satellite uniquement, bas zoom)
+ * en arrière-plan. Réutilise _prefetchTiles avec le seul template Esri.
+ * @param {number} minZ
+ * @param {number} maxZ
+ * @param {function} onProgress  (done, total, ok, fail) — facultatif
+ */
+async function _prefetchFranceTiles(minZ, maxZ, onProgress) {
+    const satTpl = _styleTileTemplates().filter(t => t.id === 'satellite');
+    return _prefetchTiles(FRANCE_BBOX, minZ, maxZ, satTpl, onProgress);
 }
 
 export const PlanMap = {
     map: null,
-    markers: new Map(), // id -> { pin: Marker, label: Marker }
+    _pinMarkers: null,  // id -> entry réconcilié (pinMarker/labelMarker/pinWrap/labelEl/sig/pin)
     pendingFreePin: null, // { label, color, kind } en attente d'un clic carte
     searchMarker: null,  // pointeur précis sur l'adresse cherchée
     initialized: false,
@@ -148,6 +303,7 @@ export const PlanMap = {
     history: [],     // pile d'états {shapes} avant chaque modif
     redoStack: [],   // états annulés réutilisables via redo
     is3D: false,     // mode relief 3D actif
+    _pinCancel: null, // annule l'épinglage caméra 3D en cours (anti-dérive DEM)
     streetLabelsOn: false, // overlay noms de rues (vectoriel OpenFreeMap)
     _selectedShapeId: null,  // forme actuellement sélectionnée (handles visibles)
     _handleMarkers: [],      // poignées HTML rendues pour la forme sélectionnée
@@ -159,6 +315,9 @@ export const PlanMap = {
     _diameterGlobal: true,   // toggle global : afficher diamètres (défaut ON)
     _drawingDiameterMarker: null,  // label live pendant le tracé d'un cercle
     _locked: false,          // verrou global : fige la position des pings ET dessins
+    _measureState: null,     // état de la mesure en cours {vertices, cursor, reticle}
+    _measureLabelMarkers: [],     // labels HTML live de la mesure en cours
+    _committedMeasureMarkers: [], // labels HTML des mesures persistées
 
     /**
      * Enveloppe un handler d'événement : capture toute exception et la journalise,
@@ -212,6 +371,14 @@ export const PlanMap = {
             this.map.on('load', this._safe(() => this._enable3D(false), 'load:3D'));
         }
         this.map.on('click', this._safe((e) => this._onMapClick(e), 'mapClick'));
+        // Double-clic : termine une mesure en cours (sinon comportement zoom natif).
+        this.map.on('dblclick', this._safe((e) => {
+            if (this.drawTool === 'measure' && this._measureState) {
+                if (e.preventDefault) e.preventDefault();
+                if (e.originalEvent && e.originalEvent.preventDefault) e.originalEvent.preventDefault();
+                this._finishMeasure();
+            }
+        }, 'mapDblClick'));
 
         // Drag-to-draw (mousedown / move / up) — souris ET tactile
         this.map.on('mousedown', this._safe((e) => this._handleDrawDown(e), 'drawDown'));
@@ -251,8 +418,13 @@ export const PlanMap = {
             const cached = localStorage.getItem('pcTacFranceTilesCached') === '1';
             if (cached || !navigator.onLine || typeof caches === 'undefined') return;
             _prefetchFranceTiles(0, 8).then(r => {
-                try { localStorage.setItem('pcTacFranceTilesCached', '1'); } catch (e) {}
-                console.log('[PlanMap] Carte France mise en cache (tâche de fond) :', r);
+                // Ne marquer "complet" que si AUCUNE tuile n'a échoué : sinon on
+                // retentera au prochain lancement (correction de la pose
+                // inconditionnelle qui figeait un cache partiel/cassé).
+                if (r && r.fail === 0) {
+                    try { localStorage.setItem('pcTacFranceTilesCached', '1'); } catch (e) {}
+                }
+                console.log('[PlanMap] Carte France pré-cache (tâche de fond) :', r);
             }).catch(e => console.warn('[PlanMap] auto-cache France échoué:', e));
         } catch (e) { /* localStorage / caches indispo : non bloquant */ }
     },
@@ -295,11 +467,26 @@ export const PlanMap = {
     },
 
     /** Active le relief 3D (terrain DEM + ciel + inclinaison caméra).
-     *  @param {boolean} animate - true = ease vers le pitch, false = restauration directe */
+     *  @param {boolean} animate - true = incline à 60° si à plat, false = garde le pitch courant */
     _enable3D(animate = true) {
         if (!this.map) return;
+        const map = this.map;
+
+        // CIBLE caméra figée AVANT toute modif. C'est le contrat : la vue 3D doit
+        // rester EXACTEMENT sur cette zone de focus.
+        const target = {
+            center:  map.getCenter(),
+            zoom:    map.getZoom(),
+            bearing: map.getBearing(),
+            pitch:   animate ? (map.getPitch() < 20 ? 60 : map.getPitch()) : map.getPitch()
+        };
+
+        // Anti-collision : tue toute animation caméra en cours (un easeTo précédent,
+        // un double-clic sur le bouton…) avant de toucher au terrain.
+        try { map.stop(); } catch (_) {}
+
         try {
-            this.map.setTerrain({ source: 'terrain-dem', exaggeration: 1.4 });
+            map.setTerrain({ source: 'terrain-dem', exaggeration: 1.4 });
         } catch (e) {
             console.error('[PlanMap] setTerrain échec:', e);
             alert('Relief 3D indisponible (réseau ?). Les tuiles d\'élévation AWS sont peut-être bloquées.');
@@ -307,8 +494,8 @@ export const PlanMap = {
         }
         // Ciel atmosphérique (si supporté par la version MapLibre)
         try {
-            if (typeof this.map.setSky === 'function') {
-                this.map.setSky({
+            if (typeof map.setSky === 'function') {
+                map.setSky({
                     'sky-color': '#7ab8e6',
                     'sky-horizon-blend': 0.6,
                     'horizon-color': '#dfeefc',
@@ -321,8 +508,8 @@ export const PlanMap = {
 
         // Afficher les bâtiments 3D
         try {
-            if (this.map.getLayer('buildings-3d')) {
-                this.map.setLayoutProperty('buildings-3d', 'visibility', 'visible');
+            if (map.getLayer('buildings-3d')) {
+                map.setLayoutProperty('buildings-3d', 'visibility', 'visible');
             }
         } catch (e) { /* couche absente si init échouée */ }
 
@@ -330,27 +517,90 @@ export const PlanMap = {
         const fab = document.getElementById('plan_btn_3d');
         if (fab) fab.classList.add('active');
 
-        if (animate) {
-            // Si la vue est à plat, on incline à 60° pour révéler le relief
-            const targetPitch = this.map.getPitch() < 20 ? 60 : this.map.getPitch();
-            this.map.easeTo({ pitch: targetPitch, duration: 900 });
-        }
+        // ÉPINGLAGE : on impose la cible immédiatement (jumpTo instantané, donc rien
+        // à "bousculer"), puis on la ré-impose pendant que le DEM se charge en async
+        // (c'est lui qui, en arrivant, reframe/recule la vue). Annulé dès interaction.
+        this._pinCamera(target);
+
         this._saveView();
+    },
+
+    /**
+     * Maintient la caméra EXACTEMENT sur `target` (center/zoom/bearing/pitch) malgré le
+     * reframe asynchrone provoqué par le chargement du terrain (DEM). On réimpose la
+     * cible à plusieurs reprises (le DEM arrive surtout dans la 1ʳᵉ seconde) jusqu'à
+     * stabilisation. Tout est annulé à la PREMIÈRE interaction utilisateur, et un nouvel
+     * appel annule l'épinglage précédent (pas de handlers qui s'accumulent).
+     */
+    _pinCamera(target) {
+        if (!this.map) return;
+        const map = this.map;
+        // Annule un épinglage en cours (toggle rapide / réactivation).
+        if (this._pinCancel) { try { this._pinCancel(); } catch (_) {} }
+
+        let cancelled = false;
+        const timers = [];
+        const apply = () => {
+            if (cancelled || !this.is3D) return;
+            const c = map.getCenter();
+            const drift = Math.abs(c.lng - target.center.lng) > 1e-7
+                       || Math.abs(c.lat - target.center.lat) > 1e-7
+                       || Math.abs(map.getZoom()  - target.zoom)  > 0.005
+                       || Math.abs(map.getPitch() - target.pitch) > 0.4
+                       || Math.abs(map.getBearing() - target.bearing) > 0.4;
+            if (drift) {
+                map.jumpTo({
+                    center: target.center, zoom: target.zoom,
+                    bearing: target.bearing, pitch: target.pitch
+                });
+            }
+        };
+        // Gestes utilisateur uniquement (originalEvent présent) → on rend la main.
+        const onUser = (e) => { if (e && e.originalEvent) cancel(); };
+        const cancel = () => {
+            if (cancelled) return;
+            cancelled = true;
+            try { map.off('dragstart', onUser); } catch (_) {}
+            try { map.off('zoomstart', onUser); } catch (_) {}
+            try { map.off('rotatestart', onUser); } catch (_) {}
+            try { map.off('idle', apply); } catch (_) {}
+            timers.forEach(clearTimeout);
+            this._pinCancel = null;
+        };
+        this._pinCancel = cancel;
+
+        map.on('dragstart', onUser);
+        map.on('zoomstart', onUser);
+        map.on('rotatestart', onUser);
+        map.on('idle', apply);                 // corrige chaque stabilisation du DEM
+        // Réimpositions précoces et rapprochées (le DEM arrive tôt), puis on relâche.
+        [0, 120, 280, 500, 850, 1300, 1900].forEach(d => timers.push(setTimeout(apply, d)));
+        timers.push(setTimeout(() => { try { map.off('idle', apply); } catch (_) {} }, 2400));
     },
 
     _disable3D() {
         if (!this.map) return;
-        try { this.map.setTerrain(null); } catch (e) {}
-        try { if (typeof this.map.setSky === 'function') this.map.setSky(null); } catch (e) {}
+        const map = this.map;
+        // Stoppe l'épinglage 3D et toute animation en cours (anti-collision).
+        if (this._pinCancel) { try { this._pinCancel(); } catch (_) {} }
+        try { map.stop(); } catch (_) {}
+
+        // CIBLE : même zone de focus, remise à plat (pitch 0, nord en haut).
+        const target = { center: map.getCenter(), zoom: map.getZoom(), bearing: 0, pitch: 0 };
+
+        try { map.setTerrain(null); } catch (e) {}
+        try { if (typeof map.setSky === 'function') map.setSky(null); } catch (e) {}
         try {
-            if (this.map.getLayer('buildings-3d')) {
-                this.map.setLayoutProperty('buildings-3d', 'visibility', 'none');
+            if (map.getLayer('buildings-3d')) {
+                map.setLayoutProperty('buildings-3d', 'visibility', 'none');
             }
         } catch (e) {}
         this.is3D = false;
         const fab = document.getElementById('plan_btn_3d');
         if (fab) fab.classList.remove('active');
-        this.map.easeTo({ pitch: 0, bearing: 0, duration: 900 });
+        // Retrait du terrain : la vue se ré-aplatit (élévation → 0, prévisible). On
+        // impose la cible d'un coup pour éviter tout recul, sans animation à bousculer.
+        map.jumpTo(target);
         this._saveView();
     },
 
@@ -465,6 +715,10 @@ export const PlanMap = {
 
         const labelsBtn = document.getElementById('plan_btn_labels');
         if (labelsBtn) labelsBtn.onclick = () => this._toggleStreetLabels();
+
+        // Téléchargement carte d'une zone d'opération (AOI) hors-ligne (CONTRAT C4).
+        const aoiBtn = document.getElementById('plan_btn_aoi');
+        if (aoiBtn) aoiBtn.onclick = () => this._startAoiFraming();
 
         // --- Modale Ping hybride ---
         const pingClose = document.getElementById('pingModalCloseBtn');
@@ -877,6 +1131,12 @@ export const PlanMap = {
     },
 
     _onMapClick(e) {
+        // Outil mesure : chaque clic/tap pose un sommet (machine d'états dédiée).
+        // On le traite AVANT la garde drawTool ci-dessous.
+        if (this.drawTool === 'measure') {
+            if (this._measureState) this._measureAddVertex([e.lngLat.lng, e.lngLat.lat]);
+            return;
+        }
         // Pendant le drawing, les clics sont gérés par mousedown/up
         if (this.drawTool) return;
         if (this.pendingEntityPin) {
@@ -918,12 +1178,16 @@ export const PlanMap = {
     },
 
     _loadPins() {
-        try { return JSON.parse(localStorage.getItem(PINS_KEY)) || []; }
-        catch (e) { return []; }
+        // Persist.get tolère localStorage indisponible, JSON corrompu (→ .bak) et
+        // valide que c'est bien un tableau ; fallback [] dans tous les cas.
+        return Persist.get(PINS_KEY, { validator: Array.isArray, fallback: [] }) || [];
     },
 
     _savePins(pins) {
-        localStorage.setItem(PINS_KEY, JSON.stringify(pins));
+        // Via Persist → garde QuotaExceededError (événement 'pctac:quota' non bloquant,
+        // ne jette jamais). Pas d'alert ici : la persistance des pings ne doit pas
+        // bloquer le déplacement tactile sur le terrain.
+        Persist.set(PINS_KEY, pins);
     },
 
     _resolvePin(pin) {
@@ -938,212 +1202,297 @@ export const PlanMap = {
         return { label: pin.label, color: pin.color, kind: pin.kind || 'libre' };
     },
 
-    _renderPins() {
-        if (!this.map) return;
-        // Purge des markers existants (pin + label séparés)
-        for (const entry of this.markers.values()) {
-            if (entry.pin) entry.pin.remove();
-            if (entry.label) entry.label.remove();
-        }
-        this.markers.clear();
+    // Signature légère d'un ping : tout ce qui change le rendu visuel ou le binding.
+    // Si elle est identique entre deux rendus, on ne touche pas au DOM (zéro jank).
+    // La position (lng/lat) est incluse pour repositionner via setLngLat sans recréer.
+    _pinSignature(pin) {
+        const { label, color, kind } = this._resolvePin(pin);
+        const text = (pin.text && pin.text.trim()) ? pin.text : label;
+        return [
+            pin.lng, pin.lat,
+            color, kind,
+            pin.icon || '',
+            pin.kind || '',
+            text,
+            pin.locked ? 1 : 0,
+            this._locked ? 1 : 0
+        ].join('|');
+    },
 
-        const pins = this._loadPins();
-        for (const pin of pins) {
-            const { label, color, kind } = this._resolvePin(pin);
-            const isVehicle = (pin.kind === 'Vehicule');
-            // Icône personnalisée choisie depuis le catalogue (prioritaire sur véhicule)
-            const customIcon = pin.icon && pin.icon.trim();
+    // (Re)construit le contenu visuel d'un ping (pinWrap + labelEl) à partir de
+    // entry.pin (toujours à jour). Renvoie le labelOffset pour le marker label.
+    _buildPinVisual(entry) {
+        const pin = entry.pin;
+        const { label, color, kind } = this._resolvePin(pin);
+        const isVehicle = (pin.kind === 'Vehicule');
+        const customIcon = pin.icon && pin.icon.trim();
+        const pinWrap = entry.pinWrap;
+        let labelOffset;
 
-            // --- 1) MARKER PIN ou ICÔNE (selon type) ---
-            const pinWrap = document.createElement('div');
-            let pinSvg = null;
-            let labelOffset; // décalage du label sous l'élément
-
-            if (customIcon || isVehicle) {
-                // Icône Material : custom > véhicule par défaut
-                const glyph = customIcon || 'directions_car';
-                pinWrap.style.cssText = `width: 38px; height: 38px; cursor: grab; display: flex; align-items: center; justify-content: center;`;
-                pinWrap.innerHTML = `
-                    <span class="material-symbols-outlined" style="
-                        font-size: 36px;
-                        color: ${color};
-                        text-shadow:
-                            0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff,
-                            0 2px 4px rgba(0,0,0,0.6);
-                        line-height: 1;
-                        font-variation-settings: 'FILL' 1;
-                    ">${glyph}</span>
-                `;
-                labelOffset = [0, 22]; // sous l'icône
-            } else {
-                // Pin classique : SVG teardrop
-                pinWrap.style.cssText = `width: 26px; height: 36px; cursor: grab;`;
-                pinSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                pinSvg.setAttribute('width', '26');
-                pinSvg.setAttribute('height', '36');
-                pinSvg.setAttribute('viewBox', '0 0 22 30');
-                pinSvg.style.cssText = `display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));`;
-                pinSvg.innerHTML = `
+        const locked = !!pin.locked;
+        const cursor = (locked || this._locked) ? 'pointer' : 'grab';
+        if (customIcon || isVehicle) {
+            const glyph = customIcon || 'directions_car';
+            // NB : pas de `position` inline ici — l'élément du marqueur est déjà
+            // `position:absolute` via la classe .maplibregl-marker. L'écraser (relative)
+            // casse le positionnement carte (dérive au zoom + décalage du label).
+            // Le badge cadenas (position:absolute) s'ancre donc déjà sur ce wrap.
+            pinWrap.style.cssText = `width: 38px; height: 38px; cursor: ${cursor}; display: flex; align-items: center; justify-content: center;`;
+            pinWrap.innerHTML = `
+                <span class="material-symbols-outlined" style="
+                    font-size: 36px;
+                    color: ${color};
+                    text-shadow:
+                        0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff,
+                        0 2px 4px rgba(0,0,0,0.6);
+                    line-height: 1;
+                    font-variation-settings: 'FILL' 1;
+                ">${glyph}</span>
+            `;
+            labelOffset = [0, 22]; // sous l'icône
+        } else {
+            pinWrap.style.cssText = `width: 26px; height: 36px; cursor: ${cursor};`;
+            pinWrap.innerHTML = `
+                <svg width="26" height="36" viewBox="0 0 22 30" style="display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));">
                     <path d="M11,0 C5,0 0,5 0,11 C0,18 11,30 11,30 C11,30 22,18 22,11 C22,5 17,0 11,0 Z"
                           fill="${color}" stroke="#fff" stroke-width="2"/>
                     <circle cx="11" cy="11" r="4" fill="#fff"/>
-                `;
-                pinWrap.appendChild(pinSvg);
-                labelOffset = [0, 5];
+                </svg>
+            `;
+            labelOffset = [0, 5];
+        }
+
+        // Badge cadenas si le ping est verrouillé individuellement.
+        if (locked) {
+            const badge = document.createElement('span');
+            badge.className = 'material-symbols-outlined';
+            badge.textContent = 'lock';
+            badge.style.cssText = `position: absolute; top: -5px; right: -5px;`
+                + ` font-size: 13px; line-height: 1; color: #eab308;`
+                + ` background: rgba(15,18,24,0.92); border-radius: 50%; padding: 2px;`
+                + ` box-shadow: 0 1px 3px rgba(0,0,0,0.6); pointer-events: none; z-index: 2;`;
+            pinWrap.appendChild(badge);
+        }
+
+        // L'ancre dépend du type → si elle change, on doit la réappliquer.
+        const anchor = (customIcon || isVehicle) ? 'center' : 'bottom';
+        if (entry.pinMarker && entry._anchor !== anchor) {
+            try { entry.pinMarker.setOffset([0, 0]); } catch (_) {}
+            // maplibre n'expose pas setAnchor ; l'ancre est figée à la création.
+            // Pour rester robuste sans recréer le marker (et perdre les listeners),
+            // on compense via l'offset du label seulement ; le pin reste à son ancre
+            // d'origine. _anchor est mémorisé pour info.
+            entry._anchor = anchor;
+        } else if (entry.pinMarker) {
+            entry._anchor = anchor;
+        }
+
+        // Label : texte custom prioritaire sur le label kind.
+        const displayLabel = pin.text && pin.text.trim() ? pin.text : label;
+        entry.labelEl.textContent = displayLabel;
+        entry.labelEl.style.cssText = `
+            padding: 3px 8px;
+            background: rgba(0,0,0,0.78);
+            color: #fff;
+            font-family: var(--font-ui);
+            font-size: 13px;
+            line-height: 1.2;
+            border-left: 4px solid ${color};
+            border-radius: 3px;
+            white-space: nowrap;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+            pointer-events: none;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            letter-spacing: 0.3px;
+        `;
+        return labelOffset;
+    },
+
+    // Attache UNE SEULE FOIS les listeners (tap/double-tap/drag) sur l'entry.
+    // Tous lisent entry.pin (mis à jour à chaque réconciliation) → pas de closure
+    // stale, pas de listeners orphelins, pas de jank tactile.
+    _bindPinListeners(entry) {
+        const pinWrap = entry.pinWrap;
+        const pinMarker = entry.pinMarker;
+        let pdStart = null;
+        let originalLngLat = null;
+
+        // Cercle de diamètre live pendant le drag (lit entry.pin courant).
+        const updateLiveCircle = (ll) => {
+            const pin = entry.pin;
+            if (!(pin.diameterM && pin.diameterM > 0)) return;
+            const src = this.map.getSource && this.map.getSource('plan-pin-circles-src');
+            if (!src || !this._pinCircleFeatures) return;
+            const center = [ll.lng, ll.lat];
+            const radiusM = pin.diameterM / 2;
+            const edge = this._geoEdgeNorth(center, radiusM);
+            const coords = this._circlePolygon(center, edge);
+            const idx = this._pinCircleFeatures.findIndex(f =>
+                f.properties && f.properties._pinId === pin.id
+            );
+            if (idx === -1) return;
+            this._pinCircleFeatures[idx] = {
+                ...this._pinCircleFeatures[idx],
+                geometry: { type: 'Polygon', coordinates: [coords] }
+            };
+            src.setData({ type: 'FeatureCollection', features: this._pinCircleFeatures });
+        };
+        entry._updateLiveCircle = updateLiveCircle;
+
+        const onDown = (clientX, clientY, isTouch) => {
+            pdStart = { x: clientX, y: clientY, t: Date.now(), isTouch };
+            originalLngLat = pinMarker.getLngLat();
+        };
+
+        const onUp = (clientX, clientY, ev) => {
+            if (!pdStart) return;
+            const dx = clientX - pdStart.x, dy = clientY - pdStart.y;
+            const moved = Math.hypot(dx, dy);
+            const dt = Date.now() - pdStart.t;
+            const threshold = pdStart.isTouch ? 20 : 6;
+            const maxTime = pdStart.isTouch ? 350 : 500;
+            const isTap = moved < threshold && dt < maxTime;
+            pdStart = null;
+            if (!isTap) return;
+
+            ev.stopPropagation();
+            ev.preventDefault();
+
+            const pinId = entry.pin.id;
+            if (originalLngLat) {
+                pinMarker.setLngLat(originalLngLat);
+                entry.labelMarker.setLngLat(originalLngLat);
+                const dm = this._pinDiameterLabels && this._pinDiameterLabels[pinId];
+                if (dm) dm.setLngLat(originalLngLat);
+                updateLiveCircle(originalLngLat);
             }
 
-            // Tap sur le pin → roue d'options (au lieu de popup texte). Drag = move natif.
-            const pinMarker = new maplibregl.Marker({ element: pinWrap, anchor: (customIcon || isVehicle) ? 'center' : 'bottom', draggable: !this._locked })
-                .setLngLat([pin.lng, pin.lat])
-                .addTo(this.map);
-            // Détecte tap (simple/double) vs drag.
-            //  - Drag         → déplace le ping (drag natif maplibre).
-            //  - Double tap   → ouvre la roue d'options.
-            //  - Simple tap   → rien (laisse le drag déplacer ; cohérent avec "un touch déplace").
-            let pdStart = null;
-            let originalLngLat = null;
+            const now = Date.now();
+            const prev = this._lastPinTap;
+            if (prev && prev.id === pinId && (now - prev.t) < 350) {
+                this._lastPinTap = null;
+                this._openPingOptionsWheel(pinId);
+            } else {
+                this._lastPinTap = { id: pinId, t: now };
+            }
+        };
 
-            const onDown = (clientX, clientY, isTouch) => {
-                pdStart = { x: clientX, y: clientY, t: Date.now(), isTouch };
-                originalLngLat = pinMarker.getLngLat();
-            };
+        pinWrap.addEventListener('pointerdown', this._safe((ev) => {
+            onDown(ev.clientX, ev.clientY, ev.pointerType === 'touch');
+        }, 'pin:pointerdown'), { capture: true });
+        pinWrap.addEventListener('pointermove', this._safe(() => {
+            /* le drag natif maplibre gère le déplacement */
+        }, 'pin:pointermove'), { capture: true });
+        pinWrap.addEventListener('pointerup', this._safe((ev) => {
+            onUp(ev.clientX, ev.clientY, ev);
+        }, 'pin:pointerup'), { capture: true });
+        pinWrap.addEventListener('pointercancel', this._safe(() => {
+            pdStart = null;
+        }, 'pin:pointercancel'), { capture: true });
 
-            const onMove = () => { /* le drag natif maplibre gère le déplacement */ };
+        pinMarker.on('dragstart', this._safe(() => {
+            pinWrap.style.cursor = 'grabbing';
+            pinWrap.style.opacity = '0.85';
+            entry.labelEl.style.opacity = '0.5';
+        }, 'pin:dragstart'));
+        pinMarker.on('drag', this._safe(() => {
+            const ll = pinMarker.getLngLat();
+            entry.labelMarker.setLngLat(ll);
+            updateLiveCircle(ll);
+            const dm = this._pinDiameterLabels && this._pinDiameterLabels[entry.pin.id];
+            if (dm) dm.setLngLat(ll);
+        }, 'pin:drag'));
+        pinMarker.on('dragend', this._safe(() => {
+            pinWrap.style.cursor = 'grab';
+            pinWrap.style.opacity = '1';
+            entry.labelEl.style.opacity = '1';
+            const ll = pinMarker.getLngLat();
+            entry.labelMarker.setLngLat(ll);
+            const pinId = entry.pin.id;
+            const allPins = this._loadPins();
+            const target = allPins.find(p => p.id === pinId);
+            if (target) {
+                target.lng = ll.lng;
+                target.lat = ll.lat;
+                this._savePins(allPins);
+                // Maintient entry.pin cohérent avec la nouvelle position.
+                entry.pin = target;
+            }
+            this._renderPinDecorations();
+        }, 'pin:dragend'));
+    },
 
-            const onUp = (clientX, clientY, ev) => {
-                if (!pdStart) return;
-                const dx = clientX - pdStart.x, dy = clientY - pdStart.y;
-                const moved = Math.hypot(dx, dy);
-                const dt = Date.now() - pdStart.t;
+    // Réconciliation par ID : on ne détruit/recrée QUE le strict nécessaire.
+    //  - nouveau ping        → création + binding des listeners (une seule fois)
+    //  - signature changée   → maj EN PLACE (position + contenu DOM)
+    //  - id disparu          → suppression du marker
+    _renderPins() {
+        if (!this.map) return;
+        if (!this._pinMarkers) this._pinMarkers = new Map(); // id -> entry
 
-                // Seuil de mouvement plus généreux sur mobile touch (20px) que sur souris (6px)
-                const threshold = pdStart.isTouch ? 20 : 6;
-                const maxTime = pdStart.isTouch ? 350 : 500;
+        const pins = this._loadPins();
+        const seen = new Set();
 
-                const isTap = moved < threshold && dt < maxTime;
-                pdStart = null;
+        for (const pin of pins) {
+            seen.add(pin.id);
+            const sig = this._pinSignature(pin);
+            let entry = this._pinMarkers.get(pin.id);
 
-                if (!isTap) return; // un drag : déplacement natif, rien à faire ici
+            if (!entry) {
+                // --- CRÉATION ---
+                const pinWrap = document.createElement('div');
+                const labelEl = document.createElement('div');
+                entry = { pin, pinWrap, labelEl, pinMarker: null, labelMarker: null, sig: null, _anchor: null };
 
-                // C'est un tap : on stoppe la propagation pour ne pas déclencher le drag natif
-                ev.stopPropagation();
-                ev.preventDefault();
+                const isVehicle = (pin.kind === 'Vehicule');
+                const customIcon = pin.icon && pin.icon.trim();
+                const anchor = (customIcon || isVehicle) ? 'center' : 'bottom';
 
-                // Si un mini-drag a eu lieu (quelques pixels), on réinitialise la position d'origine
-                if (originalLngLat) {
-                    pinMarker.setLngLat(originalLngLat);
-                    labelMarker.setLngLat(originalLngLat);
-                    const dm = this._pinDiameterLabels && this._pinDiameterLabels[pin.id];
-                    if (dm) dm.setLngLat(originalLngLat);
-                    updateLiveCircle(originalLngLat);
-                }
+                const labelOffset = this._buildPinVisual(entry);
+                entry._anchor = anchor;
 
-                // Détection double-tap / double-clic → roue d'options
-                const now = Date.now();
-                const prev = this._lastPinTap;
-                if (prev && prev.id === pin.id && (now - prev.t) < 350) {
-                    this._lastPinTap = null;
-                    this._openPingOptionsWheel(pin.id);
-                } else {
-                    this._lastPinTap = { id: pin.id, t: now };
-                }
-            };
+                entry.pinMarker = new maplibregl.Marker({ element: pinWrap, anchor, draggable: !this._locked && !pin.locked })
+                    .setLngLat([pin.lng, pin.lat])
+                    .addTo(this.map);
+                entry.labelMarker = new maplibregl.Marker({ element: labelEl, anchor: 'top', offset: labelOffset })
+                    .setLngLat([pin.lng, pin.lat])
+                    .addTo(this.map);
 
-            // Enregistrement des écouteurs en phase CAPTURE pour intercepter avant MapLibre
-            pinWrap.addEventListener('pointerdown', this._safe((ev) => {
-                onDown(ev.clientX, ev.clientY, ev.pointerType === 'touch');
-            }, 'pin:pointerdown'), { capture: true });
+                // Listeners attachés UNE SEULE FOIS.
+                this._bindPinListeners(entry);
 
-            pinWrap.addEventListener('pointermove', this._safe((ev) => {
-                onMove(ev.clientX, ev.clientY);
-            }, 'pin:pointermove'), { capture: true });
-
-            pinWrap.addEventListener('pointerup', this._safe((ev) => {
-                onUp(ev.clientX, ev.clientY, ev);
-            }, 'pin:pointerup'), { capture: true });
-
-            pinWrap.addEventListener('pointercancel', this._safe(() => {
-                pdStart = null;
-            }, 'pin:pointercancel'), { capture: true });
-
-            // --- 2) MARKER LABEL séparé, ancré au même lng/lat (label +20% : 11→13) ---
-            // Si l'utilisateur a saisi un texte custom (pin.text), on l'affiche À LA PLACE
-            // du label kind ("Adv"/"Otage"/…) pour éviter une duplication visuelle.
-            const labelEl = document.createElement('div');
-            const displayLabel = pin.text && pin.text.trim() ? pin.text : label;
-            labelEl.textContent = displayLabel;
-            labelEl.style.cssText = `
-                padding: 3px 8px;
-                background: rgba(0,0,0,0.78);
-                color: #fff;
-                font-family: var(--font-ui);
-                font-size: 13px;
-                line-height: 1.2;
-                border-left: 4px solid ${color};
-                border-radius: 3px;
-                white-space: nowrap;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.6);
-                pointer-events: none;
-                text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-                letter-spacing: 0.3px;
-            `;
-            const labelMarker = new maplibregl.Marker({ element: labelEl, anchor: 'top', offset: labelOffset })
-                .setLngLat([pin.lng, pin.lat])
-                .addTo(this.map);
-
-            // --- Drag : déplace pin + label + cercle de diamètre ensemble ---
-            const hasDiameter = pin.diameterM && pin.diameterM > 0;
-            const updateLiveCircle = (ll) => {
-                if (!hasDiameter) return;
-                const src = this.map.getSource && this.map.getSource('plan-pin-circles-src');
-                if (!src || !this._pinCircleFeatures) return;
-                const center = [ll.lng, ll.lat];
-                const radiusM = pin.diameterM / 2;
-                const edge = [center[0], center[1] + radiusM / 111320];
-                const coords = this._circlePolygon(center, edge);
-                const idx = this._pinCircleFeatures.findIndex(f =>
-                    f.properties && f.properties._pinId === pin.id
-                );
-                if (idx === -1) return;
-                this._pinCircleFeatures[idx] = {
-                    ...this._pinCircleFeatures[idx],
-                    geometry: { type: 'Polygon', coordinates: [coords] }
-                };
-                src.setData({ type: 'FeatureCollection', features: this._pinCircleFeatures });
-            };
-            pinMarker.on('dragstart', this._safe(() => {
-                pinWrap.style.cursor = 'grabbing';
-                pinWrap.style.opacity = '0.85';
-                labelEl.style.opacity = '0.5';
-            }, 'pin:dragstart'));
-            pinMarker.on('drag', this._safe(() => {
-                // Le libellé + le cercle suivent le pin en temps réel.
-                const ll = pinMarker.getLngLat();
-                labelMarker.setLngLat(ll);
-                updateLiveCircle(ll);
-                const dm = this._pinDiameterLabels && this._pinDiameterLabels[pin.id];
-                if (dm) dm.setLngLat(ll);
-            }, 'pin:drag'));
-            pinMarker.on('dragend', this._safe(() => {
-                pinWrap.style.cursor = 'grab';
-                pinWrap.style.opacity = '1';
-                labelEl.style.opacity = '1';
-                const ll = pinMarker.getLngLat();
-                labelMarker.setLngLat(ll);
-                const allPins = this._loadPins();
-                const target = allPins.find(p => p.id === pin.id);
-                if (target) {
-                    target.lng = ll.lng;
-                    target.lat = ll.lat;
-                    this._savePins(allPins);
-                }
-                // Re-render complet pour réindexer les features du cercle proprement
-                this._renderPinDecorations();
-            }, 'pin:dragend'));
-
-            this.markers.set(pin.id, { pin: pinMarker, label: labelMarker });
+                entry.sig = sig;
+                this._pinMarkers.set(pin.id, entry);
+            } else if (entry.sig !== sig) {
+                // --- MAJ EN PLACE ---
+                entry.pin = pin;
+                // Position (toujours sûr de la resync, peu coûteux).
+                entry.pinMarker.setLngLat([pin.lng, pin.lat]);
+                entry.labelMarker.setLngLat([pin.lng, pin.lat]);
+                // Contenu visuel + offset du label.
+                const labelOffset = this._buildPinVisual(entry);
+                try { entry.labelMarker.setOffset(labelOffset); } catch (_) {}
+                // État draggable (verrou global OU individuel) sans recréer le marker.
+                try {
+                    entry.pinMarker.setDraggable(!this._locked && !pin.locked);
+                } catch (_) {}
+                entry.sig = sig;
+            } else {
+                // Signature identique : on garde entry.pin pointé sur l'objet courant
+                // (les coords peuvent être référentiellement neuves après reload).
+                entry.pin = pin;
+            }
         }
-        // Re-render des cercles de diamètre & texte des pings
+
+        // --- SUPPRESSION des ids disparus uniquement ---
+        for (const [id, entry] of this._pinMarkers) {
+            if (seen.has(id)) continue;
+            try { entry.pinMarker && entry.pinMarker.remove(); } catch (_) {}
+            try { entry.labelMarker && entry.labelMarker.remove(); } catch (_) {}
+            this._pinMarkers.delete(id);
+        }
+
+        // Re-render des cercles de diamètre & texte des pings.
         this._renderPinDecorations();
     },
 
@@ -1167,8 +1516,9 @@ export const PlanMap = {
             if (pin.diameterM && pin.diameterM > 0 && pin.showDiameter !== false) {
                 const center = [pin.lng, pin.lat];
                 const radiusM = pin.diameterM / 2;
-                const deltaLat = radiusM / 111320;
-                const edge = [center[0], center[1] + deltaLat];
+                // Arête géodésique due nord (rayon terrestre R unifié) plutôt que
+                // l'approximation 111320 m/° : cercle exact = diameterM à toute latitude.
+                const edge = this._geoEdgeNorth(center, radiusM);
                 const coords = this._circlePolygon(center, edge);
                 circleFeatures.push({
                     type: 'Feature',
@@ -1245,22 +1595,31 @@ export const PlanMap = {
     // ============================================================
 
     _initDrawingLayers() {
-        // --- Bâtiments 3D (extrusion OpenStreetMap via OpenFreeMap) ---
+        // --- Bâtiments 3D (extrusion IGN BD TOPO : emprises + hauteurs LiDAR HD) ---
         // Masqués par défaut, activés avec le mode 3D. Ajoutés en premier
         // pour rester sous les dessins/annotations.
         try {
             this.map.addLayer({
                 id: 'buildings-3d',
                 type: 'fill-extrusion',
-                source: 'openfreemap',
-                'source-layer': 'building',
+                source: 'bdtopo',
+                'source-layer': 'batiment',
                 minzoom: 13,
+                filter: ['!=', ['get', 'etat_de_l_objet'], 'En projet'],
                 layout: { visibility: 'none' },
                 paint: {
                     'fill-extrusion-color': '#c2cad2',
-                    // hauteur réelle si connue, sinon fallback 6 m
-                    'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 6],
-                    'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                    // Hauteur : priorité au delta d'altitudes LiDAR HD (toit - sol) ;
+                    // sinon champ 'hauteur' (peu rempli) ; sinon étages × 3 m ; sinon 6 m.
+                    'fill-extrusion-height': [
+                        'case',
+                        ['all', ['has', 'altitude_maximale_toit'], ['has', 'altitude_minimale_sol']],
+                            ['max', 2, ['-', ['get', 'altitude_maximale_toit'], ['get', 'altitude_minimale_sol']]],
+                        ['has', 'hauteur'], ['max', 2, ['get', 'hauteur']],
+                        ['has', 'nombre_d_etages'], ['*', ['get', 'nombre_d_etages'], 3],
+                        6
+                    ],
+                    'fill-extrusion-base': 0,
                     'fill-extrusion-opacity': 0.85
                 }
             });
@@ -1403,6 +1762,31 @@ export const PlanMap = {
         document.querySelectorAll('.plan-draw-btn').forEach(btn => {
             btn.onclick = () => this._setTool(btn.dataset.tool);
         });
+        // Clic long sur l'outil MESURE → anneaux d'engagement 50/100/200 m
+        // (réutilise le centre de carte). N'altère pas le clic court (= outil mesure).
+        const measureBtn = document.querySelector('.plan-draw-btn[data-tool="measure"]');
+        if (measureBtn) {
+            measureBtn.title = 'Mesurer distance / azimut — appui long : anneaux d\'engagement 50/100/200 m';
+            let lpTimer = null, lpFired = false;
+            const startLp = () => {
+                lpFired = false;
+                lpTimer = setTimeout(() => {
+                    lpFired = true;
+                    // Si une mesure est active, on la quitte pour ne pas mélanger les états.
+                    if (this.drawTool === 'measure') this._setTool(null);
+                    this._addEngagementRings();
+                }, 550);
+            };
+            const cancelLp = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
+            measureBtn.addEventListener('pointerdown', this._safe(startLp, 'measureLp:down'));
+            measureBtn.addEventListener('pointerup', this._safe(cancelLp, 'measureLp:up'));
+            measureBtn.addEventListener('pointerleave', this._safe(cancelLp, 'measureLp:leave'));
+            measureBtn.addEventListener('pointercancel', this._safe(cancelLp, 'measureLp:cancel'));
+            // Le clic court ne doit pas activer l'outil si le long-press a déjà agi.
+            measureBtn.addEventListener('click', (e) => {
+                if (lpFired) { e.preventDefault(); e.stopImmediatePropagation(); lpFired = false; }
+            }, true);
+        }
         document.querySelectorAll('.plan-draw-color').forEach(btn => {
             btn.onclick = () => this._setDrawColor(btn.dataset.color);
         });
@@ -1490,6 +1874,11 @@ export const PlanMap = {
                     const center = this.map.getCenter();
                     this._handleDrawMove({ lngLat: center });
                 }
+                // Mesure au réticule : le segment élastique suit le centre de carte
+                // (qui se déplace quand on panote) tant qu'au moins un sommet existe.
+                if (this._measureState && this._measureState.reticle && this._measureState.vertices.length) {
+                    this._renderMeasurePreview();
+                }
             });
         }
 
@@ -1546,6 +1935,8 @@ export const PlanMap = {
     _setTool(tool) {
         // Toggle : re-cliquer sur l'outil actif le désactive
         if (tool && this.drawTool === tool) tool = null;
+        // Quitter proprement une mesure en cours si on change/désactive d'outil.
+        if (this._measureState && tool !== 'measure') this._clearMeasureState();
         this.drawTool = tool;
         this.drawState = null;
         this._clearPreview();
@@ -1554,8 +1945,15 @@ export const PlanMap = {
         // Détecter si on est sur mobile/tactile pour le mode précision.
         // Exception : l'outil TRAIT se trace au doigt (cheminement libre), sans
         // réticule ni boutons Valider/Annuler → mode précision désactivé pour lui.
+        // L'outil MESURE pose des sommets successifs au clic/réticule (pas un drag)
+        // → il a sa propre machine d'états, traitée plus bas.
         const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        this.drawPrecisionMode = !!(tool && isMobile && tool !== 'line');
+        this.drawPrecisionMode = !!(tool && isMobile && tool !== 'line' && tool !== 'measure');
+
+        // Outil mesure : démarre/arrête sa propre machine d'états (sommets au clic).
+        if (tool === 'measure') {
+            this._startMeasure(isMobile);
+        }
 
         // Style des boutons
         document.querySelectorAll('.plan-draw-btn').forEach(b => {
@@ -1569,10 +1967,14 @@ export const PlanMap = {
         const precControls = document.getElementById('plan_draw_precision_controls');
         const viewPlan = document.getElementById('view-plan');
 
+        // Le réticule est partagé : mode précision dessin OU mesure avec réticule.
+        const reticleOn = !!this.drawPrecisionMode || !!(this._measureState && this._measureState.reticle);
         if (crosshair) {
-            crosshair.classList.toggle('active', !!this.drawPrecisionMode);
+            crosshair.classList.toggle('active', reticleOn);
         }
         if (precControls) {
+            // Les boutons Viser/Valider/Annuler ne servent QU'au dessin précision,
+            // pas à la mesure (qui a sa propre barre flottante).
             precControls.style.display = this.drawPrecisionMode ? 'flex' : 'none';
             // Réinitialiser l'état visuel des boutons de visée
             const pStart = document.getElementById('plan_draw_precision_start');
@@ -1583,16 +1985,24 @@ export const PlanMap = {
             if (pCancel) pCancel.style.display = 'none';
         }
         if (viewPlan) {
-            viewPlan.classList.toggle('drawing-active', !!this.drawPrecisionMode);
+            viewPlan.classList.toggle('drawing-active', reticleOn);
         }
 
-        // Curseur + désactive le pan de la carte tant qu'un outil est actif (sauf en mode précision mobile)
+        // Curseur + désactive le pan de la carte tant qu'un outil est actif (sauf en
+        // mode précision mobile, et sauf MESURE qui pose des sommets au clic : on
+        // garde le pan actif pour pouvoir se déplacer entre deux sommets).
         if (this.map) {
             this.map.getCanvas().style.cursor = tool ? 'crosshair' : '';
-            if (tool && !this.drawPrecisionMode) {
+            if (tool && !this.drawPrecisionMode && tool !== 'measure') {
                 this.map.dragPan.disable();
                 this.map.doubleClickZoom.disable();
                 this.map.boxZoom.disable();
+            } else if (tool === 'measure') {
+                // Mesure : on garde le pan (déplacement entre sommets) mais on coupe
+                // le zoom double-clic, réservé à la VALIDATION de la mesure.
+                this.map.dragPan.enable();
+                this.map.doubleClickZoom.disable();
+                this.map.boxZoom.enable();
             } else {
                 this.map.dragPan.enable();
                 this.map.doubleClickZoom.enable();
@@ -1612,6 +2022,8 @@ export const PlanMap = {
 
     /** Drag-to-draw : démarrage */
     _handleDrawDown(e) {
+        // La mesure n'est pas un drag : elle est pilotée par _onMapClick / réticule.
+        if (this.drawTool === 'measure') return;
         if (!this.drawTool || this.drawPrecisionMode) return;
         // Outil texte : un seul clic suffit (pas de drag)
         if (this.drawTool === 'text') {
@@ -1634,6 +2046,14 @@ export const PlanMap = {
 
     /** Drag-to-draw : déplacement (live preview) */
     _handleDrawMove(e) {
+        // Outil mesure : la souris/le doigt fait varier le segment "élastique"
+        // entre le dernier sommet posé et le curseur (desktop & tap mobile direct).
+        if (this.drawTool === 'measure') {
+            if (this._measureState && e.lngLat) {
+                this._measureUpdateCursor([e.lngLat.lng, e.lngLat.lat]);
+            }
+            return;
+        }
         if (!this.drawTool || !this.drawState) return;
         // Ignorer les glissements de doigt directs sur l'écran en mode précision mobile
         if (this.drawPrecisionMode && e.originalEvent) return;
@@ -1775,6 +2195,333 @@ export const PlanMap = {
         this._refreshUndoRedoButtons();
     },
 
+    // ============================================================
+    // ========================  MESURE  ==========================
+    //  Outil de mesure distance / azimut : l'utilisateur pose des
+    //  sommets successifs (clic/tap, ou réticule + bouton sur mobile).
+    //  Une polyligne live se trace ; chaque segment porte sa distance et
+    //  son azimut VRAI (relèvement initial), plus le cumul total.
+    //  À la validation, on persiste un shape type:'measure' (réutilisé par
+    //  l'export et le rechargement). Échap/Annuler revient à _setTool(null).
+    // ============================================================
+
+    /**
+     * Azimut vrai (relèvement initial / forward azimuth) de `a` vers `b`,
+     * en degrés [0,360). Même modèle sphérique que _circlePolygon (R commun,
+     * trigo cohérente) → l'azimut affiché correspond au cap suivi par les arcs
+     * que l'on dessine. 0° = Nord, 90° = Est.
+     */
+    _trueBearing(a, b) {
+        const toRad = d => d * Math.PI / 180;
+        const phi1 = toRad(a[1]), phi2 = toRad(b[1]);
+        const dLam = toRad(b[0] - a[0]);
+        const y = Math.sin(dLam) * Math.cos(phi2);
+        const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLam);
+        const brng = Math.atan2(y, x) * 180 / Math.PI;
+        return (brng + 360) % 360;
+    },
+
+    _formatBearing(deg) {
+        return `${Math.round(deg).toString().padStart(3, '0')}°`;
+    },
+
+    /** Démarre une nouvelle mesure (réinitialise l'état + UI). */
+    _startMeasure(isMobile) {
+        this._clearMeasureState();
+        this._measureState = {
+            vertices: [],
+            cursor: null,
+            // Réticule de précision sous les gants : présent dès qu'il y a du tactile.
+            reticle: !!(isMobile || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0))
+        };
+        // Réticule central réutilisé (le même que le mode précision dessin).
+        const crosshair = document.getElementById('plan_draw_crosshair');
+        if (crosshair) crosshair.classList.toggle('active', this._measureState.reticle);
+        const viewPlan = document.getElementById('view-plan');
+        if (viewPlan && this._measureState.reticle) viewPlan.classList.add('drawing-active');
+        this._buildMeasureControls();
+        this._renderMeasurePreview();
+        this._showHint('Mesure : touche la carte pour poser des points. Double-clic ou « Terminer » pour finir.');
+    },
+
+    /** Ajoute un sommet à la mesure en cours. */
+    _measureAddVertex(lngLat) {
+        const st = this._measureState;
+        if (!st) return;
+        // Évite les doublons exacts (double-événement tactile).
+        const last = st.vertices[st.vertices.length - 1];
+        if (last && last[0] === lngLat[0] && last[1] === lngLat[1]) return;
+        st.vertices.push(lngLat.slice());
+        st.cursor = lngLat.slice();
+        this._renderMeasurePreview();
+        this._updateMeasureControls();
+    },
+
+    /** Met à jour le segment élastique vers le curseur (preview live). */
+    _measureUpdateCursor(lngLat) {
+        const st = this._measureState;
+        if (!st || !st.vertices.length) return;
+        st.cursor = lngLat.slice();
+        this._renderMeasurePreview();
+    },
+
+    /** Position courante du réticule (centre de carte) pour la pose mobile. */
+    _measureReticlePoint() {
+        const c = this.map.getCenter();
+        return [c.lng, c.lat];
+    },
+
+    /** Longueur cumulée (m) de la polyligne de mesure (sommets posés). */
+    _measureTotalMeters(vertices) {
+        let total = 0;
+        for (let i = 1; i < vertices.length; i++) {
+            total += this._haversineMeters(vertices[i - 1], vertices[i]);
+        }
+        return total;
+    },
+
+    /**
+     * Trace la preview live de la mesure (polyligne pointillée) + étiquettes
+     * par segment (distance + azimut) + cumul total à l'extrémité courante.
+     * Réutilise la source GeoJSON de preview de dessin et des HTML markers.
+     */
+    _renderMeasurePreview() {
+        const st = this._measureState;
+        if (!st || !this.map) return;
+        // Sommets + (éventuel) point courant (curseur desktop OU réticule mobile).
+        const live = st.vertices.slice();
+        let cursorPt = st.cursor;
+        if (st.reticle) cursorPt = this._measureReticlePoint();
+        const drawPts = cursorPt && live.length ? live.concat([cursorPt]) : live;
+
+        if (drawPts.length >= 2) {
+            this._renderPreview({
+                type: 'Feature',
+                geometry: { type: 'LineString', coordinates: drawPts },
+                properties: { color: this.drawColor }
+            });
+        } else {
+            this._clearPreview();
+        }
+        this._renderMeasureLabels(drawPts, false);
+    },
+
+    /**
+     * Rend les étiquettes de segment (HTML markers) le long de `pts`.
+     * @param {Array} pts        sommets [lng,lat]
+     * @param {boolean} committed  true = mesure persistée (sinon preview live)
+     */
+    _renderMeasureLabels(pts, committed) {
+        // Purge des labels live précédents (les labels committed sont gérés
+        // séparément, voir _renderCommittedMeasureLabels).
+        if (!committed) {
+            if (this._measureLabelMarkers) this._measureLabelMarkers.forEach(m => { try { m.remove(); } catch (_) {} });
+            this._measureLabelMarkers = [];
+        }
+        if (!this.map || !pts || pts.length < 2) return;
+        const sink = committed ? this._committedMeasureMarkers : this._measureLabelMarkers;
+        const color = this.drawColor || '#22d3ee';
+
+        let cumul = 0;
+        for (let i = 1; i < pts.length; i++) {
+            const a = pts[i - 1], b = pts[i];
+            const dist = this._haversineMeters(a, b);
+            const az = this._trueBearing(a, b);
+            cumul += dist;
+            const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+            const isLast = i === pts.length - 1;
+            const segTxt = `${this._formatDistance(dist)} · ${this._formatBearing(az)}`;
+            const totTxt = (pts.length > 2 && isLast) ? `Σ ${this._formatDistance(cumul)}` : '';
+            const div = document.createElement('div');
+            div.className = 'plan-measure-label';
+            div.style.cssText = `
+                display: flex; flex-direction: column; align-items: center; gap: 1px;
+                background: rgba(10,12,16,0.86);
+                color: #fff;
+                padding: 2px 8px;
+                border-radius: 10px;
+                border: 1px solid ${color};
+                font-family: var(--font-data, ui-monospace, monospace);
+                font-size: 12px;
+                font-weight: 700;
+                line-height: 1.15;
+                white-space: nowrap;
+                pointer-events: none;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.55);
+            `;
+            const seg = document.createElement('span');
+            seg.textContent = segTxt;
+            div.appendChild(seg);
+            if (totTxt) {
+                const tot = document.createElement('span');
+                tot.textContent = totTxt;
+                tot.style.cssText = `color:${color}; font-size: 11px;`;
+                div.appendChild(tot);
+            }
+            const m = new maplibregl.Marker({ element: div, anchor: 'center', offset: [0, -12] })
+                .setLngLat(mid).addTo(this.map);
+            sink.push(m);
+        }
+    },
+
+    /** Construit la barre flottante de contrôle de la mesure (créée dynamiquement). */
+    _buildMeasureControls() {
+        this._removeMeasureControls();
+        const parent = document.getElementById('plan_map') && document.getElementById('plan_map').parentElement;
+        if (!parent) return;
+        const bar = document.createElement('div');
+        bar.id = 'plan_measure_controls';
+        bar.style.cssText = `
+            position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+            display: flex; gap: 8px; z-index: 12;
+            background: rgba(10,12,16,0.82);
+            padding: 6px; border-radius: 14px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.55);
+            backdrop-filter: blur(4px);
+        `;
+        const mkBtn = (label, icon, bg, fg, onClick) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.style.cssText = `
+                display: inline-flex; align-items: center; gap: 6px;
+                min-height: 48px; padding: 0 16px;
+                border: none; border-radius: 10px;
+                background: ${bg}; color: ${fg};
+                font-family: var(--font-ui, system-ui, sans-serif);
+                font-size: 14px; font-weight: 700; cursor: pointer;
+                touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+            `;
+            b.innerHTML = `<span class="material-symbols-outlined" style="font-size:22px;">${icon}</span><span>${label}</span>`;
+            b.onclick = this._safe(onClick, 'measureCtl:' + label);
+            return b;
+        };
+        const st = this._measureState;
+        // Bouton « Point » : ne s'affiche qu'avec réticule (pose sous gants).
+        if (st && st.reticle) {
+            this._measurePointBtn = mkBtn('Point', 'add_location_alt', '#3b82f6', '#fff',
+                () => this._measureAddVertex(this._measureReticlePoint()));
+            bar.appendChild(this._measurePointBtn);
+        }
+        this._measureUndoBtn = mkBtn('Annuler dernier', 'undo', 'rgba(120,120,120,0.95)', '#fff',
+            () => this._measureUndoVertex());
+        bar.appendChild(this._measureUndoBtn);
+        bar.appendChild(mkBtn('Terminer', 'check', '#22c55e', '#000', () => this._finishMeasure()));
+        bar.appendChild(mkBtn('Quitter', 'close', 'rgba(239,68,68,0.95)', '#fff', () => this._cancelMeasure()));
+        parent.appendChild(bar);
+        this._measureControls = bar;
+        this._updateMeasureControls();
+    },
+
+    _updateMeasureControls() {
+        const st = this._measureState;
+        const n = st ? st.vertices.length : 0;
+        if (this._measureUndoBtn) this._measureUndoBtn.style.display = n >= 1 ? 'inline-flex' : 'none';
+    },
+
+    _removeMeasureControls() {
+        if (this._measureControls) { try { this._measureControls.remove(); } catch (_) {} this._measureControls = null; }
+        this._measurePointBtn = null;
+        this._measureUndoBtn = null;
+    },
+
+    /** Retire le dernier sommet posé (correction sous stress). */
+    _measureUndoVertex() {
+        const st = this._measureState;
+        if (!st || !st.vertices.length) return;
+        st.vertices.pop();
+        this._renderMeasurePreview();
+        this._updateMeasureControls();
+    },
+
+    /** Valide la mesure : persiste un shape type:'measure' s'il y a >= 2 sommets. */
+    _finishMeasure() {
+        const st = this._measureState;
+        if (!st) { this._setTool(null); return; }
+        const verts = st.vertices.slice();
+        // En mode réticule, le centre courant compte comme dernier sommet implicite
+        // s'il diffère du précédent (l'utilisateur a visé sans valider « Point »).
+        if (st.reticle) {
+            const ret = this._measureReticlePoint();
+            const last = verts[verts.length - 1];
+            if (!last || last[0] !== ret[0] || last[1] !== ret[1]) verts.push(ret);
+        }
+        if (verts.length < 2) { this._cancelMeasure(); return; }
+        const total = this._measureTotalMeters(verts);
+        const shape = {
+            id: 'shape_' + Date.now(),
+            type: 'measure',
+            color: this.drawColor,
+            coords: verts,
+            totalM: total
+        };
+        this._clearMeasureState();
+        // Persiste sans passer par _finishShape (qui sélectionne la forme et
+        // déclencherait des handles ; la mesure est une annotation non sélectionnable).
+        this._pushHistory();
+        const list = this._loadShapes();
+        list.push(shape);
+        this._saveShapes(list);
+        this._setTool(null);
+        this._renderShapes();
+        this._refreshUndoRedoButtons();
+    },
+
+    /** Annule la mesure en cours et revient au mode contrôle carte. */
+    _cancelMeasure() {
+        this._clearMeasureState();
+        this._setTool(null);
+    },
+
+    /** Nettoie l'état + l'UI de mesure (markers, réticule, barre, hint). */
+    _clearMeasureState() {
+        this._measureState = null;
+        if (this._measureLabelMarkers) {
+            this._measureLabelMarkers.forEach(m => { try { m.remove(); } catch (_) {} });
+        }
+        this._measureLabelMarkers = [];
+        this._removeMeasureControls();
+        this._clearPreview();
+        const crosshair = document.getElementById('plan_draw_crosshair');
+        if (crosshair) crosshair.classList.remove('active');
+        const viewPlan = document.getElementById('view-plan');
+        if (viewPlan && !this.drawPrecisionMode) viewPlan.classList.remove('drawing-active');
+        this._hideHint();
+    },
+
+    // ----- ANNEAUX D'ENGAGEMENT (50/100/200 m) -----
+    /**
+     * Pose des cercles concentriques d'engagement autour du centre de carte
+     * courant. Persisté comme un shape type:'measure-rings' (réutilise
+     * _circlePolygon). Exposé via clic long sur le bouton mesure.
+     * @param {Array} [center]  [lng,lat] ; défaut = centre de la vue
+     */
+    _addEngagementRings(center) {
+        if (!this.map) return;
+        const c = (center && center.length === 2) ? center.slice()
+                : (() => { const ctr = this.map.getCenter(); return [ctr.lng, ctr.lat]; })();
+        const radii = [50, 100, 200];
+        const rings = radii.map(r => ({
+            radiusM: r,
+            coords: this._circlePolygon(c, this._geoEdgeNorth(c, r))
+        }));
+        const shape = {
+            id: 'shape_' + Date.now(),
+            type: 'measure-rings',
+            color: this.drawColor,
+            center: c,
+            rings
+        };
+        this._pushHistory();
+        const list = this._loadShapes();
+        list.push(shape);
+        this._saveShapes(list);
+        this._renderShapes();
+        this._refreshUndoRedoButtons();
+        this._showHint('Anneaux d\'engagement posés : 50 / 100 / 200 m.');
+        setTimeout(() => this._hideHint(), 2200);
+    },
+
     _renderPreview(feature) {
         const src = this.map.getSource('plan-draw-preview-src');
         if (src) src.setData({ type: 'FeatureCollection', features: [feature] });
@@ -1814,14 +2561,80 @@ export const PlanMap = {
                         properties: { color: s.color, shapeId: s.id, isText: true }
                     });
                 }
+            } else if (s.type === 'measure') {
+                // Mesure persistée : polyligne d'annotation. PAS de shapeId → non
+                // sélectionnable (les étiquettes/le tracé sont en lecture seule ;
+                // suppression via Effacer ou Annuler). Réutilise la même couche ligne.
+                if (Array.isArray(s.coords) && s.coords.length >= 2) {
+                    features.push({
+                        type: 'Feature', id: s.id,
+                        geometry: { type: 'LineString', coordinates: s.coords },
+                        properties: { color: s.color || '#22d3ee', strokeWidth: s.strokeWidth || 3 }
+                    });
+                }
+            } else if (s.type === 'measure-rings') {
+                // Anneaux d'engagement : cercles concentriques (annotation lecture seule).
+                if (Array.isArray(s.rings)) {
+                    for (const ring of s.rings) {
+                        if (!ring || !Array.isArray(ring.coords)) continue;
+                        features.push({
+                            type: 'Feature',
+                            geometry: { type: 'Polygon', coordinates: [ring.coords] },
+                            properties: { color: s.color || '#22d3ee', strokeWidth: s.strokeWidth || 2 }
+                        });
+                    }
+                }
             }
         }
         src.setData({ type: 'FeatureCollection', features });
         // Toujours synchroniser texte / diamètres / handles / toolbar avec les formes
         this._renderShapeTexts();
         this._renderDiameters();
+        this._renderCommittedMeasures();
         this._renderHandles();
         this._updateFloatingToolbarPos();
+    },
+
+    /**
+     * Étiquettes des mesures persistées (distance/azimut par segment + total)
+     * et libellés de rayon des anneaux d'engagement. Recalculées à chaque rendu
+     * et à chaque zoom/déplacement (positions le long de la ligne).
+     */
+    _renderCommittedMeasures() {
+        if (this._committedMeasureMarkers) {
+            this._committedMeasureMarkers.forEach(m => { try { m.remove(); } catch (_) {} });
+        }
+        this._committedMeasureMarkers = [];
+        if (!this.map) return;
+        const shapes = this._loadShapes();
+        for (const s of shapes) {
+            if (s.type === 'measure' && Array.isArray(s.coords) && s.coords.length >= 2) {
+                const savedColor = this.drawColor;
+                this.drawColor = s.color || '#22d3ee';
+                this._renderMeasureLabels(s.coords, true);
+                this.drawColor = savedColor;
+            } else if (s.type === 'measure-rings' && Array.isArray(s.rings)) {
+                const color = s.color || '#22d3ee';
+                for (const ring of s.rings) {
+                    if (!ring || !s.center) continue;
+                    // Libellé du rayon placé au nord du cercle.
+                    const top = this._geoEdgeNorth(s.center, ring.radiusM);
+                    const div = document.createElement('div');
+                    div.className = 'plan-measure-ring-label';
+                    div.textContent = `${ring.radiusM} m`;
+                    div.style.cssText = `
+                        background: rgba(10,12,16,0.86); color: #fff;
+                        padding: 1px 7px; border-radius: 9px; border: 1px solid ${color};
+                        font-family: var(--font-data, ui-monospace, monospace);
+                        font-size: 11px; font-weight: 700; white-space: nowrap;
+                        pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+                    `;
+                    const m = new maplibregl.Marker({ element: div, anchor: 'center' })
+                        .setLngLat(top).addTo(this.map);
+                    this._committedMeasureMarkers.push(m);
+                }
+            }
+        }
     },
 
     // ============================================================
@@ -1995,6 +2808,13 @@ export const PlanMap = {
         const state = { shapeId, startLngLat, isDrag: false, original: null };
         this._gesture = state;
 
+        // Verrou individuel : si la forme est figée, on n'autorisera pas le drag
+        // (le tap → menu contextuel reste possible, pour pouvoir la déverrouiller).
+        const lockedShape = (() => {
+            const sh = this._loadShapes().find(s => s.id === shapeId);
+            return !!(sh && sh.locked);
+        })();
+
         // Convertit un événement DOM (clientX/Y) en lngLat carte
         const clientToLngLat = (clientX, clientY) => {
             const rect = this.map.getCanvas().getBoundingClientRect();
@@ -2014,7 +2834,7 @@ export const PlanMap = {
             const cur = extractLngLat(ev);
             if (!cur) return;
             // Détection drag : seuil franchi ? (jamais en mode verrouillé → position figée)
-            if (!state.isDrag && !this._locked) {
+            if (!state.isDrag && !this._locked && !lockedShape) {
                 const p = this.map.project(cur);
                 if (Math.hypot(p.x - startPt.x, p.y - startPt.y) > DRAG_PX) {
                     // Bascule en mode drag : snapshot + history
@@ -2149,7 +2969,9 @@ export const PlanMap = {
         if (this._pinchListener) return;
         const onTouchStart = this._safe((e) => {
             if (!this._selectedShapeId || this.drawTool || this.moveState || this._gesture) return;
-            if (this._locked) return; // verrouillé : pas de redimensionnement au pinch
+            if (this._locked) return; // verrou global : pas de redimensionnement au pinch
+            const selShape = this._loadShapes().find(s => s.id === this._selectedShapeId);
+            if (selShape && selShape.locked) return; // verrou individuel
             const oe = e.originalEvent || e;
             if (oe.touches && oe.touches.length === 2) {
                 oe.preventDefault();
@@ -2295,10 +3117,11 @@ export const PlanMap = {
     _renderHandles() {
         this._clearHandles();
         if (!this.map || !this._selectedShapeId) return;
-        // Verrouillé : pas de poignées (ni déplacement, ni redimensionnement).
+        // Verrou global : pas de poignées (ni déplacement, ni redimensionnement).
         if (this._locked) return;
         const s = this._loadShapes().find(x => x.id === this._selectedShapeId);
         if (!s) { this._deselectShape(); return; }
+        if (s.locked) return; // verrou individuel : forme figée
         const handles = this._shapeHandles(s);
         for (const h of handles) {
             const el = document.createElement('div');
@@ -2596,6 +3419,40 @@ export const PlanMap = {
         this._wheelJustClosed = Date.now();
     },
 
+    /**
+     * Copie les coordonnées d'un point dans le presse-papier (décimal + DMS + MGRS).
+     * Utilisé par l'option « Copier coordonnées » des roues. Fallback execCommand si
+     * l'API Clipboard est absente (contexte non sécurisé / navigateur ancien).
+     */
+    _copyCoords(lng, lat) {
+        const text = formatCoordsClipboard(lng, lat);
+        const done = () => {
+            this._showHint('Coordonnées copiées — ' + shortMgrs(lng, lat));
+            setTimeout(() => this._hideHint(), 2000);
+        };
+        const fallback = () => {
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                done();
+            } catch (e) {
+                // Dernier recours : on affiche les coordonnées pour copie manuelle.
+                this._showHint('Copie impossible — ' + shortMgrs(lng, lat));
+                setTimeout(() => this._hideHint(), 3500);
+            }
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(fallback);
+        } else {
+            fallback();
+        }
+    },
+
     /** Couleurs OTAN (référencées partout).
      *  `defaultLabel` (optionnel) force le libellé quand on pose en quick-place,
      *  même si l'icône par défaut s'appelle autrement dans PIN_ICONS. */
@@ -2632,6 +3489,14 @@ export const PlanMap = {
             color: '#fff',
             bg: '#475569',
             action: () => this._openIconCatalogPanel(lngLat)
+        });
+        opts.push({
+            id: 'copycoords',
+            icon: 'my_location',
+            label: 'Copier coords',
+            color: '#fff',
+            bg: '#0f766e',
+            action: () => this._copyCoords(lngLat.lng, lngLat.lat)
         });
 
         this._activeWheel = new Wheel({
@@ -2706,6 +3571,22 @@ export const PlanMap = {
                 action: () => this._openPinColorPanel(pinId)
             },
             {
+                id: 'lock',
+                icon: pin.locked ? 'lock' : 'lock_open',
+                label: pin.locked ? 'Déverrouiller' : 'Verrouiller',
+                color: '#fff',
+                bg: pin.locked ? 'rgba(234,179,8,0.95)' : 'rgba(100,116,139,0.95)',
+                action: () => this._togglePinLock(pinId)
+            },
+            {
+                id: 'copycoords',
+                icon: 'my_location',
+                label: 'Copier coords',
+                color: '#fff',
+                bg: 'rgba(15,118,110,0.95)',
+                action: () => this._copyCoords(pin.lng, pin.lat)
+            },
+            {
                 id: 'delete',
                 icon: 'delete',
                 label: 'Supprimer',
@@ -2724,6 +3605,20 @@ export const PlanMap = {
             onClose: () => { this._activeWheel = null; }
         });
         this._activeWheel.open();
+    },
+
+    /** Verrouille / déverrouille la position d'UN ping (indépendamment du verrou global). */
+    _togglePinLock(pinId) {
+        const list = this._loadPins();
+        const pin = list.find(p => p.id === pinId);
+        if (!pin) return;
+        pin.locked = !pin.locked;
+        this._savePins(list);
+        this._renderPins();
+        this._showHint(pin.locked ? 'Ping verrouillé' : 'Ping déverrouillé');
+        setTimeout(() => this._hideHint(), 1400);
+        // Réouvre la roue pour refléter le nouvel état du verrou.
+        this._openPingOptionsWheel(pinId);
     },
 
     // ============================================================
@@ -3220,6 +4115,14 @@ export const PlanMap = {
             });
         }
         opts.push({
+            id: 'lock',
+            icon: s.locked ? 'lock' : 'lock_open',
+            label: s.locked ? 'Déverrouiller' : 'Verrouiller',
+            color: '#fff',
+            bg: s.locked ? 'rgba(234,179,8,0.95)' : 'rgba(100,116,139,0.95)',
+            action: () => this._toggleShapeLock(s.id)
+        });
+        opts.push({
             id: 'delete', icon: 'delete', label: 'Supprimer',
             color: '#fff', bg: 'rgba(239,68,68,0.95)',
             action: () => {
@@ -3241,6 +4144,24 @@ export const PlanMap = {
             onClose: () => { this._activeWheel = null; }
         });
         this._activeWheel.open();
+    },
+
+    /** Verrouille / déverrouille la position+taille d'UNE forme (indépendamment du verrou global). */
+    _toggleShapeLock(shapeId) {
+        const anchor = this._activeWheel ? this._activeWheel.lngLat : null;
+        const list = this._loadShapes();
+        const s = list.find(x => x.id === shapeId);
+        if (!s) return;
+        s.locked = !s.locked;
+        this._saveShapes(list);
+        // Forme verrouillée : on retire les poignées ; sinon on les réaffiche.
+        if (s.locked) this._clearHandles();
+        else this._renderHandles();
+        this._renderShapes();
+        this._showHint(s.locked ? 'Dessin verrouillé' : 'Dessin déverrouillé');
+        setTimeout(() => this._hideHint(), 1400);
+        // Réouvre la roue pour refléter le nouvel état du verrou.
+        this._openShapeWheel(shapeId, anchor || this._shapeAnchor(s));
     },
 
     /** Bascule en mode déplacement : la forme suit le curseur jusqu'au prochain clic.
@@ -3861,16 +4782,13 @@ export const PlanMap = {
     },
 
     _loadShapes() {
-        try { return JSON.parse(localStorage.getItem(SHAPES_KEY)) || []; }
-        catch (e) { return []; }
+        return Persist.get(SHAPES_KEY, { validator: Array.isArray, fallback: [] }) || [];
     },
 
     _saveShapes(list) {
-        try { localStorage.setItem(SHAPES_KEY, JSON.stringify(list)); }
-        catch (e) {
-            console.error('[PlanMap] save shapes échec:', e);
-            if (e.name === 'QuotaExceededError') alert('Mémoire saturée : impossible de sauvegarder les dessins.');
-        }
+        // Via Persist → la garde QuotaExceededError dispatch 'pctac:quota' sans jeter
+        // ni bloquer (plus d'alert() synchrone qui figerait l'UI sur le terrain).
+        Persist.set(SHAPES_KEY, list);
     },
 
     /** Rectangle aligné carte = polygone à 5 points (fermé) */
@@ -3916,6 +4834,118 @@ export const PlanMap = {
     },
 
     /**
+     * Point d'arête situé à exactement `radiusM` mètres DUE NORD du centre.
+     * Utilise le MÊME rayon terrestre R (6371000 m) que _circlePolygon et
+     * _haversineMeters, de sorte que _circlePolygon(center, edge) mesure
+     * géodésiquement radiusM. Le déplacement étant plein nord (Δlng = 0), la
+     * latitude varie de radiusM/R rad ; cos(lat) n'intervient que sur la
+     * composante est-ouille, ici nulle, donc le rayon est exact à toute latitude.
+     */
+    _geoEdgeNorth(center, radiusM) {
+        const R = 6371000;
+        const deltaLatDeg = (radiusM / R) * (180 / Math.PI);
+        return [center[0], center[1] + deltaLatDeg];
+    },
+
+    /**
+     * Résumé des pings courants pour l'export PDF (CONTRAT C2).
+     * @returns {Array<{label:string, lat:number, lng:number, diameterM:(number|null)}>}
+     *          [] si aucun ping. Réutilise _loadPins (même source que _renderPins)
+     *          et _resolvePin pour le libellé effectif (entité ou libre).
+     */
+    getPinsSummary() {
+        try {
+            const pins = this._loadPins();
+            if (!Array.isArray(pins)) return [];
+            return pins.map(pin => {
+                let label;
+                try { label = this._resolvePin(pin).label; }
+                catch (_) { label = pin.label || pin.text || ''; }
+                const dia = (typeof pin.diameterM === 'number' && pin.diameterM > 0)
+                    ? pin.diameterM : null;
+                return {
+                    label: label || '',
+                    lat: pin.lat,
+                    lng: pin.lng,
+                    diameterM: dia
+                };
+            });
+        } catch (e) {
+            console.error('[PlanMap] getPinsSummary échec:', e);
+            return [];
+        }
+    },
+
+    /**
+     * Compose le canvas WebGL + overlays (markers/libellés/boussole via
+     * html2canvas) et RETOURNE le PNG en dataURL (CONTRAT C2).
+     * @returns {Promise<string|null>} dataURL PNG, ou null si carte non initialisée
+     *          ou html2canvas indisponible (dégradation propre, hors-ligne).
+     */
+    async captureToDataUrl() {
+        if (!this.map) return null;
+        if (typeof html2canvas === 'undefined') return null;
+
+        const mapContainer = this.map.getContainer();
+        if (!mapContainer) return null;
+
+        // Masquer l'UI superposée (on garde la boussole MapLibre)
+        const toHide = [
+            document.getElementById('plan_unified_toolbar'),
+            document.getElementById('plan_draw_dock'),
+            document.getElementById('plan_search_panel'),
+            document.getElementById('plan_legend'),
+            document.getElementById('plan_hint')
+        ].filter(Boolean);
+        const memo = toHide.map(el => el.style.display);
+        toHide.forEach(el => { el.style.display = 'none'; });
+
+        // Forcer un repaint pour que le canvas WebGL contienne la frame actuelle
+        this.map.triggerRepaint();
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        try {
+            const glCanvas = this.map.getCanvas();
+            const w = glCanvas.width;   // pixels réels (déjà × devicePixelRatio)
+            const h = glCanvas.height;
+            const cssW = glCanvas.clientWidth;
+            const cssH = glCanvas.clientHeight;
+
+            // Garde-fou plein écran : clientWidth peut être transitoirement 0.
+            let dpr = cssW > 0 ? (w / cssW) : (window.devicePixelRatio || 1);
+            if (!isFinite(dpr) || dpr <= 0) dpr = window.devicePixelRatio || 1;
+
+            const overlay = await html2canvas(mapContainer, {
+                useCORS: true,
+                allowTaint: false,
+                backgroundColor: null,
+                logging: false,
+                scale: dpr,
+                width: cssW,
+                height: cssH,
+                windowWidth: cssW,
+                windowHeight: cssH,
+                scrollX: 0,
+                scrollY: 0,
+                ignoreElements: (el) => el.tagName === 'CANVAS'
+            });
+
+            const outCanvas = document.createElement('canvas');
+            outCanvas.width = w;
+            outCanvas.height = h;
+            const ctx = outCanvas.getContext('2d');
+            ctx.drawImage(glCanvas, 0, 0, w, h);
+            ctx.drawImage(overlay, 0, 0, w, h);
+            return outCanvas.toDataURL('image/png');
+        } catch (e) {
+            console.error('[PlanMap] capture échec:', e);
+            return null;
+        } finally {
+            toHide.forEach((el, i) => { el.style.display = memo[i] || ''; });
+        }
+    },
+
+    /**
      * Capture haute qualité de la carte avec ses annotations.
      *
      * Approche robuste (plein écran 2D ET 3D, après défilement) :
@@ -3936,92 +4966,279 @@ export const PlanMap = {
             return;
         }
         if (!this.map) return;
-        // Conteneur MapLibre (#plan_map) : markers, libellés et boussole y vivent et
-        // partagent EXACTEMENT le repère du canvas WebGL (inset:0). On capture ce
-        // conteneur — et non le cadre parent — pour que l'origine de l'overlay coïncide
-        // au pixel près avec le canvas, y compris en plein écran (où le cadre parent
-        // change de taille et décalait l'ancienne capture).
-        const mapContainer = this.map.getContainer();
-        if (!mapContainer) return;
 
-        // Éléments UI à masquer temporairement (on garde la boussole MapLibre)
-        const toHide = [
-            document.getElementById('plan_unified_toolbar'),
-            document.getElementById('plan_draw_dock'),
-            document.getElementById('plan_search_panel'),
-            document.getElementById('plan_legend'),
-            document.getElementById('plan_hint')
-        ].filter(Boolean);
-        const memo = toHide.map(el => el.style.display);
-        toHide.forEach(el => { el.style.display = 'none'; });
-
-        // Forcer un repaint pour que le canvas WebGL contienne la frame actuelle
-        this.map.triggerRepaint();
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-        let outCanvas;
+        // Composition (canvas WebGL + overlays) déléguée à la méthode publique
+        // captureToDataUrl (CONTRAT C2) ; ici on ne fait que déclencher le
+        // téléchargement, comportement inchangé du bouton plan_btn_capture.
+        let dataUrl;
         try {
-            const glCanvas = this.map.getCanvas();
-            const w = glCanvas.width;   // dimensions pixel réelles (déjà × devicePixelRatio)
-            const h = glCanvas.height;
-            const cssW = glCanvas.clientWidth;
-            const cssH = glCanvas.clientHeight;
-
-            // Ratio réel appliqué par MapLibre, avec garde-fou : en plein écran le
-            // clientWidth peut être transitoirement 0 (resize pas encore propagé),
-            // ce qui donnait un scale Infinity/NaN → capture cassée.
-            let dpr = cssW > 0 ? (w / cssW) : (window.devicePixelRatio || 1);
-            if (!isFinite(dpr) || dpr <= 0) dpr = window.devicePixelRatio || 1;
-
-            // Overlay DOM (markers, boussole) — html2canvas en ignorant tous les <canvas>.
-            // windowWidth/Height + scrollX/Y figés = robustesse en PLEIN ÉCRAN et après
-            // défilement : sinon html2canvas infère une fenêtre/position document erronée
-            // (viewport hors plein écran) et décale ou tronque l'overlay.
-            const overlay = await html2canvas(mapContainer, {
-                useCORS: true,
-                allowTaint: false,
-                backgroundColor: null,
-                logging: false,
-                scale: dpr,
-                width: cssW,
-                height: cssH,
-                windowWidth: cssW,
-                windowHeight: cssH,
-                scrollX: 0,
-                scrollY: 0,
-                ignoreElements: (el) => el.tagName === 'CANVAS'
-            });
-
-            // Composition finale : base WebGL (tuiles + relief 3D + dessins) puis overlay.
-            // On force la destination à w×h pour aligner l'overlay au pixel quel que soit
-            // l'arrondi de dimension produit par html2canvas.
-            outCanvas = document.createElement('canvas');
-            outCanvas.width = w;
-            outCanvas.height = h;
-            const ctx = outCanvas.getContext('2d');
-            ctx.drawImage(glCanvas, 0, 0, w, h);
-            ctx.drawImage(overlay, 0, 0, w, h);
+            dataUrl = await this.captureToDataUrl();
         } catch (e) {
             console.error('[PlanMap] screenshot échec:', e);
             alert('Erreur lors de la capture : ' + e.message);
             return;
-        } finally {
-            // Restaurer l'UI
-            toHide.forEach((el, i) => { el.style.display = memo[i] || ''; });
+        }
+        if (!dataUrl) {
+            alert('Capture impossible (carte non initialisée ?)');
+            return;
         }
 
-        outCanvas.toBlob((blob) => {
-            if (!blob) return;
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-            a.href = url;
-            a.download = `pctac-plan-${stamp}.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
-        }, 'image/png');
+        const a = document.createElement('a');
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        a.href = dataUrl;
+        a.download = `pctac-plan-${stamp}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    },
+
+    // ============================================================
+    // ===========  ZONE D'OPÉRATION HORS-LIGNE (AOI)  ============
+    //  Le bouton #plan_btn_aoi arme un cadrage rectangle one-shot sur
+    //  l'objectif ; à la validation on estime tuiles + volume, on vérifie
+    //  storage.estimate(), on demande confirmation, puis on télécharge dans
+    //  le MAP_CACHE (mêmes templates réels que la carte) avec backoff/réessai
+    //  et une barre de progression annulable injectée dynamiquement.
+    //  Bornes : z13→z18 par défaut, emprise plafonnée à AOI_MAX_TILES tuiles.
+    // ============================================================
+
+    AOI_MIN_Z: 13,
+    AOI_MAX_Z: 18,
+
+    /** Arme le mode de cadrage rectangle pour définir l'AOI (one-shot). */
+    _startAoiFraming() {
+        if (!this.map) return;
+        if (typeof caches === 'undefined') {
+            alert('Cache hors-ligne indisponible sur ce navigateur (Cache Storage absent).');
+            return;
+        }
+        if (this._aoiFraming) return; // déjà en cours
+        // On quitte tout outil de dessin/mesure pour ne pas mélanger les états.
+        if (this.drawTool) this._setTool(null);
+        this._aoiFraming = true;
+        const aoiBtn = document.getElementById('plan_btn_aoi');
+        if (aoiBtn) aoiBtn.classList.add('active');
+
+        const canvas = this.map.getCanvas();
+        canvas.style.cursor = 'crosshair';
+        this.map.dragPan.disable();
+        this.map.boxZoom.disable();
+        this.map.doubleClickZoom.disable();
+        this._showHint('Trace un rectangle sur la zone à télécharger (glisser-déposer). Échap pour annuler.');
+
+        let start = null;
+        const st = {};
+        st.down = this._safe((e) => {
+            if (e.originalEvent) { e.originalEvent.preventDefault(); e.originalEvent.stopPropagation(); }
+            start = [e.lngLat.lng, e.lngLat.lat];
+            st._start = start;
+        }, 'aoi:down');
+        st.move = this._safe((e) => {
+            if (!start) return;
+            const cur = [e.lngLat.lng, e.lngLat.lat];
+            this._renderPreview({
+                type: 'Feature',
+                geometry: { type: 'Polygon', coordinates: [this._rectPolygon(start, cur)] },
+                properties: { color: '#22c55e' }
+            });
+        }, 'aoi:move');
+        st.up = this._safe((e) => {
+            if (!start) return;
+            const end = e.lngLat ? [e.lngLat.lng, e.lngLat.lat] : start;
+            const p1 = this.map.project({ lng: start[0], lat: start[1] });
+            const p2 = this.map.project({ lng: end[0], lat: end[1] });
+            const distPx = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            const s = start; start = null;
+            if (distPx < 8) { return; } // simple clic : on attend un vrai rectangle
+            this._endAoiFraming();
+            const bbox = {
+                west: Math.min(s[0], end[0]),
+                east: Math.max(s[0], end[0]),
+                south: Math.min(s[1], end[1]),
+                north: Math.max(s[1], end[1])
+            };
+            this._confirmAoi(bbox);
+        }, 'aoi:up');
+        st.key = (ev) => { if (ev.key === 'Escape') this._endAoiFraming(); };
+
+        this.map.on('mousedown', st.down);
+        this.map.on('mousemove', st.move);
+        this.map.on('mouseup', st.up);
+        this.map.on('touchstart', st.down);
+        this.map.on('touchmove', st.move);
+        this.map.on('touchend', st.up);
+        document.addEventListener('keydown', st.key);
+        this._aoiFramingHandlers = st;
+    },
+
+    /** Désarme le cadrage AOI et restaure les interactions de carte. */
+    _endAoiFraming() {
+        if (!this._aoiFraming) return;
+        this._aoiFraming = false;
+        const st = this._aoiFramingHandlers;
+        if (st && this.map) {
+            this.map.off('mousedown', st.down);
+            this.map.off('mousemove', st.move);
+            this.map.off('mouseup', st.up);
+            this.map.off('touchstart', st.down);
+            this.map.off('touchmove', st.move);
+            this.map.off('touchend', st.up);
+            document.removeEventListener('keydown', st.key);
+        }
+        this._aoiFramingHandlers = null;
+        this._clearPreview();
+        if (this.map) {
+            this.map.getCanvas().style.cursor = '';
+            this.map.dragPan.enable();
+            this.map.boxZoom.enable();
+            this.map.doubleClickZoom.enable();
+        }
+        const aoiBtn = document.getElementById('plan_btn_aoi');
+        if (aoiBtn) aoiBtn.classList.remove('active');
+        this._hideHint();
+    },
+
+    /** Estime tuiles + volume, vérifie le quota, demande confirmation, lance. */
+    async _confirmAoi(bbox) {
+        const templates = _styleTileTemplates();
+        if (!templates.length) { alert('Aucune source cartographique disponible.'); return; }
+        const minZ = this.AOI_MIN_Z, maxZ = this.AOI_MAX_Z;
+        const tileCount = _estimateTileCount(bbox, minZ, maxZ, templates);
+        if (tileCount === 0) { alert('Zone hors couverture des sources cartographiques.'); return; }
+        if (tileCount > AOI_MAX_TILES) {
+            alert(`Zone trop vaste : ${tileCount.toLocaleString('fr-FR')} tuiles (max ${AOI_MAX_TILES.toLocaleString('fr-FR')}).\n`
+                + 'Réduis l\'emprise ou refais un rectangle plus petit.');
+            return;
+        }
+        // Estimation volume : ~22 Ko/tuile satellite/ortho, ~12 Ko/tuile DEM (ordre de grandeur).
+        const approxBytes = tileCount * 22 * 1024;
+        const mb = (approxBytes / (1024 * 1024));
+
+        // Vérification du quota disponible (best-effort).
+        let quotaWarn = '';
+        try {
+            if (navigator.storage && navigator.storage.estimate) {
+                const est = await navigator.storage.estimate();
+                if (est && typeof est.quota === 'number' && typeof est.usage === 'number') {
+                    const freeMb = (est.quota - est.usage) / (1024 * 1024);
+                    if (freeMb < mb) {
+                        quotaWarn = `\n\nATTENTION : espace libre estimé ${freeMb.toFixed(0)} Mo < besoin ${mb.toFixed(0)} Mo. Le téléchargement risque d'être incomplet.`;
+                    }
+                }
+            }
+        } catch (_) { /* estimate indispo : on tente quand même */ }
+
+        const ok = confirm(
+            `Télécharger la carte de cette zone pour usage hors-ligne ?\n\n`
+            + `Zoom ${minZ} → ${maxZ}\n`
+            + `Tuiles : ~${tileCount.toLocaleString('fr-FR')}\n`
+            + `Volume estimé : ~${mb < 1 ? '<1' : mb.toFixed(0)} Mo${quotaWarn}`
+        );
+        if (!ok) return;
+        this._runAoiDownload(bbox, minZ, maxZ, templates, tileCount);
+    },
+
+    /** Lance le téléchargement avec barre de progression annulable. */
+    async _runAoiDownload(bbox, minZ, maxZ, templates, estTotal) {
+        const ui = this._createAoiProgressBar(estTotal);
+        const signal = { aborted: false };
+        ui.cancelBtn.onclick = () => { signal.aborted = true; ui.setLabel('Annulation…'); };
+
+        let result;
+        try {
+            result = await _prefetchTiles(bbox, minZ, maxZ, templates, (done, total, okC, failC) => {
+                ui.update(done, total, okC, failC);
+            }, { signal });
+        } catch (e) {
+            console.error('[PlanMap] AOI téléchargement échec:', e);
+            ui.setLabel('Erreur : ' + (e && e.message ? e.message : 'cache indisponible'));
+            setTimeout(() => ui.remove(), 3500);
+            return;
+        }
+
+        if (result.aborted) {
+            ui.setLabel('Annulé. Tuiles déjà mises en cache conservées.');
+            setTimeout(() => ui.remove(), 2500);
+            return;
+        }
+
+        // Persiste un INDEX des AOI confirmées (pas un flag binaire) avec son statut.
+        try {
+            const index = Persist.get(AOI_INDEX_KEY, { validator: Array.isArray, fallback: [] }) || [];
+            index.push({
+                bbox, minZ, maxZ,
+                total: result.total, ok: result.ok, fail: result.fail,
+                complete: result.fail === 0,
+                ts: Date.now()
+            });
+            Persist.set(AOI_INDEX_KEY, index);
+        } catch (e) { /* persistance non bloquante */ }
+
+        if (result.fail === 0) {
+            ui.setLabel(`Zone téléchargée : ${result.ok.toLocaleString('fr-FR')} tuiles en cache hors-ligne.`);
+        } else {
+            ui.setLabel(`Terminé avec ${result.fail.toLocaleString('fr-FR')} tuile(s) manquante(s) (réseau). Relance pour compléter.`);
+        }
+        setTimeout(() => ui.remove(), 3500);
+    },
+
+    /** Crée dynamiquement (PAS dans le HTML) la barre de progression AOI. */
+    _createAoiProgressBar(estTotal) {
+        const host = document.getElementById('plan_map')
+            ? document.getElementById('plan_map').parentElement
+            : document.body;
+        const wrap = document.createElement('div');
+        wrap.id = 'plan_aoi_progress';
+        wrap.style.cssText = `
+            position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+            z-index: 30; min-width: 260px; max-width: 92%;
+            background: rgba(16,20,28,0.95); color: #fff;
+            border: 1px solid var(--border-glass, rgba(255,255,255,0.15));
+            border-radius: 10px; padding: 12px 14px;
+            font-family: var(--font-ui, sans-serif); font-size: 13px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+        `;
+        const label = document.createElement('div');
+        label.style.cssText = 'margin-bottom: 8px; line-height: 1.3;';
+        label.textContent = `Préparation du téléchargement (~${estTotal.toLocaleString('fr-FR')} tuiles)…`;
+        const barOuter = document.createElement('div');
+        barOuter.style.cssText = 'height: 8px; border-radius: 5px; background: rgba(255,255,255,0.12); overflow: hidden;';
+        const barInner = document.createElement('div');
+        barInner.style.cssText = 'height: 100%; width: 0%; background: #22c55e; transition: width 0.15s linear;';
+        barOuter.appendChild(barInner);
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px;';
+        const stat = document.createElement('span');
+        stat.style.cssText = 'font-family: var(--font-data, ui-monospace, monospace); font-size: 12px; color: var(--text-muted, #9aa4b2);';
+        stat.textContent = '0 %';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.textContent = 'Annuler';
+        cancelBtn.style.cssText = `
+            background: rgba(239,68,68,0.18); color: #fff;
+            border: 1px solid rgba(239,68,68,0.5); border-radius: 6px;
+            padding: 5px 12px; cursor: pointer; font-size: 12px;
+        `;
+        row.appendChild(stat);
+        row.appendChild(cancelBtn);
+        wrap.appendChild(label);
+        wrap.appendChild(barOuter);
+        wrap.appendChild(row);
+        host.appendChild(wrap);
+
+        return {
+            cancelBtn,
+            setLabel: (txt) => { label.textContent = txt; cancelBtn.style.display = 'none'; },
+            update: (done, total, okC, failC) => {
+                const pct = total ? Math.round((done / total) * 100) : 0;
+                barInner.style.width = pct + '%';
+                const remaining = total - done;
+                stat.textContent = `${pct} % · ${remaining.toLocaleString('fr-FR')} restantes`
+                    + (failC ? ` · ${failC} échec(s)` : '');
+                label.textContent = `Téléchargement de la zone d'opération… (${done.toLocaleString('fr-FR')}/${total.toLocaleString('fr-FR')})`;
+            },
+            remove: () => { try { wrap.remove(); } catch (_) {} }
+        };
     },
 
     _showHint(msg) {

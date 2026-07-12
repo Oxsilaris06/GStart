@@ -1221,6 +1221,49 @@ export const PlanMap = {
 
     // (Re)construit le contenu visuel d'un ping (pinWrap + labelEl) à partir de
     // entry.pin (toujours à jour). Renvoie le labelOffset pour le marker label.
+    /**
+     * Applique le style visuel d'un cadenas (verrouillé = jaune plein, sinon gris translucide).
+     * @param {HTMLElement} badge
+     * @param {boolean} locked
+     * @param {'corner'|'marker'} variant  'corner' = coin d'un ping ; 'marker' = marqueur centré d'une forme
+     */
+    _applyLockBadgeStyle(badge, locked, variant) {
+        badge.textContent = locked ? 'lock' : 'lock_open';
+        badge.title = locked
+            ? 'Verrouillé — cliquer pour déverrouiller'
+            : 'Cliquer pour verrouiller (fige la position)';
+        badge.setAttribute('aria-label', badge.title);
+        const common = `line-height:1; cursor:pointer; pointer-events:auto; user-select:none;`
+            + ` color:${locked ? '#eab308' : '#e5e7eb'};`
+            + ` background:rgba(15,18,24,${locked ? '0.95' : '0.7'});`
+            + ` box-shadow:0 1px 3px rgba(0,0,0,0.6); border-radius:50%;`
+            + ` opacity:${locked ? '1' : '0.82'}; z-index:3;`;
+        badge.style.cssText = (variant === 'corner')
+            ? common + ` position:absolute; top:-7px; right:-7px; font-size:13px; padding:2px;`
+            : common + ` font-size:16px; padding:4px; display:flex; align-items:center; justify-content:center;`;
+    },
+
+    /**
+     * Fabrique un cadenas cliquable (élément span Material Symbols). Le clic bascule
+     * le verrou via `onToggle` ; les pointerdown/mousedown/touchstart sont stoppés pour
+     * ne PAS déclencher le drag natif du marker ni la sélection de la forme sous-jacente.
+     */
+    _makeLockBadge(locked, onToggle, variant) {
+        const badge = document.createElement('span');
+        badge.className = 'plan-lock-badge material-symbols-outlined';
+        this._applyLockBadgeStyle(badge, locked, variant);
+        const stop = (e) => { e.stopPropagation(); };
+        badge.addEventListener('pointerdown', stop);
+        badge.addEventListener('mousedown', stop);
+        badge.addEventListener('touchstart', stop, { passive: true });
+        badge.addEventListener('click', this._safe((e) => {
+            e.stopPropagation();
+            if (e.preventDefault) e.preventDefault();
+            onToggle();
+        }, 'lockBadge:click'));
+        return badge;
+    },
+
     _buildPinVisual(entry) {
         const pin = entry.pin;
         const { label, color, kind } = this._resolvePin(pin);
@@ -1262,17 +1305,12 @@ export const PlanMap = {
             labelOffset = [0, 5];
         }
 
-        // Badge cadenas si le ping est verrouillé individuellement.
-        if (locked) {
-            const badge = document.createElement('span');
-            badge.className = 'material-symbols-outlined';
-            badge.textContent = 'lock';
-            badge.style.cssText = `position: absolute; top: -5px; right: -5px;`
-                + ` font-size: 13px; line-height: 1; color: #eab308;`
-                + ` background: rgba(15,18,24,0.92); border-radius: 50%; padding: 2px;`
-                + ` box-shadow: 0 1px 3px rgba(0,0,0,0.6); pointer-events: none; z-index: 2;`;
-            pinWrap.appendChild(badge);
-        }
+        // Cadenas cliquable TOUJOURS visible : verrouille/déverrouille CE ping.
+        // Verrouillé = position figée (le drag natif est désactivé côté marker).
+        const pinId = pin.id;
+        pinWrap.appendChild(
+            this._makeLockBadge(locked, () => this._togglePinLock(pinId, false), 'corner')
+        );
 
         // L'ancre dépend du type → si elle change, on doit la réappliquer.
         const anchor = (customIcon || isVehicle) ? 'center' : 'bottom';
@@ -1377,13 +1415,16 @@ export const PlanMap = {
             }
         };
 
+        const onLockBadge = (ev) => !!(ev.target && ev.target.closest && ev.target.closest('.plan-lock-badge'));
         pinWrap.addEventListener('pointerdown', this._safe((ev) => {
+            if (onLockBadge(ev)) return;   // clic sur le cadenas : ne pas amorcer un geste de ping
             onDown(ev.clientX, ev.clientY, ev.pointerType === 'touch');
         }, 'pin:pointerdown'), { capture: true });
         pinWrap.addEventListener('pointermove', this._safe(() => {
             /* le drag natif maplibre gère le déplacement */
         }, 'pin:pointermove'), { capture: true });
         pinWrap.addEventListener('pointerup', this._safe((ev) => {
+            if (onLockBadge(ev)) return;   // idem au relâchement (évite un faux tap)
             onUp(ev.clientX, ev.clientY, ev);
         }, 'pin:pointerup'), { capture: true });
         pinWrap.addEventListener('pointercancel', this._safe(() => {
@@ -2592,6 +2633,7 @@ export const PlanMap = {
         this._renderDiameters();
         this._renderCommittedMeasures();
         this._renderHandles();
+        this._renderShapeLocks();
         this._updateFloatingToolbarPos();
     },
 
@@ -2947,6 +2989,7 @@ export const PlanMap = {
         }
         this._selectedShapeId = shapeId;
         this._renderHandles();
+        this._renderShapeLocks();   // fait apparaître le cadenas de la forme sélectionnée
         this._attachPinchListeners();
         // La barre flottante est remplacée par la roue éphémère (_openShapeWheel).
     },
@@ -2958,6 +3001,7 @@ export const PlanMap = {
         this._clearFloatingToolbar();
         this._detachPinchListeners();
         this._closeWheel();
+        this._renderShapeLocks();   // retire le cadenas si la forme n'est pas verrouillée
     },
 
     /**
@@ -3001,6 +3045,46 @@ export const PlanMap = {
         if (s.type === 'circle') return (s.center || s.coords[0]).slice();
         if (s.type === 'text')   return s.coords[0].slice();
         return [0, 0];
+    },
+
+    /**
+     * Marqueur cadenas cliquable par forme. Affiché pour toute forme VERROUILLÉE
+     * (pour pouvoir la déverrouiller) ou actuellement SÉLECTIONNÉE (pour la verrouiller).
+     * Ancré au centroïde, légèrement au-dessus pour ne pas gêner la poignée centrale.
+     * Réconciliation par id (comme les pings) : pas de recréation inutile.
+     */
+    _renderShapeLocks() {
+        if (!this.map) return;
+        if (!this._shapeLockMarkers) this._shapeLockMarkers = new Map();
+        const shapes = this._loadShapes();
+        const seen = new Set();
+        for (const s of shapes) {
+            if (!s.id) continue;                       // mesures/anneaux : non verrouillables
+            const show = !!s.locked || this._selectedShapeId === s.id;
+            if (!show) continue;
+            seen.add(s.id);
+            const c = this._shapeCentroid(s);
+            let entry = this._shapeLockMarkers.get(s.id);
+            if (!entry) {
+                const shapeId = s.id;
+                const el = this._makeLockBadge(!!s.locked, () => this._toggleShapeLock(shapeId, false), 'marker');
+                const m = new maplibregl.Marker({ element: el, anchor: 'center', offset: [0, -20] })
+                    .setLngLat(c).addTo(this.map);
+                entry = { marker: m, el, locked: !!s.locked };
+                this._shapeLockMarkers.set(s.id, entry);
+            } else {
+                entry.marker.setLngLat(c);
+                if (entry.locked !== !!s.locked) {
+                    this._applyLockBadgeStyle(entry.el, !!s.locked, 'marker');
+                    entry.locked = !!s.locked;
+                }
+            }
+        }
+        for (const [id, entry] of this._shapeLockMarkers) {
+            if (seen.has(id)) continue;
+            try { entry.marker.remove(); } catch (_) {}
+            this._shapeLockMarkers.delete(id);
+        }
     },
 
     _startPinchGesture() {
@@ -3608,7 +3692,7 @@ export const PlanMap = {
     },
 
     /** Verrouille / déverrouille la position d'UN ping (indépendamment du verrou global). */
-    _togglePinLock(pinId) {
+    _togglePinLock(pinId, reopenWheel = true) {
         const list = this._loadPins();
         const pin = list.find(p => p.id === pinId);
         if (!pin) return;
@@ -3617,8 +3701,8 @@ export const PlanMap = {
         this._renderPins();
         this._showHint(pin.locked ? 'Ping verrouillé' : 'Ping déverrouillé');
         setTimeout(() => this._hideHint(), 1400);
-        // Réouvre la roue pour refléter le nouvel état du verrou.
-        this._openPingOptionsWheel(pinId);
+        // Depuis la roue : la rouvre pour refléter l'état. Depuis le cadenas direct : non.
+        if (reopenWheel) this._openPingOptionsWheel(pinId);
     },
 
     // ============================================================
@@ -4147,7 +4231,7 @@ export const PlanMap = {
     },
 
     /** Verrouille / déverrouille la position+taille d'UNE forme (indépendamment du verrou global). */
-    _toggleShapeLock(shapeId) {
+    _toggleShapeLock(shapeId, reopenWheel = true) {
         const anchor = this._activeWheel ? this._activeWheel.lngLat : null;
         const list = this._loadShapes();
         const s = list.find(x => x.id === shapeId);
@@ -4157,11 +4241,11 @@ export const PlanMap = {
         // Forme verrouillée : on retire les poignées ; sinon on les réaffiche.
         if (s.locked) this._clearHandles();
         else this._renderHandles();
-        this._renderShapes();
+        this._renderShapes();       // rafraîchit aussi les cadenas via _renderShapeLocks
         this._showHint(s.locked ? 'Dessin verrouillé' : 'Dessin déverrouillé');
         setTimeout(() => this._hideHint(), 1400);
-        // Réouvre la roue pour refléter le nouvel état du verrou.
-        this._openShapeWheel(shapeId, anchor || this._shapeAnchor(s));
+        // Depuis la roue : la rouvre pour refléter l'état. Depuis le cadenas direct : non.
+        if (reopenWheel) this._openShapeWheel(shapeId, anchor || this._shapeAnchor(s));
     },
 
     /** Bascule en mode déplacement : la forme suit le curseur jusqu'au prochain clic.
@@ -4897,6 +4981,9 @@ export const PlanMap = {
             document.getElementById('plan_legend'),
             document.getElementById('plan_hint')
         ].filter(Boolean);
+        // Les cadenas de verrouillage (pings + dessins) ne doivent pas apparaître à l'export.
+        Array.prototype.push.apply(toHide,
+            Array.prototype.slice.call(document.querySelectorAll('.plan-lock-badge')));
         const memo = toHide.map(el => el.style.display);
         toHide.forEach(el => { el.style.display = 'none'; });
 

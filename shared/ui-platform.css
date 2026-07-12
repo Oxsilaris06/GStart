@@ -1,0 +1,141 @@
+/* =====================================================================
+   UI Platform — socle "native-quality" partagé OI (4.html) + PC-Tac (pctac2.html)
+   Chargé dans les deux <head>. Purement ADDITIF : aucune règle existante
+   n'est modifiée. Un seul lieu de vérité pour le comportement de plateforme.
+   ===================================================================== */
+
+:root {
+    /* T1 — Safe-area (encoche / home indicator). 0px par défaut = no-op desktop. */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    /* Hauteur du clavier virtuel (mis à jour par ui-platform.js via visualViewport). */
+    --kb-inset: 0px;
+}
+
+/* T5 — Confinement du scroll : tue le pull-to-refresh PWA parasite et le scroll-chaining. */
+html {
+    overscroll-behavior-y: none;
+}
+.up-scroll-contain {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* T2 — Anti-zoom iOS : tout champ < 16px déclenche un zoom auto au focus sur tactile.
+   On force >= 16px uniquement en pointeur grossier (mobile), jamais sur desktop. */
+@media (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+    textarea,
+    select {
+        font-size: max(16px, 1em);
+    }
+}
+
+/* T12 — Anneau de focus visible global (clavier uniquement). Neutralise les
+   outline:none des apps SANS réintroduire de halo à la souris. */
+:focus-visible {
+    outline: 2px solid var(--accent-blue, #3b82f6) !important;
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+/* Pas d'outline résiduel quand le focus n'est PAS clavier. */
+:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* T9 — Sur tactile (pas de vrai survol), neutraliser le « lift » transform des
+   règles :hover qui reste COLLÉ après un tap (effet « web » typique). Additif :
+   ne réécrit aucune des règles :hover existantes, ne s'applique qu'aux pointeurs
+   grossiers, et seulement à la propriété transform (le retour visuel reste assuré
+   par :active). Couvre les classes interactives réelles des deux apps. */
+@media (hover: none) and (pointer: coarse) {
+    a:hover, button:hover, [role="button"]:hover,
+    .add-btn:hover, .remove-btn:hover, .tab-btn:hover, .dock-menu-item:hover,
+    .patracdvr-member-btn:hover, .action-btn-small:hover, .delete-btn:hover,
+    .delete:hover, .edit:hover, .tool-btn:hover, .effrac-tool-btn:hover,
+    .order-chip:hover, .rame-vl-chip:hover, .collapsible-header:hover,
+    .wizard-progress-step:hover, .quick-edit-btn:hover, .vehicle-name:hover,
+    .file-upload-label:hover, .custom-file-upload:hover, .image-preview-item:hover,
+    .plan-tool-fab:hover, .color-swatch:hover, .add-log-btn:hover,
+    .oi-carto-fab:hover, .oi-carto-draw-btn:hover, .oi-carto-search-result:hover {
+        transform: none !important;
+    }
+    /* Retour tactile immédiat (<100 ms) au lieu d'un survol fantôme. */
+    a:active, button:active, [role="button"]:active,
+    .add-btn:active, .tab-btn:active, .dock-menu-item:active, .plan-tool-fab:active {
+        transition: transform 0.06s ease;
+    }
+}
+
+/* T14 — prefers-reduced-motion partagé (absent de PC-Tac). */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* T3 — Verrou de scroll natif (utilisé par UIPlatform.lockScroll).
+   Le décalage `top` est posé en inline par le JS pour préserver scrollY. */
+body.up-scroll-locked {
+    position: fixed;
+    left: 0;
+    right: 0;
+    width: 100%;
+    overflow: hidden;
+    touch-action: none;
+}
+
+/* T7 — Anti-callout iOS sur conteneurs interactifs (long-press propre). */
+.up-no-callout {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* T9 — Cible tapable >= 44px sans changer le rendu visuel (zone étendue). */
+.up-tap-target {
+    position: relative;
+}
+.up-tap-target::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 44px;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
+}
+
+/* T6 — Tri tactile (états appliqués par UIPlatform.sortable). */
+.up-sorting {
+    touch-action: none;
+    cursor: grabbing;
+}
+.up-sort-dragging {
+    opacity: 0.85;
+    transform: scale(1.02);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+    z-index: 5;
+    pointer-events: none;
+}
+.up-sort-placeholder {
+    outline: 2px dashed var(--accent-blue, #3b82f6);
+    outline-offset: -2px;
+    opacity: 0.4;
+}
+
+/* T4 — Modale/feuille recadrée au-dessus du clavier virtuel.
+   La classe est posée par makeDialog ; le décalage exploite --kb-inset. */
+.up-kb-aware {
+    transition: transform 0.18s ease;
+}
+body.up-kb-open .up-kb-aware {
+    transform: translateY(calc(-1 * var(--kb-inset) * 0.5));
+}

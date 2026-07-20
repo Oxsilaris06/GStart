@@ -1233,6 +1233,7 @@ export const PlanMap = {
             ? 'Verrouillé — cliquer pour déverrouiller'
             : 'Cliquer pour verrouiller (fige la position)';
         badge.setAttribute('aria-label', badge.title);
+        badge.classList.toggle('locked', locked);
         const common = `line-height:1; cursor:pointer; pointer-events:auto; user-select:none;`
             + ` color:${locked ? '#eab308' : '#e5e7eb'};`
             + ` background:rgba(15,18,24,${locked ? '0.95' : '0.7'});`
@@ -1482,6 +1483,9 @@ export const PlanMap = {
             if (!entry) {
                 // --- CRÉATION ---
                 const pinWrap = document.createElement('div');
+                // Marqueur identifiable : permet à _shapePointerDown d'ignorer un geste
+                // qui démarre sur un ping (évite de déplacer la forme sous-jacente).
+                pinWrap.classList.add('plan-pin');
                 const labelEl = document.createElement('div');
                 entry = { pin, pinWrap, labelEl, pinMarker: null, labelMarker: null, sig: null, _anchor: null };
 
@@ -2820,6 +2824,11 @@ export const PlanMap = {
         if (this.drawTool) return;          // outil de dessin actif : on ignore
         if (this.moveState) return;         // déjà une transformation en cours
         if (this._gesture) return;          // déjà un geste en cours
+        // Le pointeur a démarré sur un PING (marker DOM au-dessus de la carte) ?
+        // Alors l'utilisateur manipule ce ping : ne PAS démarrer un geste de forme,
+        // sinon la forme sous-jacente se déplacerait en même temps que le ping.
+        const oe = e.originalEvent;
+        if (oe && oe.target && oe.target.closest && oe.target.closest('.plan-pin')) return;
         const feat = e.features && e.features[0];
         if (!feat) return;
         const id = feat.properties.shapeId;
@@ -3840,31 +3849,84 @@ export const PlanMap = {
         const p = list.find(x => x.id === pinId);
         if (!p) return;
         const ll = { lng: p.lng, lat: p.lat };
-        const initial = (p.text || '').replace(/"/g, '&quot;');
+        const initialRaw = p.text || '';
+        const initial = initialRaw.replace(/"/g, '&quot;');
+        // Champ intitulé + rangée d'icônes suggérées (recherche auto selon le texte tapé).
         const html = `
-            <span class="material-symbols-outlined" style="font-size: 20px; color: #eab308;">text_fields</span>
-            <input type="text" value="${initial}" placeholder="Texte du ping…" autocomplete="off"
-                style="flex:1; min-width: 180px; min-height: 38px; background: rgba(255,255,255,0.08); color: #fff;
-                       border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 6px 10px; font-size: 15px;
-                       outline: none;" />
-            <button type="button" data-act="save" title="Enregistrer"
-                style="min-width: 40px; min-height: 38px; border-radius: 8px; cursor: pointer;
-                       background: #22c55e; border: 1px solid #16a34a; color: #fff; display: inline-flex; align-items: center; justify-content: center;">
-                <span class="material-symbols-outlined" style="font-size: 20px;">check</span>
-            </button>
-            <button type="button" data-act="clear" title="Effacer"
-                style="min-width: 40px; min-height: 38px; border-radius: 8px; cursor: pointer;
-                       background: rgba(239,68,68,0.18); border: 1px solid #ef4444; color: #fff; display: inline-flex; align-items: center; justify-content: center;">
-                <span class="material-symbols-outlined" style="font-size: 20px;">delete</span>
-            </button>
+            <div style="display:flex; flex-direction:column; gap:8px; flex:1; min-width:0;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="material-symbols-outlined" style="font-size: 20px; color: #eab308;">text_fields</span>
+                    <input type="text" value="${initial}" placeholder="Intitulé du ping…" autocomplete="off"
+                        style="flex:1; min-width: 140px; min-height: 38px; background: rgba(255,255,255,0.08); color: #fff;
+                               border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 6px 10px; font-size: 15px;
+                               outline: none;" />
+                    <button type="button" data-act="save" title="Enregistrer"
+                        style="min-width: 40px; min-height: 38px; border-radius: 8px; cursor: pointer; flex:0 0 auto;
+                               background: #22c55e; border: 1px solid #16a34a; color: #fff; display: inline-flex; align-items: center; justify-content: center;">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">check</span>
+                    </button>
+                    <button type="button" data-act="clear" title="Effacer le texte"
+                        style="min-width: 40px; min-height: 38px; border-radius: 8px; cursor: pointer; flex:0 0 auto;
+                               background: rgba(239,68,68,0.18); border: 1px solid #ef4444; color: #fff; display: inline-flex; align-items: center; justify-content: center;">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">delete</span>
+                    </button>
+                </div>
+                <div data-suggest style="display:none; align-items:center; flex-wrap:wrap; gap:6px; max-width:340px;"></div>
+            </div>
         `;
         this._openInlinePanel(ll, html, {
             onBack: () => this._openPingOptionsWheel(pinId),
             onMount: (root) => {
                 const input = root.querySelector('input');
+                const suggest = root.querySelector('[data-suggest]');
                 if (input) { input.focus(); input.select(); }
+
+                // Applique une icône au ping (clic sur une suggestion), en direct.
+                const applyIcon = (iconId) => {
+                    const list2 = this._loadPins();
+                    const p2 = list2.find(x => x.id === pinId);
+                    if (!p2) return;
+                    if (iconId) p2.icon = iconId; else delete p2.icon;
+                    this._savePins(list2);
+                    this._renderPins();
+                    renderSuggest(input ? input.value : ''); // rafraîchit la surbrillance
+                };
+
+                // Recherche auto : propose les icônes en rapport avec l'intitulé.
+                const renderSuggest = (text) => {
+                    if (!suggest) return;
+                    const found = suggestPinIcons(text, 6);
+                    if (!found.length) { suggest.style.display = 'none'; suggest.innerHTML = ''; return; }
+                    const curPin = this._loadPins().find(x => x.id === pinId);
+                    const curIcon = (curPin && curPin.icon) || '';
+                    suggest.style.display = 'flex';
+                    suggest.innerHTML =
+                        `<span style="font-size:0.68em; color:var(--text-muted); width:100%; letter-spacing:.5px; text-transform:uppercase;">Icônes suggérées</span>`
+                        + found.map(ic => {
+                            const on = ic.id === curIcon;
+                            return `<button type="button" class="pin-suggest" data-id="${ic.id}" title="${ic.label}"
+                                style="display:inline-flex; align-items:center; gap:5px; padding:5px 9px; border-radius:7px; cursor:pointer;
+                                       background:${on ? 'rgba(34,197,94,0.22)' : 'rgba(59,130,246,0.12)'};
+                                       border:1px solid ${on ? '#22c55e' : 'rgba(59,130,246,0.4)'};
+                                       color:#fff; font-size:0.82em;">
+                                <span class="material-symbols-outlined" style="font-size:19px;">${ic.id}</span>${ic.label}
+                            </button>`;
+                        }).join('');
+                    suggest.querySelectorAll('.pin-suggest').forEach(btn => {
+                        btn.onclick = () => {
+                            const id = btn.dataset.id;
+                            const curPin2 = this._loadPins().find(x => x.id === pinId);
+                            const isOn = curPin2 && curPin2.icon === id;
+                            applyIcon(isOn ? '' : id); // reclic sur l'icône active → pin par défaut
+                        };
+                    });
+                };
+
+                renderSuggest(initialRaw);
+                if (input) input.addEventListener('input', () => renderSuggest(input.value));
+
                 root.querySelector('[data-act="save"]').onclick = () => {
-                    const v = (root.querySelector('input').value || '').trim();
+                    const v = (input.value || '').trim();
                     const list2 = this._loadPins();
                     const p2 = list2.find(x => x.id === pinId);
                     if (p2) { p2.text = v; this._savePins(list2); this._renderPins(); }
@@ -3876,7 +3938,7 @@ export const PlanMap = {
                     if (p2) { delete p2.text; this._savePins(list2); this._renderPins(); }
                     this._closeInlinePanel();
                 };
-                root.querySelector('input').addEventListener('keydown', (ev) => {
+                input.addEventListener('keydown', (ev) => {
                     if (ev.key === 'Enter') root.querySelector('[data-act="save"]').click();
                 });
             }

@@ -6,7 +6,8 @@ import { Utils } from './utils.js';
 import { ImageStore } from './imageStore.js';
 import './planMap.js'; // expose window.PlanMap (utilisé par UI.switchMainView)
 import './tchapLive.js'; // géoloc équipe live (Tchap) → marqueurs sur PlanMap
-import './dashboard.js'; // expose window.Dashboard (board relationnel, onglet Board + PDF)
+// NB : dashboard.js (board relationnel) est VOLONTAIREMENT débranché — inefficace
+// en l'état, mis de côté. Ne pas réimporter sans décision explicite.
 import { Persist } from './persist.js';
 import { CUSTOM_PAX_KEY, ADVERSARIES_KEY, HOSTAGES_KEY, FRIENDS_KEY, PHOTOS_KEY, DASHBOARD_KEY } from './config.js';
 
@@ -62,7 +63,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Charger la dernière vue
-    const lastView = localStorage.getItem('lastView') || 'view-main-courante';
+    let lastView = localStorage.getItem('lastView') || 'view-main-courante';
+    // Vue persistée qui n'existe plus (ex : 'view-dashboard' débranché) → repli.
+    if (!document.getElementById(lastView)) lastView = 'view-main-courante';
     UI.switchMainView(lastView);
 
     // Initialiser le thème
@@ -307,12 +310,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const st = Persist.get(DASHBOARD_KEY, { validator: (v) => v && typeof v === 'object', fallback: null });
             if (st) {
-                const ids = [id, id + '_sync'];
+                // Trois formes de clés de nœud : id photo brut, '<id>_sync', et les
+                // placeholders entités préfixés 'ent:adv:<id>' / 'ent:host:<id>'.
+                const matches = (k) => k === id || k === id + '_sync' || String(k).endsWith(':' + id);
                 let touched = false;
-                if (st.positions) ids.forEach(k => { if (k in st.positions) { delete st.positions[k]; touched = true; } });
+                if (st.positions) {
+                    for (const k of Object.keys(st.positions)) {
+                        if (matches(k)) { delete st.positions[k]; touched = true; }
+                    }
+                }
                 if (Array.isArray(st.links)) {
                     const before = st.links.length;
-                    st.links = st.links.filter(l => !l || (!ids.includes(l.from) && !ids.includes(l.to)));
+                    st.links = st.links.filter(l => !l || (!matches(l.from) && !matches(l.to)));
                     if (st.links.length !== before) touched = true;
                 }
                 if (touched) Persist.set(DASHBOARD_KEY, st);

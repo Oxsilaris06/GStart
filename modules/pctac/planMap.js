@@ -828,6 +828,11 @@ export const PlanMap = {
         const q = input.value.trim();
         if (!q) return;
 
+        // Jeton de séquence incrémenté AVANT toute branche (GPS comprise) : une
+        // réponse Nominatim en vol d'une recherche précédente ne doit écraser NI un
+        // résultat d'adresse plus récent NI un centrage GPS direct.
+        const seq = (this._searchSeq = (this._searchSeq || 0) + 1);
+
         // 1) Coordonnées GPS directes → on centre immédiatement
         const gps = this._parseGps(q);
         if (gps) {
@@ -843,9 +848,6 @@ export const PlanMap = {
 
         // 2) Sinon, géocodage d'adresse via Nominatim
         resultsBox.innerHTML = '<em style="color: var(--text-muted);">Recherche…</em>';
-        // Jeton de séquence : une réponse lente d'une recherche PRÉCÉDENTE ne doit
-        // pas écraser le résultat le plus récent ni re-centrer la carte.
-        const seq = (this._searchSeq = (this._searchSeq || 0) + 1);
         try {
             const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`;
             const r = await fetch(url, { headers: { 'Accept-Language': 'fr' } });
@@ -5092,30 +5094,33 @@ export const PlanMap = {
         const memo = toHide.map(el => el.style.display);
         toHide.forEach(el => { el.style.display = 'none'; });
 
-        // Attendre la fin d'un mouvement caméra et le chargement des tuiles visibles
-        // (borné à 2,5 s pour ne jamais bloquer hors-ligne : les tuiles absentes du
-        // cache ne viendront pas, on capture l'état réel).
-        if (this.map.isMoving() || !this.map.areTilesLoaded()) {
-            await new Promise((res) => {
-                let done = false;
-                const fin = () => {
-                    if (done) return; done = true;
-                    try { this.map.off('idle', fin); } catch (_) {}
-                    clearTimeout(t);
-                    res();
-                };
-                const t = setTimeout(fin, 2500);
-                this.map.once('idle', fin);
-            });
-        }
-
-        // Forcer un repaint pour que le canvas WebGL contienne la frame actuelle
-        this.map.triggerRepaint();
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
+        // À partir d'ici, TOUT est sous try/finally : une exception pendant
+        // l'attente des tuiles ou le repaint ne doit jamais laisser l'UI masquée
+        // ni le verrou _captureBusy posé.
         const markersToRestore = [];
         const pinnedEls = [];
         try {
+            // Attendre la fin d'un mouvement caméra et le chargement des tuiles
+            // visibles (borné à 2,5 s pour ne jamais bloquer hors-ligne : les tuiles
+            // absentes du cache ne viendront pas, on capture l'état réel).
+            if (this.map.isMoving() || !this.map.areTilesLoaded()) {
+                await new Promise((res) => {
+                    let done = false;
+                    const fin = () => {
+                        if (done) return; done = true;
+                        try { this.map.off('idle', fin); } catch (_) {}
+                        clearTimeout(t);
+                        res();
+                    };
+                    const t = setTimeout(fin, 2500);
+                    this.map.once('idle', fin);
+                });
+            }
+
+            // Forcer un repaint pour que le canvas WebGL contienne la frame actuelle
+            this.map.triggerRepaint();
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
             // Aplatir temporairement les positions 3D/2D transformées de tous les marqueurs visibles
             const parentRect = mapContainer.getBoundingClientRect();
             const markerElements = Array.from(mapContainer.querySelectorAll('.maplibregl-marker, .mapboxgl-marker'));

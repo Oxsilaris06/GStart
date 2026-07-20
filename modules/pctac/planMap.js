@@ -5053,7 +5053,38 @@ export const PlanMap = {
         this.map.triggerRepaint();
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+        const markersToRestore = [];
         try {
+            // Aplatir temporairement les positions 3D/2D transformées de tous les marqueurs visibles
+            const parentRect = mapContainer.getBoundingClientRect();
+            const markerElements = Array.from(mapContainer.querySelectorAll('.maplibregl-marker, .mapboxgl-marker'));
+            
+            for (const el of markerElements) {
+                // Ignorer si l'élément est déjà masqué ou a des dimensions nulles
+                if (el.style.display === 'none' || el.offsetWidth === 0 || el.offsetHeight === 0) continue;
+                
+                const rect = el.getBoundingClientRect();
+                const left = rect.left - parentRect.left;
+                const top = rect.top - parentRect.top;
+                
+                markersToRestore.push({
+                    el: el,
+                    position: el.style.position,
+                    left: el.style.left,
+                    top: el.style.top,
+                    transform: el.style.transform,
+                    width: el.style.width,
+                    height: el.style.height
+                });
+                
+                el.style.position = 'absolute';
+                el.style.left = left + 'px';
+                el.style.top = top + 'px';
+                el.style.transform = 'none';
+                el.style.width = rect.width + 'px';
+                el.style.height = rect.height + 'px';
+            }
+
             const glCanvas = this.map.getCanvas();
             const w = glCanvas.width;   // pixels réels (déjà × devicePixelRatio)
             const h = glCanvas.height;
@@ -5090,6 +5121,15 @@ export const PlanMap = {
             console.error('[PlanMap] capture échec:', e);
             return null;
         } finally {
+            // Restaurer les positions d'origine des marqueurs
+            for (const item of markersToRestore) {
+                item.el.style.position = item.position;
+                item.el.style.left = item.left;
+                item.el.style.top = item.top;
+                item.el.style.transform = item.transform;
+                item.el.style.width = item.width;
+                item.el.style.height = item.height;
+            }
             toHide.forEach((el, i) => { el.style.display = memo[i] || ''; });
         }
     },

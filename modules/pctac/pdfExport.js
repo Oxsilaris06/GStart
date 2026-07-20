@@ -223,16 +223,24 @@ export const PdfExport = {
                 // Style Pax (Couleur)
                 let pColor = pdfRgb(0.5, 0.5, 0.5);
                 let pText = entry.pax || '';
+                let hexColor = '#888888';
                 if (entry.paxMode === 'standard') {
                     const cfg = PDF_PAX_COLORS[entry.pax] || PDF_PAX_COLORS['Autre'];
-                    const hex = cfg.color;
-                    pColor = pdfRgb(parseInt(hex.slice(1,3),16)/255, parseInt(hex.slice(3,5),16)/255, parseInt(hex.slice(5,7),16)/255);
+                    hexColor = cfg.color;
                 } else {
-                    const hex = entry.paxColor || '#888888';
-                    pColor = pdfRgb(parseInt(hex.slice(1,3),16)/255, parseInt(hex.slice(3,5),16)/255, parseInt(hex.slice(5,7),16)/255);
+                    hexColor = entry.paxColor || '#888888';
                 }
+                const r = parseInt(hexColor.slice(1,3), 16);
+                const g = parseInt(hexColor.slice(3,5), 16);
+                const b = parseInt(hexColor.slice(5,7), 16);
+                pColor = pdfRgb(r/255, g/255, b/255);
+                
+                // Calcul du contraste YIQ pour déterminer la couleur de police (noir ou blanc)
+                const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+                const textColor = (yiq >= 128) ? pdfRgb(0, 0, 0) : pdfRgb(1, 1, 1);
+
                 context.currentPage.drawRectangle({ x: currentX - 2, y: context.y - 2, width: colWidths[1] - 5, height: 12, color: pColor });
-                context.currentPage.drawText(sanitizeWinAnsi(pText).substring(0, 12), { x: currentX, y: context.y, size: 8, font: fontBold, color: pdfRgb(1,1,1) });
+                context.currentPage.drawText(sanitizeWinAnsi(pText).substring(0, 12), { x: currentX, y: context.y, size: 8, font: fontBold, color: textColor });
                 currentX += colWidths[1];
 
                 context.currentPage.drawText(sanitizeWinAnsi(entry.lieu).substring(0, 25), { x: currentX, y: context.y, size: 9, font, color: themeColors.text });

@@ -635,6 +635,7 @@ export const UI = {
                 btn.className = 'color-swatch';
                 btn.style.backgroundColor = color.hex;
                 btn.dataset.color = color.hex;
+                btn.title = color.name; // nom au survol : lève toute ambiguïté
                 btn.onclick = () => this.selectColorSwatch(color.hex, p.id, p.inputId);
                 container.appendChild(btn);
             });

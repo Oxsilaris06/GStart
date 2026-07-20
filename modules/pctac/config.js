@@ -25,19 +25,24 @@ export const PHOTO_CATEGORIES = [
 ];
 
 // Couleurs pour le mode libre (Pax Libre) - Couleurs distinctes des boutons natifs
+// 12 couleurs NETTEMENT distinctes entre elles (familles perceptives maximales,
+// principe Kelly/Boynton) et SANS équivoque avec les 4 boutons par défaut :
+// rouge Adversaire #be1b09, jaune Otage/Civil #f1c40f, bleu Inter #3498db,
+// verts Nego/Oscar #2ecc71/#10b981 (et gris sombre Autre #2d2d2d).
+// NB : les entrées déjà saisies gardent leur hex stocké — aucune migration.
 export const FREE_MODE_COLORS = [
-    { hex: '#a855f7', name: 'Violet' },       
-    { hex: '#ec4899', name: 'Rose' },         
-    { hex: '#f97316', name: 'Orange' }, 
-    { hex: '#8b4513', name: 'Marron' },    
-    { hex: '#db2777', name: 'Framboise' },    
-    { hex: '#0ea5e9', name: 'Bleu Ocean' },       
-    { hex: '#6366f1', name: 'Indigo' },         
-    { hex: '#d946ef', name: 'Fuchsia' },
-    { hex: '#84cc16', name: 'Lime' },
-    { hex: '#14b8a6', name: 'Teal' },
-    { hex: '#f43f5e', name: 'Rose Rouge' },
-    { hex: '#ffffff', name: 'Blanc' }           
+    { hex: '#7c3aed', name: 'Violet' },      // violet profond (≠ lavande, ≠ rose)
+    { hex: '#c084fc', name: 'Lavande' },     // lilas clair (écart de clarté fort avec Violet)
+    { hex: '#ff69b4', name: 'Rose' },        // rose bonbon (seul rose de la palette)
+    { hex: '#ff7f00', name: 'Orange' },      // orange vif (≠ rouge sombre, ≠ jaune citron)
+    { hex: '#8b4513', name: 'Marron' },      // brun selle
+    { hex: '#d2b48c', name: 'Beige' },       // sable clair
+    { hex: '#808000', name: 'Olive' },       // vert-jaune sombre (≠ verts vifs par défaut)
+    { hex: '#0f766e', name: 'Pétrole' },     // bleu-vert sombre (≠ émeraude, ≠ cyan)
+    { hex: '#22d3ee', name: 'Cyan' },        // cyan clair électrique (≠ bleu Inter)
+    { hex: '#1e3a8a', name: 'Bleu nuit' },   // marine très sombre (≠ bleu Inter moyen)
+    { hex: '#94a3b8', name: 'Gris' },        // gris moyen (≠ Autre sombre, ≠ Blanc)
+    { hex: '#ffffff', name: 'Blanc' }
 ];
 
 // Couleurs statiques pour le PDF et l'affichage (Mode Standard)

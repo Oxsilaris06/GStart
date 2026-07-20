@@ -41,7 +41,10 @@ const COLLECTION_KEYS = [
     'pcTacDashboard',
     // Historique des lieux de la main courante : il est EFFACÉ par clearAllData à
     // l'import — sans cette clé il était perdu à chaque restauration d'archive.
-    'pcTacLieuHistory'
+    'pcTacLieuHistory',
+    // Verrou global du plan : clearAllData l'efface désormais — il doit voyager
+    // dans l'archive (et être couvert par le snapshot de rollback).
+    'pcTacPlanLocked'
 ];
 
 export const Archive = {

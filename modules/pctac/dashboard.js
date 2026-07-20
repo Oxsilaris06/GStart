@@ -330,9 +330,17 @@ export const Dashboard = {
                 category: 'neutralized',
                 icon: BOARD_NODE_TYPES.neutralized.icon,
                 title: name || 'Adversaire',
-                // « attitude » est un champ TEXTE LIBRE (« Neutralisé », « neutralisée »…) :
-                // la comparaison stricte au littéral anglais ne matchait jamais.
-                status: /neutralis/i.test(String(a.attitude || '')) ? 'neutralized' : 'active',
+                // « attitude » est un champ TEXTE LIBRE. On exige le participe passé
+                // (« neutralisé(e)(s) ») et on EXCLUT négation/futur (« non neutralisé »,
+                // « à neutraliser », « neutralisation en cours ») : afficher neutralisé
+                // un adversaire actif serait une désinformation — en cas de doute,
+                // l'état d'échec sûr est 'active'.
+                status: (() => {
+                    const att = String(a.attitude || '');
+                    const positive = /neutralis[ée]e?s?\b/i.test(att);
+                    const negated = /(\b(non|pas|jamais)\b[\s-]*(encore\s+)?|\bà\s+|en\s+cours\s+de\s+)neutralis/i.test(att);
+                    return (positive && !negated) ? 'neutralized' : 'active';
+                })(),
                 lien: a.lien || null,
                 data: null,
                 placeholder: true
@@ -848,6 +856,14 @@ export const Dashboard = {
 
     _onPointerMove(e) {
         if (this._drag) {
+            // Seuil de 5 px avant de considérer le geste comme un VRAI drag : sur
+            // tactile, un simple tap génère 1-2 pointermove de jitter — sans seuil,
+            // il basculait le layout en manuel, persistait la position ET avalait le
+            // click suivant (lightbox jamais ouvert au tap sur la photo).
+            if (!this._drag.moved) {
+                if (this._drag.startCX == null) { this._drag.startCX = e.clientX; this._drag.startCY = e.clientY; }
+                if (Math.hypot(e.clientX - this._drag.startCX, e.clientY - this._drag.startCY) <= 5) return;
+            }
             const rect = this._stage.getBoundingClientRect();
             const wx = (e.clientX - rect.left - this._view.tx) / this._view.scale;
             const wy = (e.clientY - rect.top - this._view.ty) / this._view.scale;

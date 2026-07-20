@@ -424,7 +424,12 @@ export const PdfExport = {
 
                     if (mapDataUrl && typeof mapDataUrl === 'string' && mapDataUrl.startsWith('data:image')) {
                         // PNG plein DPR → JPEG : PDF ~10× plus léger, qualité suffisante.
-                        try { mapDataUrl = await dataUrlToJpeg(mapDataUrl, 0.85); } catch (_) { /* on garde le PNG */ }
+                        // toDataURL peut renvoyer 'data:,' SANS exception (canvas trop
+                        // grand/mémoire) : on ne remplace le PNG que par un JPEG valide.
+                        try {
+                            const jpeg = await dataUrlToJpeg(mapDataUrl, 0.85);
+                            if (jpeg && jpeg.startsWith('data:image')) mapDataUrl = jpeg;
+                        } catch (_) { /* on garde le PNG */ }
                         addNewPage('PLAN TACTIQUE', true); // Paysage A4
                         const imgMaxWidth = context.pageWidth - 2 * context.margin;
                         const imgMaxHeight = context.pageHeight - 2 * context.margin - 30;

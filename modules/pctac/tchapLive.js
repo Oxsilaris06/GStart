@@ -147,6 +147,9 @@ let bufferDrainScheduled = false;
 let rehydratePending = false;          // réhydratation différée si carte absente au boot
 function bufferPosition(sender, lat, lon, ts) { pendingPositions.set(sender, { lat, lon, ts }); }
 function drainBuffer() {
+  // Hors session : on NE rejoue pas le tampon (marqueurs « live » fantômes) ;
+  // il est conservé pour la vraie reconnexion (purgé au stop volontaire).
+  if (!running) return;
   if (bufferDrainScheduled || !pendingPositions.size) return;
   const map = getMap();
   if (!map || typeof maplibregl === "undefined") return; // toujours pas de carte : on garde le tampon
@@ -874,15 +877,20 @@ function stop(userInitiated) {
   if (aborter) { aborter.abort(); aborter = null; } // remis à null → un nouveau start crée un signal frais
   stopSweep(); stopOfflineTicker(); markOnline();
   for (const s of [...members.keys()]) removeMember(s); // purge l'affichage (pas de marqueurs périmés au re-start)
-  // État de session (beacons/names) : purgé pour qu'un beacon_info live:false d'une
-  // session précédente n'empoisonne pas le même opérateur à la session suivante.
-  beacons.clear(); names.clear();
   accessToken = null; expiresAt = 0; followed = null; centered = false;
   if (userInitiated) {
-    // Arrêt VOLONTAIRE : on oublie tout (tampon, last-known IndexedDB, curseur sync).
+    // Arrêt VOLONTAIRE = fin de session logique : on oublie tout (tampon,
+    // beacons/names, last-known IndexedDB, curseur sync).
+    beacons.clear(); names.clear();
     pendingPositions.clear();
     purgeState();
     try { Persist.setRaw(LS_SINCE_KEY, ""); } catch (_) {}
+  } else {
+    // Arrêt sur ERREUR = même session logique (reconnexion probable) : beacons/
+    // names/curseur conservés EN COHÉRENCE, et on ré-arme la réhydratation pour
+    // que les positions last-known (IndexedDB) réapparaissent en « stale » —
+    // sinon le removeMember ci-dessus vient d'effacer l'affichage hors-ligne.
+    rehydratePending = true;
   }
   // Arrêt sur ERREUR (réseau/token) : on CONSERVE l'état persisté — c'est lui qui
   // permet de réafficher les dernières positions connues au redémarrage hors-ligne.
@@ -899,7 +907,13 @@ function stop(userInitiated) {
 let sweepTimer = null;
 function sweepStates() {
   const now = Date.now();
-  for (const [s, m] of [...members]) { if (!m.marker) continue; if (computeState(m, now) === "lost") removeMember(s); else applyVisual(s, m); }
+  for (const [s, m] of [...members]) {
+    if (!m.marker) continue;
+    // Les positions RÉHYDRATÉES (stale, dernière connue hors-ligne) ne sont jamais
+    // balayées « lost » : elles redeviennent éligibles dès la 1re trame live.
+    if (m.stale) { applyVisual(s, m); continue; }
+    if (computeState(m, now) === "lost") removeMember(s); else applyVisual(s, m);
+  }
   if (members.size) scheduleRenderOps();
 }
 function startSweep() { if (!sweepTimer) sweepTimer = setInterval(sweepStates, 5000); }

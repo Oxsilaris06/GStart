@@ -880,6 +880,7 @@ export const PlanMap = {
                 div.onmouseout = () => { div.style.background = ''; };
             });
         } catch (e) {
+            if (seq !== this._searchSeq) return; // échec d'une requête périmée : ignorer
             console.error('[PlanMap] Nominatim échec:', e);
             resultsBox.innerHTML = '<em style="color: var(--danger-red);">Erreur réseau. Vérifie ta connexion.</em>';
             // On purge le pointeur précédent pour éviter une localisation périmée
@@ -5059,7 +5060,13 @@ export const PlanMap = {
 
         // Vue Plan cachée (export PDF depuis un autre onglet) : capture impossible,
         // on le dit franchement AVANT de toucher au DOM (l'appelant peut basculer la vue).
-        if (!mapContainer.offsetWidth || !this.map.getCanvas().clientWidth) return null;
+        if (!mapContainer.offsetWidth) return null;
+        // Vue VISIBLE mais canvas transitoirement 0 (entrée/sortie plein écran) :
+        // on laisse le layout se poser puis on re-teste, au lieu d'échouer.
+        if (!this.map.getCanvas().clientWidth) {
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            if (!this.map.getCanvas().clientWidth) return null;
+        }
 
         // Verrou anti-concurrence : une 2e capture pendant la 1re snapshoterait les
         // styles déjà aplatis/masqués comme « originaux » et gèlerait l'UI au restore.
@@ -5254,6 +5261,9 @@ export const PlanMap = {
             return;
         }
         if (!this.map) return;
+        // Capture déjà en cours (double-clic) : no-op silencieux — sans cette garde,
+        // captureToDataUrl renvoie null et l'alerte « Capture impossible » mentirait.
+        if (this._captureBusy) return;
 
         // Composition (canvas WebGL + overlays) déléguée à la méthode publique
         // captureToDataUrl (CONTRAT C2) ; ici on ne fait que déclencher le
@@ -5321,7 +5331,9 @@ export const PlanMap = {
         let start = null;
         const st = {};
         // Annulation TACTILE : pas de touche Échap sur mobile — un tap sur le hint annule.
-        st.hintClick = this._safe(() => this._endAoiFraming(), 'aoi:hintCancel');
+        // Garde : n'annule que si le cadrage est TOUJOURS actif (un autre flux peut
+        // réutiliser le hint entre-temps).
+        st.hintClick = this._safe(() => { if (this._aoiFraming) this._endAoiFraming(); }, 'aoi:hintCancel');
         const hintEl = document.getElementById('plan_hint');
         if (hintEl) hintEl.addEventListener('click', st.hintClick);
         st.down = this._safe((e) => {

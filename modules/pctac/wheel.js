@@ -131,9 +131,15 @@ export class Wheel {
             return;
         }
         const p = this.map.project(this.lngLat);
+        const ext = this._extent || 150;
+        // Ancre sortie de la vue (pan/zoom) : on FERME la roue plutôt que de la
+        // laisser collée au bord, cliquable mais détachée de son point d'ancrage.
+        if (p.x < -ext || p.x > r.width + ext || p.y < -ext || p.y > r.height + ext) {
+            this.destroy();
+            return;
+        }
         // Clamp DANS le conteneur (overflow:hidden du wrapper carte) : près d'un
         // bord, une partie des options de la roue était rognée et inatteignable.
-        const ext = this._extent || 150;
         const cx = Math.max(ext, Math.min(r.width  - ext, p.x));
         const cy = Math.max(ext, Math.min(r.height - ext, p.y));
         this.element.style.left = `${cx}px`;

@@ -111,7 +111,9 @@ export const UI = {
             // Init paresseuse + render (le conteneur #view-dashboard est construit par dashboard.js)
             window.Dashboard.show();
         }
-        localStorage.setItem('lastView', viewId);
+        // Quota plein : la bascule de vue (DOM) doit réussir même si la
+        // persistance de la préférence échoue.
+        try { localStorage.setItem('lastView', viewId); } catch (_) {}
     },
 
     /**
@@ -231,7 +233,15 @@ export const UI = {
                     try { ev.dataTransfer.setData('text/plain', entry.id); } catch (_) {}
                 }
             });
-            row.addEventListener('dragend', () => UI.handleDragEnd());
+            row.addEventListener('dragend', (ev) => {
+                UI.handleDragEnd();
+                // Drag ANNULÉ (lâché hors table, Échap) : le dragover a déjà réordonné
+                // le DOM en live mais handleDrop n'a pas sauvegardé — on resynchronise
+                // l'affichage sur le stockage pour éviter un ordre menteur.
+                if (ev.dataTransfer && ev.dataTransfer.dropEffect === 'none') {
+                    UI.renderLogTable(Storage.loadLogData());
+                }
+            });
         });
         if (!this._logDndBound && this.elements.logTableBody) {
             this.elements.logTableBody.addEventListener('dragover', (e) => UI.handleDragOver(e));

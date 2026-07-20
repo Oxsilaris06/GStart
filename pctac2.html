@@ -893,6 +893,31 @@
             border-color: rgba(255, 255, 255, 0.5);
         }
 
+        /* Couleur déjà prise par un bouton modulaire existant : bloquée à la
+           création. Le title affiche le libellé du bouton qui l'utilise. */
+        .color-swatch.used {
+            opacity: 0.32;
+            filter: grayscale(0.55);
+            cursor: not-allowed;
+            position: relative;
+        }
+        .color-swatch.used:hover {
+            transform: none;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        .color-swatch.used::after {
+            content: '✕';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.85);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+        }
+
         .color-swatch.selected {
             border: 3px solid #fff;
             transform: scale(1.2);

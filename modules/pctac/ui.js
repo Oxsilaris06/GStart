@@ -335,14 +335,45 @@ export const UI = {
         });
     },
 
+    /**
+     * Marque, dans la palette de CRÉATION de bouton modulaire, les couleurs déjà
+     * prises par un pax personnalisé existant : pastille bloquée (disabled) et
+     * libellé du bouton propriétaire affiché au survol (à la place du nom de la
+     * couleur). Rafraîchi à chaque ouverture de la modale (créations/suppressions).
+     */
+    refreshNewPaxPalette() {
+        const palette = document.getElementById('new_pax_color_palette');
+        if (!palette) return;
+        const customPax = Storage.loadCollection('pcTacCustomPax') || [];
+        const usedBy = {};
+        customPax.forEach(p => { if (p && p.color) usedBy[String(p.color).toLowerCase()] = p.name || '(sans nom)'; });
+        palette.querySelectorAll('.color-swatch').forEach(btn => {
+            const hex = String(btn.dataset.color || '').toLowerCase();
+            const owner = usedBy[hex];
+            const def = FREE_MODE_COLORS.find(c => c.hex.toLowerCase() === hex);
+            if (owner) {
+                btn.disabled = true;
+                btn.classList.add('used');
+                btn.classList.remove('selected');
+                btn.title = `Déjà utilisé par « ${owner} »`;
+            } else {
+                btn.disabled = false;
+                btn.classList.remove('used');
+                btn.title = def ? def.name : hex;
+            }
+        });
+    },
+
     showCreatePaxModal() {
         document.getElementById('modalBackdrop').style.display = 'block';
         document.getElementById('createPaxModal').style.display = 'block';
         document.getElementById('new_pax_name').value = '';
         document.getElementById('new_pax_name').focus();
-        
-        // Sélectionner la première couleur par défaut
-        const firstColor = document.querySelector('#new_pax_color_palette .color-swatch');
+
+        // Bloque les couleurs déjà prises, puis sélectionne la 1re couleur LIBRE
+        // (sans ce filtre, la sélection par défaut pouvait tomber sur une bloquée).
+        this.refreshNewPaxPalette();
+        const firstColor = document.querySelector('#new_pax_color_palette .color-swatch:not(.used)');
         if (firstColor) firstColor.click();
     },
 

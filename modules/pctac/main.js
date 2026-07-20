@@ -111,6 +111,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             const color = document.getElementById('new_pax_color_val').value;
             if (!name) return alert("Nom requis");
             const list = Storage.loadCollection(CUSTOM_PAX_KEY);
+            // Unicité de la couleur (garde au submit, en plus du blocage visuel :
+            // l'état a pu changer pendant que la modale était ouverte).
+            const taken = list.find(p => p && p.color && String(p.color).toLowerCase() === String(color).toLowerCase());
+            if (taken) {
+                alert(`Couleur déjà utilisée par « ${taken.name} ». Choisis-en une autre.`);
+                UI.refreshNewPaxPalette();
+                return;
+            }
             list.push({ id: Date.now().toString(), name, color });
             Storage.saveCollection(CUSTOM_PAX_KEY, list);
             UI.renderCustomPaxOptions();

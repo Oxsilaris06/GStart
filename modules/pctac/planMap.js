@@ -18,6 +18,14 @@ import { Wheel } from './wheel.js';
 import { Persist } from './persist.js';
 import { formatCoordsClipboard, shortMgrs } from './coords.js';
 
+// Échappement HTML pour toute donnée externe injectée en innerHTML/setHTML
+// (résultats Nominatim contributifs, libellés). Aligné sur ui.js.
+const escHtml = (v) => (window.UIPlatform && window.UIPlatform.esc)
+    ? window.UIPlatform.esc(v)
+    : String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
 const PINS_KEY = 'pcTacPlanPins';
 const VIEW_KEY = 'pcTacPlanView';
 const SHAPES_KEY = 'pcTacPlanShapes';
@@ -112,7 +120,7 @@ const RASTER_STYLE = {
  * métropole à bas niveaux de zoom et on la stocke via la Cache Storage API ; le
  * Service Worker (sw.js) la sert ensuite en « cache-first » en mode déconnecté.
  * ===================================================================== */
-const OFFLINE_MAP_CACHE = 'pctac-map-v1';   // doit correspondre à MAP_CACHE dans sw.js
+const OFFLINE_MAP_CACHE = 'pctac-map-v2';   // doit correspondre à MAP_CACHE dans sw.js
 const SAT_TILE_TEMPLATE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 // Métropole + marge (DOM-TOM exclus du cache de base, trop dispersés).
 const FRANCE_BBOX = { west: -5.6, south: 41.1, east: 9.8, north: 51.3 };
@@ -510,6 +518,14 @@ export const PlanMap = {
         try {
             if (map.getLayer('buildings-3d')) {
                 map.setLayoutProperty('buildings-3d', 'visibility', 'visible');
+            } else {
+                // Restauration 3D au boot : la couche buildings-3d est créée par le
+                // handler 'load' suivant (_initDrawingLayers) — on re-tente à l'idle.
+                map.once('idle', this._safe(() => {
+                    if (this.is3D && map.getLayer('buildings-3d')) {
+                        map.setLayoutProperty('buildings-3d', 'visibility', 'visible');
+                    }
+                }, '3d:deferredBuildings'));
             }
         } catch (e) { /* couche absente si init échouée */ }
 
@@ -827,11 +843,15 @@ export const PlanMap = {
 
         // 2) Sinon, géocodage d'adresse via Nominatim
         resultsBox.innerHTML = '<em style="color: var(--text-muted);">Recherche…</em>';
+        // Jeton de séquence : une réponse lente d'une recherche PRÉCÉDENTE ne doit
+        // pas écraser le résultat le plus récent ni re-centrer la carte.
+        const seq = (this._searchSeq = (this._searchSeq || 0) + 1);
         try {
             const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`;
             const r = await fetch(url, { headers: { 'Accept-Language': 'fr' } });
             if (!r.ok) throw new Error('HTTP ' + r.status);
             const list = await r.json();
+            if (seq !== this._searchSeq) return; // réponse périmée : ignorer
             if (!list.length) {
                 resultsBox.innerHTML = '<em style="color: var(--text-muted);">Aucun résultat.</em>';
                 return;
@@ -843,7 +863,7 @@ export const PlanMap = {
             this._placeSearchMarker(flng, flat, first.display_name);
             resultsBox.innerHTML = list.map((item, i) => `
                 <div class="plan-search-result" data-idx="${i}" style="padding: 6px 8px; cursor: pointer; border-bottom: 1px solid var(--border-glass);">
-                    ${item.display_name}
+                    ${escHtml(item.display_name)}
                 </div>
             `).join('');
             resultsBox.querySelectorAll('.plan-search-result').forEach(div => {
@@ -907,7 +927,7 @@ export const PlanMap = {
         }
         const popup = label
             ? new maplibregl.Popup({ offset: 18, closeButton: true }).setHTML(
-                `<div style="font-family: var(--font-ui); font-size: 0.9em; max-width: 260px;">${label}</div>`)
+                `<div style="font-family: var(--font-ui); font-size: 0.9em; max-width: 260px;">${escHtml(label)}</div>`)
             : null;
         const m = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([lng, lat]);
         if (popup) m.setPopup(popup);
@@ -5035,25 +5055,66 @@ export const PlanMap = {
         const mapContainer = this.map.getContainer();
         if (!mapContainer) return null;
 
-        // Masquer l'UI superposée (on garde la boussole MapLibre)
+        // Vue Plan cachée (export PDF depuis un autre onglet) : capture impossible,
+        // on le dit franchement AVANT de toucher au DOM (l'appelant peut basculer la vue).
+        if (!mapContainer.offsetWidth || !this.map.getCanvas().clientWidth) return null;
+
+        // Verrou anti-concurrence : une 2e capture pendant la 1re snapshoterait les
+        // styles déjà aplatis/masqués comme « originaux » et gèlerait l'UI au restore.
+        if (this._captureBusy) return null;
+        this._captureBusy = true;
+
+        // Masquer l'UI superposée (on garde la boussole MapLibre) — y compris les
+        // éléments d'édition transitoires (roue, panneaux inline, poignées, toolbar
+        // flottante, viseur/contrôles du mode précision, marqueur de dessin en cours).
         const toHide = [
             document.getElementById('plan_unified_toolbar'),
             document.getElementById('plan_draw_dock'),
             document.getElementById('plan_search_panel'),
             document.getElementById('plan_legend'),
-            document.getElementById('plan_hint')
+            document.getElementById('plan_hint'),
+            document.getElementById('plan_draw_crosshair'),
+            document.getElementById('plan_draw_precision_controls')
         ].filter(Boolean);
         // Les cadenas de verrouillage (pings + dessins) ne doivent pas apparaître à l'export.
         Array.prototype.push.apply(toHide,
             Array.prototype.slice.call(document.querySelectorAll('.plan-lock-badge')));
+        Array.prototype.push.apply(toHide,
+            Array.prototype.slice.call(document.querySelectorAll('.plan-inline-panel')));
+        if (this._activeWheel && this._activeWheel.element) toHide.push(this._activeWheel.element);
+        if (Array.isArray(this._handleMarkers)) {
+            for (const m of this._handleMarkers) {
+                try { const el = m.getElement(); if (el) toHide.push(el); } catch (_) {}
+            }
+        }
+        try { if (this._toolbarMarker) toHide.push(this._toolbarMarker.getElement()); } catch (_) {}
+        try { if (this._drawingDiameterMarker) toHide.push(this._drawingDiameterMarker.getElement()); } catch (_) {}
         const memo = toHide.map(el => el.style.display);
         toHide.forEach(el => { el.style.display = 'none'; });
+
+        // Attendre la fin d'un mouvement caméra et le chargement des tuiles visibles
+        // (borné à 2,5 s pour ne jamais bloquer hors-ligne : les tuiles absentes du
+        // cache ne viendront pas, on capture l'état réel).
+        if (this.map.isMoving() || !this.map.areTilesLoaded()) {
+            await new Promise((res) => {
+                let done = false;
+                const fin = () => {
+                    if (done) return; done = true;
+                    try { this.map.off('idle', fin); } catch (_) {}
+                    clearTimeout(t);
+                    res();
+                };
+                const t = setTimeout(fin, 2500);
+                this.map.once('idle', fin);
+            });
+        }
 
         // Forcer un repaint pour que le canvas WebGL contienne la frame actuelle
         this.map.triggerRepaint();
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
         const markersToRestore = [];
+        const pinnedEls = [];
         try {
             // Aplatir temporairement les positions 3D/2D transformées de tous les marqueurs visibles
             const parentRect = mapContainer.getBoundingClientRect();
@@ -5095,6 +5156,25 @@ export const PlanMap = {
             let dpr = cssW > 0 ? (w / cssW) : (window.devicePixelRatio || 1);
             if (!isFinite(dpr) || dpr <= 0) dpr = window.devicePixelRatio || 1;
 
+            // Snapshot du fond WebGL AVANT le passage html2canvas (long) : sinon toute
+            // animation caméra pendant la rasterisation désaligne fond et markers.
+            const baseCanvas = document.createElement('canvas');
+            baseCanvas.width = w;
+            baseCanvas.height = h;
+            baseCanvas.getContext('2d').drawImage(glCanvas, 0, 0, w, h);
+
+            // Épingler en PIXELS la chaîne conteneur (#plan_map, wrapper 78vh, #view-plan)
+            // pour que le CLONE html2canvas garde exactement la taille écran. Sans ça,
+            // les unités vh sont recalculées dans le viewport du clone et :fullscreen ne
+            // s'y applique pas → le conteneur cloné rétrécit et overflow:hidden AMPUTE
+            // une bande des markers à chaque capture (cause n°1 des éléments manquants).
+            let el = mapContainer;
+            for (let depth = 0; el && depth < 3; depth++, el = el.parentElement) {
+                const r = el.getBoundingClientRect();
+                el.setAttribute('data-h2c-pin', JSON.stringify({ w: r.width, h: r.height }));
+                pinnedEls.push(el);
+            }
+
             const overlay = await html2canvas(mapContainer, {
                 useCORS: true,
                 allowTaint: false,
@@ -5103,18 +5183,30 @@ export const PlanMap = {
                 scale: dpr,
                 width: cssW,
                 height: cssH,
-                windowWidth: cssW,
-                windowHeight: cssH,
+                // PAS de windowWidth/windowHeight : le viewport du clone doit rester
+                // celui de la vraie fenêtre pour que les vh se résolvent à l'identique.
                 scrollX: 0,
                 scrollY: 0,
-                ignoreElements: (el) => el.tagName === 'CANVAS'
+                ignoreElements: (n) => n.tagName === 'CANVAS',
+                onclone: (clonedDoc) => {
+                    clonedDoc.querySelectorAll('[data-h2c-pin]').forEach((node) => {
+                        try {
+                            const r = JSON.parse(node.getAttribute('data-h2c-pin'));
+                            node.style.width = r.w + 'px';
+                            node.style.height = r.h + 'px';
+                            node.style.maxWidth = 'none';
+                            node.style.maxHeight = 'none';
+                            node.style.minHeight = '0';
+                        } catch (_) {}
+                    });
+                }
             });
 
             const outCanvas = document.createElement('canvas');
             outCanvas.width = w;
             outCanvas.height = h;
             const ctx = outCanvas.getContext('2d');
-            ctx.drawImage(glCanvas, 0, 0, w, h);
+            ctx.drawImage(baseCanvas, 0, 0, w, h);
             ctx.drawImage(overlay, 0, 0, w, h);
             return outCanvas.toDataURL('image/png');
         } catch (e) {
@@ -5130,7 +5222,9 @@ export const PlanMap = {
                 item.el.style.width = item.width;
                 item.el.style.height = item.height;
             }
+            pinnedEls.forEach((n) => { try { n.removeAttribute('data-h2c-pin'); } catch (_) {} });
             toHide.forEach((el, i) => { el.style.display = memo[i] || ''; });
+            this._captureBusy = false;
         }
     },
 
@@ -5204,6 +5298,10 @@ export const PlanMap = {
         if (this._aoiFraming) return; // déjà en cours
         // On quitte tout outil de dessin/mesure pour ne pas mélanger les états.
         if (this.drawTool) this._setTool(null);
+        // Un ping armé (placement en attente) serait posé par le premier tap du
+        // cadrage : on le désarme, son hint serait de toute façon écrasé.
+        this.pendingFreePin = null;
+        this.pendingEntityPin = null;
         this._aoiFraming = true;
         const aoiBtn = document.getElementById('plan_btn_aoi');
         if (aoiBtn) aoiBtn.classList.add('active');
@@ -5213,10 +5311,14 @@ export const PlanMap = {
         this.map.dragPan.disable();
         this.map.boxZoom.disable();
         this.map.doubleClickZoom.disable();
-        this._showHint('Trace un rectangle sur la zone à télécharger (glisser-déposer). Échap pour annuler.');
+        this._showHint('Trace un rectangle sur la zone à télécharger (glisser-déposer). Échap ou touche ce message pour annuler.');
 
         let start = null;
         const st = {};
+        // Annulation TACTILE : pas de touche Échap sur mobile — un tap sur le hint annule.
+        st.hintClick = this._safe(() => this._endAoiFraming(), 'aoi:hintCancel');
+        const hintEl = document.getElementById('plan_hint');
+        if (hintEl) hintEl.addEventListener('click', st.hintClick);
         st.down = this._safe((e) => {
             if (e.originalEvent) { e.originalEvent.preventDefault(); e.originalEvent.stopPropagation(); }
             start = [e.lngLat.lng, e.lngLat.lat];
@@ -5274,6 +5376,10 @@ export const PlanMap = {
             this.map.off('touchend', st.up);
             document.removeEventListener('keydown', st.key);
         }
+        if (st && st.hintClick) {
+            const hintEl = document.getElementById('plan_hint');
+            if (hintEl) hintEl.removeEventListener('click', st.hintClick);
+        }
         this._aoiFramingHandlers = null;
         this._clearPreview();
         if (this.map) {
@@ -5329,6 +5435,13 @@ export const PlanMap = {
 
     /** Lance le téléchargement avec barre de progression annulable. */
     async _runAoiDownload(bbox, minZ, maxZ, templates, estTotal) {
+        // Un seul téléchargement AOI à la fois : sinon deux barres de progression
+        // (même id DOM) se superposent et les requêtes de tuiles se cumulent.
+        if (this._aoiDownloadBusy) {
+            alert('Un téléchargement de zone est déjà en cours. Attends la fin (ou annule-le) avant d\'en lancer un autre.');
+            return;
+        }
+        this._aoiDownloadBusy = true;
         const ui = this._createAoiProgressBar(estTotal);
         const signal = { aborted: false };
         ui.cancelBtn.onclick = () => { signal.aborted = true; ui.setLabel('Annulation…'); };
@@ -5342,12 +5455,14 @@ export const PlanMap = {
             console.error('[PlanMap] AOI téléchargement échec:', e);
             ui.setLabel('Erreur : ' + (e && e.message ? e.message : 'cache indisponible'));
             setTimeout(() => ui.remove(), 3500);
+            this._aoiDownloadBusy = false;
             return;
         }
 
         if (result.aborted) {
             ui.setLabel('Annulé. Tuiles déjà mises en cache conservées.');
             setTimeout(() => ui.remove(), 2500);
+            this._aoiDownloadBusy = false;
             return;
         }
 
@@ -5369,6 +5484,7 @@ export const PlanMap = {
             ui.setLabel(`Terminé avec ${result.fail.toLocaleString('fr-FR')} tuile(s) manquante(s) (réseau). Relance pour compléter.`);
         }
         setTimeout(() => ui.remove(), 3500);
+        this._aoiDownloadBusy = false;
     },
 
     /** Crée dynamiquement (PAS dans le HTML) la barre de progression AOI. */

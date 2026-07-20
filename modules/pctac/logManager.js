@@ -1,4 +1,5 @@
 import { Storage } from './storage.js';
+import { Persist } from './persist.js';
 import { FREE_MODE_COLORS, PDF_PAX_COLORS } from './config.js';
 
 /**
@@ -63,17 +64,17 @@ export const LogManager = {
     addLieuToHistory(lieu) {
         const trimmed = (lieu || '').trim();
         if (!trimmed) return;
-        let hist = [];
-        try { hist = JSON.parse(localStorage.getItem('pcTacLieuHistory') || '[]'); } catch (e) {}
-        hist = hist.filter(l => l.toLowerCase() !== trimmed.toLowerCase());
+        // Via Persist (contrat projet) : ne jette JAMAIS sur quota plein — l'ancien
+        // localStorage.setItem brut cassait la soumission du log en cas de saturation.
+        let hist = Persist.get('pcTacLieuHistory', { validator: Array.isArray, fallback: [] }) || [];
+        hist = hist.filter(l => String(l).toLowerCase() !== trimmed.toLowerCase());
         hist.unshift(trimmed);
         if (hist.length > 30) hist = hist.slice(0, 30);
-        localStorage.setItem('pcTacLieuHistory', JSON.stringify(hist));
+        Persist.set('pcTacLieuHistory', hist);
     },
 
     getLieuHistory() {
-        try { return JSON.parse(localStorage.getItem('pcTacLieuHistory') || '[]'); }
-        catch (e) { return []; }
+        return Persist.get('pcTacLieuHistory', { validator: Array.isArray, fallback: [] }) || [];
     },
 
     /**
@@ -103,19 +104,29 @@ export const LogManager = {
      */
     importJson(jsonContent) {
         if (jsonContent.metadata && jsonContent.metadata.appName === "PC Tac Log" && Array.isArray(jsonContent.logEntries)) {
-            const validatedEntries = jsonContent.logEntries.map(entry => ({
-                id: entry.id || Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
-                heure: entry.heure || '00:00',
-                pax: entry.pax,
-                paxMode: entry.paxMode || (PDF_PAX_COLORS[entry.pax] ? 'standard' : 'free'),
-                paxColor: entry.paxColor || (entry.paxMode === 'free' ? FREE_MODE_COLORS[0].hex : undefined),
-                lieu: entry.lieu || '',
-                remarques: entry.remarques || '',
-            }));
+            const validatedEntries = jsonContent.logEntries.map(entry => {
+                // paxMode d'abord recalculé, puis utilisé pour le fallback couleur :
+                // l'ancien code testait entry.paxMode (souvent absent) → entrées
+                // libres importées sans couleur.
+                const paxMode = entry.paxMode || (PDF_PAX_COLORS[entry.pax] ? 'standard' : 'free');
+                return {
+                    id: entry.id || Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+                    heure: entry.heure || '00:00',
+                    pax: entry.pax,
+                    paxMode,
+                    paxColor: entry.paxColor || (paxMode === 'free' ? FREE_MODE_COLORS[0].hex : undefined),
+                    lieu: entry.lieu || '',
+                    remarques: entry.remarques || '',
+                };
+            });
             const currentLogs = Storage.loadLogData();
-            const mergedLogs = [...currentLogs, ...validatedEntries];
+            // Déduplication par id (aligné sur le flux QR) : réimporter le même
+            // fichier ne double plus toutes les lignes.
+            const knownIds = new Set(currentLogs.map(l => l.id));
+            const newEntries = validatedEntries.filter(e => !knownIds.has(e.id));
+            const mergedLogs = [...currentLogs, ...newEntries];
             Storage.saveLogData(mergedLogs);
-            return { success: true, count: validatedEntries.length, logs: mergedLogs };
+            return { success: true, count: newEntries.length, logs: mergedLogs };
         } else {
             throw new Error("Fichier JSON invalide.");
         }

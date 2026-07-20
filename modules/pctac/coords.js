@@ -22,6 +22,12 @@ const EP2 = E2 / (1 - E2);                  // e'²
 
 const DEG = Math.PI / 180;
 
+/** Normalise une longitude dans [−180, 180) : clics sur les copies du monde
+ *  (MapLibre déroule le planisphère) et cas limite lon = 180. */
+function normLon(lon) {
+    return ((lon + 180) % 360 + 360) % 360 - 180;
+}
+
 const BAND_LETTERS = 'CDEFGHJKLMNPQRSTUVWX';          // bandes de latitude (8°, X = 72→84)
 const COL_SETS = ['ABCDEFGH', 'JKLMNPQR', 'STUVWXYZ']; // colonnes 100 km selon (zone-1)%3
 const ROW_ODD  = 'ABCDEFGHJKLMNPQRSTUV';              // lignes 100 km, zones IMPAIRES ('A' à l'équateur)
@@ -54,6 +60,7 @@ function latBand(lat) {
  * WGS84 (lat,lon) → UTM. Retourne {zone, band, easting, northing, hemisphere}.
  */
 export function latLngToUtm(lat, lon) {
+    lon = normLon(lon);
     const zone = utmZone(lat, lon);
     const lonOrigin = (zone - 1) * 6 - 180 + 3;      // méridien central du fuseau
     const latR = lat * DEG;
@@ -91,6 +98,12 @@ export function latLngToUtm(lat, lon) {
  * WGS84 (lat,lon) → chaîne MGRS. `digits` = chiffres par axe (5 → précision 1 m).
  */
 export function latLngToMgrs(lat, lon, digits = 5) {
+    // Domaine MGRS/UTM : bandes C→X (lat −80…84). Hors domaine, la série de
+    // Snyder diverge et produirait une chaîne FAUSSE mais plausible — on jette,
+    // les appelants (formatCoordsClipboard/shortMgrs) omettent alors le MGRS.
+    if (!(lat >= -80 && lat < 84)) {
+        throw new RangeError('MGRS hors domaine (lat ' + lat + ')');
+    }
     const { zone, band, easting, northing } = latLngToUtm(lat, lon);
 
     // Colonne 100 km : selon (zone-1)%3 et la centaine de km d'easting (1…8).
@@ -112,10 +125,14 @@ export function latLngToMgrs(lat, lon, digits = 5) {
 function toDms(value, isLat) {
     const hemi = value >= 0 ? (isLat ? 'N' : 'E') : (isLat ? 'S' : 'W');
     const abs = Math.abs(value);
-    const d = Math.floor(abs);
+    let d = Math.floor(abs);
     const mFull = (abs - d) * 60;
-    const m = Math.floor(mFull);
-    const s = (mFull - m) * 60;
+    let m = Math.floor(mFull);
+    // Arrondi à 0.1″ AVANT affichage, avec retenue : sinon 48°59′59.98″
+    // s'affichait « 48°59′60.0″ » (secondes = 60, invalide).
+    let s = Math.round((mFull - m) * 60 * 10) / 10;
+    if (s >= 60) { s -= 60; m += 1; }
+    if (m >= 60) { m -= 60; d += 1; }
     return `${d}°${String(m).padStart(2, '0')}′${s.toFixed(1).padStart(4, '0')}″${hemi}`;
 }
 
@@ -125,6 +142,7 @@ function toDms(value, isLat) {
  * @param {number} lat
  */
 export function formatCoordsClipboard(lng, lat) {
+    lng = normLon(lng);
     const dec = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     const dms = `${toDms(lat, true)}  ${toDms(lng, false)}`;
     let mgrs;
@@ -135,5 +153,6 @@ export function formatCoordsClipboard(lng, lat) {
 
 /** Version courte (1 ligne) pour les toasts/labels : "MGRS 31U DQ 48251 11932". */
 export function shortMgrs(lng, lat) {
+    lng = normLon(lng);
     try { return latLngToMgrs(lat, lng); } catch (_) { return `${lat.toFixed(5)}, ${lng.toFixed(5)}`; }
 }

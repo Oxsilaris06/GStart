@@ -208,7 +208,7 @@ export const UI = {
             row.innerHTML = `
                 <td style="width: 15%;">
                     <div class="heure-cell-container">
-                        <span class="heure-cell-text">${entry.heure}</span>
+                        <span class="heure-cell-text">${esc(entry.heure)}</span>
                         <button type="button" class="action-btn-small edit" onclick="window.openEditModal('${entry.id}')" title="Modifier">
                             <span class="material-symbols-outlined" style="font-size: 18px;">edit</span>
                         </button>
@@ -217,11 +217,27 @@ export const UI = {
                         </button>
                     </div>
                 </td>
-                <td style="width: 15%;"><span class="pax-cell" style="background-color: ${paxColor}; color: ${paxFontColor};">${paxText}</span></td>
-                <td style="width: 35%;">${entry.lieu}</td>
-                <td style="width: 35%;">${entry.remarques}</td>
+                <td style="width: 15%;"><span class="pax-cell" style="background-color: ${paxColor}; color: ${paxFontColor};">${esc(paxText)}</span></td>
+                <td style="width: 35%;">${esc(entry.lieu)}</td>
+                <td style="width: 35%;">${esc(entry.remarques)}</td>
             `;
+            // Réordonnancement par glisser-déposer : les handlers dragover/drop
+            // existaient mais RIEN ne posait la classe .dragging ni n'écoutait
+            // dragstart → la fonctionnalité était morte.
+            row.addEventListener('dragstart', (ev) => {
+                row.classList.add('dragging');
+                if (ev.dataTransfer) {
+                    ev.dataTransfer.effectAllowed = 'move';
+                    try { ev.dataTransfer.setData('text/plain', entry.id); } catch (_) {}
+                }
+            });
+            row.addEventListener('dragend', () => UI.handleDragEnd());
         });
+        if (!this._logDndBound && this.elements.logTableBody) {
+            this.elements.logTableBody.addEventListener('dragover', (e) => UI.handleDragOver(e));
+            this.elements.logTableBody.addEventListener('drop', (e) => UI.handleDrop(e));
+            this._logDndBound = true;
+        }
     },
 
     handleDragOver(e) {
@@ -360,8 +376,11 @@ export const UI = {
             span.oncontextmenu = (e) => { e.preventDefault(); this.deleteCustomPax(pax.id); };
             
             let timer;
-            span.ontouchstart = () => { timer = setTimeout(() => this.deleteCustomPax(pax.id), 800); };
+            span.ontouchstart = () => { timer = setTimeout(() => this.deleteCustomPax(pax.id), LONG_PRESS_DELAY); };
             span.ontouchend = () => clearTimeout(timer);
+            // Un scroll tactile qui traverse la puce ne doit PAS déclencher la suppression.
+            span.ontouchmove = () => clearTimeout(timer);
+            span.ontouchcancel = () => clearTimeout(timer);
             
             if (this.elements.paxInput && this.elements.paxInput.value === pax.name) {
                 span.classList.add('selected');
@@ -481,7 +500,7 @@ export const UI = {
         }
 
         board.innerHTML = filteredList.map((item, index) => `
-            <div class="photo-card" draggable="true" data-id="${item.id}" data-category="${item.category}" data-status="${item.status || 'active'}" ondragstart="UI.handlePhotoDragStart(event)" ondragover="UI.handlePhotoDragOver(event)" ondrop="UI.handlePhotoDrop(event)">
+            <div class="photo-card" draggable="true" data-id="${item.id}" data-category="${item.category}" data-status="${item.status || 'active'}" ondragstart="UI.handlePhotoDragStart(event)" ondragover="UI.handlePhotoDragOver(event)" ondrop="UI.handlePhotoDrop(event)" ondragend="UI.handlePhotoDragEnd()">
                 <img src="${item.data}" onclick="UI.openLightbox('${item.data}', '${esc(String(item.title || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"))}')" alt="${esc(item.title)}">
                 <div style="padding: 10px; display: flex; flex-direction: column; gap: 5px;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -533,12 +552,20 @@ export const UI = {
         const list = Storage.loadCollection('pcTacPhotos');
         const draggedIdx = list.findIndex(p => p.id === draggedId);
         const targetIdx = list.findIndex(p => p.id === targetId);
+        // Drag externe (fichier, autre app) ou id inconnu : findIndex = -1 et
+        // splice(-1,1) déplacerait silencieusement la DERNIÈRE photo.
+        if (draggedIdx === -1 || targetIdx === -1) return;
 
         const [removed] = list.splice(draggedIdx, 1);
         list.splice(targetIdx, 0, removed);
 
         Storage.saveCollection('pcTacPhotos', list);
         this.renderPhotos();
+    },
+
+    /** Nettoie l'état visuel du drag même si le drop est annulé (Échap, drop hors zone). */
+    handlePhotoDragEnd() {
+        document.querySelectorAll('.dragging-photo').forEach(el => el.classList.remove('dragging-photo'));
     },
 
     updateAdversaryStatus(id, status) {

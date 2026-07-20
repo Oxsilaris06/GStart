@@ -852,10 +852,19 @@ async function startOidc() {
 
 function showDevice(da) {
   const el = $("tl_device"); if (!el) return;
-  const uri = da.verification_uri_complete || da.verification_uri || "";
-  const vu = da.verification_uri || uri;
+  // Données issues du serveur OIDC : échappées avant innerHTML, et seul un lien
+  // https:// est cliquable (pas de javascript: / data: injectable).
+  const escT = (v) => String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  const rawUri = da.verification_uri_complete || da.verification_uri || "";
+  const uri = /^https:\/\//i.test(rawUri) ? rawUri : "";
+  const vu = da.verification_uri || rawUri;
   el.style.display = "block";
-  el.innerHTML = `Autorise PC-Tac via ProConnect : ouvre <a href="${uri}" target="_blank" rel="noopener" style="color:var(--inter-blue,#4f8dff);font-weight:600;">${vu}</a>` + (da.user_code ? ` et saisis le code <b style="font-size:1.15em;letter-spacing:2px;">${da.user_code}</b>` : "");
+  const linkHtml = uri
+    ? `<a href="${escT(uri)}" target="_blank" rel="noopener" style="color:var(--inter-blue,#4f8dff);font-weight:600;">${escT(vu)}</a>`
+    : `<b>${escT(vu)}</b>`;
+  el.innerHTML = `Autorise PC-Tac via ProConnect : ouvre ${linkHtml}` + (da.user_code ? ` et saisis le code <b style="font-size:1.15em;letter-spacing:2px;">${escT(da.user_code)}</b>` : "");
 }
 function hideDevice() { const el = $("tl_device"); if (el) { el.style.display = "none"; el.innerHTML = ""; } }
 
@@ -865,13 +874,25 @@ function stop(userInitiated) {
   if (aborter) { aborter.abort(); aborter = null; } // remis à null → un nouveau start crée un signal frais
   stopSweep(); stopOfflineTicker(); markOnline();
   for (const s of [...members.keys()]) removeMember(s); // purge l'affichage (pas de marqueurs périmés au re-start)
+  // État de session (beacons/names) : purgé pour qu'un beacon_info live:false d'une
+  // session précédente n'empoisonne pas le même opérateur à la session suivante.
+  beacons.clear(); names.clear();
   accessToken = null; expiresAt = 0; followed = null; centered = false;
-  pendingPositions.clear();           // tampon mémoire vidé
-  purgeState();                       // purge l'état last-known persisté (IndexedDB)
-  try { Persist.setRaw(LS_SINCE_KEY, ""); } catch (_) {}  // oublie le curseur long-poll
+  if (userInitiated) {
+    // Arrêt VOLONTAIRE : on oublie tout (tampon, last-known IndexedDB, curseur sync).
+    pendingPositions.clear();
+    purgeState();
+    try { Persist.setRaw(LS_SINCE_KEY, ""); } catch (_) {}
+  }
+  // Arrêt sur ERREUR (réseau/token) : on CONSERVE l'état persisté — c'est lui qui
+  // permet de réafficher les dernières positions connues au redémarrage hors-ligne.
   uiBusy(false); hideDevice();
-  setDot("var(--text-muted)"); status("Arrêté.", "var(--text-muted)");
-  if (userInitiated) { cfg.connected = false; persist(); }
+  if (userInitiated) {
+    setDot("var(--text-muted)"); status("Arrêté.", "var(--text-muted)");
+    cfg.connected = false; persist();
+  }
+  // Arrêt sur erreur : on NE réécrit PAS le statut — le message d'erreur posé par
+  // l'appelant (« Token invalide », « Hors-réseau »…) doit rester lisible.
 }
 
 // balayage états (gris/rouge) + retrait des "lost" — actif UNIQUEMENT pendant une session

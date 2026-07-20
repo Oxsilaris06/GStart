@@ -168,22 +168,22 @@ export const Dashboard = {
     },
 
     async captureToDataUrl() {
+        if (typeof window.html2canvas !== 'function') return null;
+        if (!this._board || !this._nodes.length) return null;
+
+        // Calcule la bbox monde de tous les nœuds.
+        const bbox = this._worldBBox();
+        if (!bbox) return null;
+        const pad = 80;
+        const w = bbox.maxX - bbox.minX + pad * 2;
+        const h = bbox.maxY - bbox.minY + pad * 2;
+
+        // Sauvegarde la transform courante, fige le board à sa taille naturelle.
+        const prev = { ...this._view };
+        const prevBoardStyle = this._board.style.cssText;
+        const prevStageStyle = this._stage.style.cssText;
+
         try {
-            if (typeof window.html2canvas !== 'function') return null;
-            if (!this._board || !this._nodes.length) return null;
-
-            // Calcule la bbox monde de tous les nœuds.
-            const bbox = this._worldBBox();
-            if (!bbox) return null;
-            const pad = 80;
-            const w = bbox.maxX - bbox.minX + pad * 2;
-            const h = bbox.maxY - bbox.minY + pad * 2;
-
-            // Sauvegarde la transform courante, fige le board à sa taille naturelle.
-            const prev = { ...this._view };
-            const prevBoardStyle = this._board.style.cssText;
-            const prevStageStyle = this._stage.style.cssText;
-
             this._stage.style.width = w + 'px';
             this._stage.style.height = h + 'px';
             this._board.style.transform =
@@ -202,16 +202,17 @@ export const Dashboard = {
                 logging: false
             });
 
-            // Restaure
-            this._stage.style.cssText = prevStageStyle;
-            this._board.style.cssText = prevBoardStyle;
-            this._view = prev;
-            this._applyViewTransform();
-
             return canvas.toDataURL('image/png');
         } catch (e) {
             console.error('[Dashboard] captureToDataUrl échec:', e);
             return null;
+        } finally {
+            // Restauration GARANTIE même si html2canvas jette : sinon le board
+            // reste figé à sa taille de capture.
+            this._stage.style.cssText = prevStageStyle;
+            this._board.style.cssText = prevBoardStyle;
+            this._view = prev;
+            this._applyViewTransform();
         }
     },
 
@@ -329,7 +330,9 @@ export const Dashboard = {
                 category: 'neutralized',
                 icon: BOARD_NODE_TYPES.neutralized.icon,
                 title: name || 'Adversaire',
-                status: a.attitude === 'neutralized' ? 'neutralized' : 'active',
+                // « attitude » est un champ TEXTE LIBRE (« Neutralisé », « neutralisée »…) :
+                // la comparaison stricte au littéral anglais ne matchait jamais.
+                status: /neutralis/i.test(String(a.attitude || '')) ? 'neutralized' : 'active',
                 lien: a.lien || null,
                 data: null,
                 placeholder: true
@@ -540,6 +543,9 @@ export const Dashboard = {
                         draggable: 'false',
                         onClick: (e) => {
                             e.stopPropagation();
+                            // Fin de drag par la photo : le click qui suit le pointerup
+                            // ne doit pas ouvrir le lightbox.
+                            if (this._dragEndedAt && Date.now() - this._dragEndedAt < 250) return;
                             this._openLightbox(n.data, n.title);
                         }
                     })
@@ -637,8 +643,13 @@ export const Dashboard = {
             const label = this._linkLabel(l, a, b);
             if (label) {
                 const tg = el('g', { class: 'db-link-label' });
+                // Styles posés en ATTRIBUTS (pas seulement en CSS injecté) : lors de la
+                // capture html2canvas, le SVG est sérialisé hors du document et perd les
+                // feuilles de style → sans ces attributs, texte noir 16px sans halo.
                 const txt = el('text', {
-                    x: mx, y: cy - 6, 'text-anchor': 'middle', text: label
+                    x: mx, y: cy - 6, 'text-anchor': 'middle', text: label,
+                    fill: '#f0f0f1', 'font-size': '13', 'font-weight': '600',
+                    'paint-order': 'stroke', stroke: 'rgba(0,0,0,0.55)', 'stroke-width': '3'
                 });
                 tg.appendChild(txt);
                 tg.addEventListener('click', (e) => {
@@ -865,6 +876,7 @@ export const Dashboard = {
                     x: this._drag.node.x, y: this._drag.node.y
                 };
                 this._saveState();
+                this._dragEndedAt = Date.now(); // neutralise le click résiduel (lightbox)
             }
             this._drag.card.classList.remove('dragging');
             this._drag = null;

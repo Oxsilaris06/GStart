@@ -123,16 +123,21 @@ export class Wheel {
 
     _position() {
         if (!this.element || !this.map) return;
+        const r = this.map.getContainer().getBoundingClientRect();
         if (!this.lngLat) {
             // Centre écran
-            const r = this.map.getContainer().getBoundingClientRect();
             this.element.style.left = `${r.width / 2}px`;
             this.element.style.top  = `${r.height / 2}px`;
             return;
         }
         const p = this.map.project(this.lngLat);
-        this.element.style.left = `${p.x}px`;
-        this.element.style.top  = `${p.y}px`;
+        // Clamp DANS le conteneur (overflow:hidden du wrapper carte) : près d'un
+        // bord, une partie des options de la roue était rognée et inatteignable.
+        const ext = this._extent || 150;
+        const cx = Math.max(ext, Math.min(r.width  - ext, p.x));
+        const cy = Math.max(ext, Math.min(r.height - ext, p.y));
+        this.element.style.left = `${cx}px`;
+        this.element.style.top  = `${cy}px`;
     }
 
     _buildElement() {
@@ -144,6 +149,8 @@ export class Wheel {
         const arcSpan = n <= 2 ? Math.PI : 2 * Math.PI;
         const arcStart = n <= 2 ? -Math.PI / 2 - arcSpan / 2 : -Math.PI / 2; // 12h
         const btnSize = vw < 480 ? 52 : 58;
+        // Rayon utile total (bouton compris) pour le clamp de _position().
+        this._extent = radius + btnSize / 2 + 10;
         const wrap = document.createElement('div');
         wrap.className = 'plan-wheel';
         wrap.style.cssText = `

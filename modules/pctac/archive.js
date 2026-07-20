@@ -38,7 +38,10 @@ const COLLECTION_KEYS = [
     // Littéral assumé volontairement — le board ne stocke aucune image propre, juste
     // des positions/liens — pour garder archive.js indépendant de l'ordre de mise à
     // jour de config.js (un import nommé manquant casserait tout le graphe ESM).
-    'pcTacDashboard'
+    'pcTacDashboard',
+    // Historique des lieux de la main courante : il est EFFACÉ par clearAllData à
+    // l'import — sans cette clé il était perdu à chaque restauration d'archive.
+    'pcTacLieuHistory'
 ];
 
 export const Archive = {

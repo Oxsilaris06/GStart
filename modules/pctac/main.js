@@ -6,7 +6,9 @@ import { Utils } from './utils.js';
 import { ImageStore } from './imageStore.js';
 import './planMap.js'; // expose window.PlanMap (utilisé par UI.switchMainView)
 import './tchapLive.js'; // géoloc équipe live (Tchap) → marqueurs sur PlanMap
-import { CUSTOM_PAX_KEY, ADVERSARIES_KEY, HOSTAGES_KEY, FRIENDS_KEY, PHOTOS_KEY } from './config.js';
+import './dashboard.js'; // expose window.Dashboard (board relationnel, onglet Board + PDF)
+import { Persist } from './persist.js';
+import { CUSTOM_PAX_KEY, ADVERSARIES_KEY, HOSTAGES_KEY, FRIENDS_KEY, PHOTOS_KEY, DASHBOARD_KEY } from './config.js';
 
 /**
  * Point d'entrée principal du module PC TAC
@@ -30,6 +32,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     UI.initPaxModeAndColors();
     UI.updateTimeInput();
     setInterval(() => UI.updateTimeInput(), 60000);
+    // Une heure saisie À LA MAIN ne doit pas être écrasée par le tick de 60 s :
+    // updateTimeInput teste window.isTimeInputManuallyChanged, mais rien ne le posait.
+    if (UI.elements.heureInput) {
+        UI.elements.heureInput.addEventListener('input', () => { window.isTimeInputManuallyChanged = true; });
+    }
 
     // Charger les données initiales
     const initialLogs = Storage.loadLogData();
@@ -87,6 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 UI.elements.lieuInput.value = '';
                 UI.refreshLieuSuggestions();
                 UI.elements.remarquesInput.focus();
+                window.isTimeInputManuallyChanged = false; // l'entrée est posée : l'horloge reprend
                 UI.updateTimeInput(true);
             }
         });
@@ -294,6 +302,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             try { await ImageStore.delete(syncId); } catch (e) { console.error('[PC TAC] delete sync échec:', e); }
         }
 
+        // Purge de l'état du board relationnel : position du nœud supprimé et
+        // liens manuels qui le référencent (sinon orphelins persistés à vie).
+        try {
+            const st = Persist.get(DASHBOARD_KEY, { validator: (v) => v && typeof v === 'object', fallback: null });
+            if (st) {
+                const ids = [id, id + '_sync'];
+                let touched = false;
+                if (st.positions) ids.forEach(k => { if (k in st.positions) { delete st.positions[k]; touched = true; } });
+                if (Array.isArray(st.links)) {
+                    const before = st.links.length;
+                    st.links = st.links.filter(l => !l || (!ids.includes(l.from) && !ids.includes(l.to)));
+                    if (st.links.length !== before) touched = true;
+                }
+                if (touched) Persist.set(DASHBOARD_KEY, st);
+            }
+        } catch (e) { /* purge board non bloquante */ }
+
         if (viewId === 'view-adversaires') await UI.renderAdversaries();
         if (viewId === 'view-otages') await UI.renderHostages();
         if (viewId === 'view-amis') UI.renderFriends();
@@ -465,6 +490,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         fullscreenToggle.onclick = () => UI.toggleFullscreen();
         document.addEventListener('fullscreenchange', () => UI.updateFullscreenIcon());
     }
+
+    // Saturation localStorage : Persist émet 'pctac:quota' au lieu de jeter.
+    // Sans écouteur, les écritures étaient perdues EN SILENCE — on affiche un
+    // bandeau persistant (fermable) pour que l'opérateur exporte/allège.
+    window.addEventListener('pctac:quota', () => {
+        if (document.getElementById('pctac_quota_banner')) return; // déjà affiché
+        const b = document.createElement('div');
+        b.id = 'pctac_quota_banner';
+        b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;'
+            + 'background:#7f1d1d;color:#fff;padding:10px 44px 10px 14px;'
+            + 'font:600 13px/1.4 Inter,system-ui,sans-serif;text-align:center;'
+            + 'box-shadow:0 2px 12px rgba(0,0,0,.5);';
+        b.textContent = 'STOCKAGE PLEIN : les dernières modifications n\'ont PAS été enregistrées. '
+            + 'Exporte une archive (.pctac.zip) puis supprime des photos pour libérer de l\'espace.';
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.textContent = '✕';
+        x.style.cssText = 'position:absolute;right:8px;top:6px;background:none;border:none;'
+            + 'color:#fff;font-size:16px;cursor:pointer;padding:4px;';
+        x.onclick = () => b.remove();
+        b.appendChild(x);
+        document.body.appendChild(b);
+    });
 
     const dockToggleBtn = document.getElementById('dockToggleBtn');
     if (dockToggleBtn) dockToggleBtn.onclick = () => UI.toggleDock();

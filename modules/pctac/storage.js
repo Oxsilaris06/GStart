@@ -94,7 +94,11 @@ export const Storage = {
             'pcTacPlanShapes',
             'pcTacLieuHistory',
             'lastView',
-            'lastPhotoFilter'
+            'lastPhotoFilter',
+            // Sans ces deux clés, le verrou du plan et l'état du board relationnel
+            // survivaient à la réinitialisation complète.
+            'pcTacPlanLocked',
+            'pcTacDashboard'
         ];
         keys.forEach(k => {
             try {

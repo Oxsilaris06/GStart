@@ -3,6 +3,24 @@ import { ImageStore } from './imageStore.js';
 import { PDF_PAX_COLORS, PHOTO_CATEGORIES, FREE_MODE_COLORS } from './config.js';
 
 /**
+ * Recompresse un dataURL image (PNG plein DPR de la capture carte ≈ plusieurs Mo)
+ * en JPEG sur fond blanc : divise ~par 10 le poids embarqué dans le PDF.
+ * En cas d'échec, l'appelant garde le dataURL d'origine.
+ */
+async function dataUrlToJpeg(dataUrl, quality = 0.85) {
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = dataUrl; });
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#ffffff';
+    cx.fillRect(0, 0, c.width, c.height);
+    cx.drawImage(img, 0, 0);
+    return c.toDataURL('image/jpeg', quality);
+}
+
+/**
  * Export PDF pour PC TAC utilisant pdf-lib
  * Structure multi-pages ordonnée et respect du thème (clair/sombre).
  */
@@ -382,19 +400,42 @@ export const PdfExport = {
             // Aucune de ces situations ne doit interrompre l'export.
             try {
                 if (window.PlanMap && typeof window.PlanMap.captureToDataUrl === 'function') {
+                    // La capture exige une vue Plan VISIBLE (canvas dimensionné).
+                    // Export lancé depuis un autre onglet : on bascule le temps de
+                    // la capture, puis on restaure la vue de départ.
+                    const planView = document.getElementById('view-plan');
+                    const planHidden = !planView || !planView.classList.contains('active');
+                    const prevView = localStorage.getItem('lastView');
+                    const canSwitch = window.UI && typeof window.UI.switchMainView === 'function';
+                    if (planHidden && canSwitch) {
+                        window.UI.switchMainView('view-plan');
+                        try { if (window.PlanMap.map) window.PlanMap.map.resize(); } catch (_) {}
+                        await new Promise(r => setTimeout(r, 450)); // laisse la carte se dimensionner
+                    }
                     let mapDataUrl = null;
                     try {
                         mapDataUrl = await window.PlanMap.captureToDataUrl();
                     } catch (capErr) {
                         console.warn('PDF Plan capture échouée :', capErr);
                         mapDataUrl = null;
+                    } finally {
+                        if (planHidden && canSwitch && prevView) window.UI.switchMainView(prevView);
                     }
 
                     if (mapDataUrl && typeof mapDataUrl === 'string' && mapDataUrl.startsWith('data:image')) {
+                        // PNG plein DPR → JPEG : PDF ~10× plus léger, qualité suffisante.
+                        try { mapDataUrl = await dataUrlToJpeg(mapDataUrl, 0.85); } catch (_) { /* on garde le PNG */ }
                         addNewPage('PLAN TACTIQUE', true); // Paysage A4
                         const imgMaxWidth = context.pageWidth - 2 * context.margin;
                         const imgMaxHeight = context.pageHeight - 2 * context.margin - 30;
                         await drawImageSafe(context.currentPage, mapDataUrl, context.margin, context.y - 5, imgMaxWidth, imgMaxHeight);
+                    } else {
+                        // Plus JAMAIS d'absence silencieuse : on le dit dans le PDF.
+                        addNewPage('PLAN TACTIQUE', true);
+                        context.currentPage.drawText(
+                            sanitizeWinAnsi('Carte non disponible au moment de l\'export. Ouvre l\'onglet Plan puis relance l\'export PDF.'),
+                            { x: context.margin, y: context.y - 10, size: 12, font, color: themeColors.text }
+                        );
                     }
                 }
 
@@ -460,12 +501,23 @@ export const PdfExport = {
             // interrompre l'export : on log et on saute la section.
             try {
                 if (window.Dashboard && typeof window.Dashboard.captureToDataUrl === 'function') {
+                    // Même contrainte que la carte : le board doit avoir été rendu.
+                    const dashView = document.getElementById('view-dashboard');
+                    const dashHidden = !dashView || !dashView.classList.contains('active');
+                    const prevView2 = localStorage.getItem('lastView');
+                    const canSwitch2 = window.UI && typeof window.UI.switchMainView === 'function';
+                    if (dashHidden && canSwitch2) {
+                        window.UI.switchMainView('view-dashboard'); // init paresseuse + render
+                        await new Promise(r => setTimeout(r, 650)); // laisse les nœuds se construire
+                    }
                     let boardDataUrl = null;
                     try {
                         boardDataUrl = await window.Dashboard.captureToDataUrl();
                     } catch (capErr) {
                         console.warn('PDF Board relationnel capture échouée :', capErr);
                         boardDataUrl = null;
+                    } finally {
+                        if (dashHidden && canSwitch2 && prevView2) window.UI.switchMainView(prevView2);
                     }
 
                     if (boardDataUrl && typeof boardDataUrl === 'string' && boardDataUrl.startsWith('data:image')) {
@@ -526,6 +578,8 @@ export const PdfExport = {
             link.href = URL.createObjectURL(blob);
             link.download = `PC-TAC-EXPORT-${new Date().getTime()}.pdf`;
             link.click();
+            // Libère le blob une fois le téléchargement amorcé (sinon fuite mémoire).
+            setTimeout(() => { try { URL.revokeObjectURL(link.href); } catch (_) {} }, 30000);
 
         } catch (e) {
             console.error("PDF Export Critical Error:", e);

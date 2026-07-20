@@ -86,15 +86,22 @@ export const QrSync = {
         let jsonString = JSON.stringify(transferPayload);
         
         if (typeof QRCode !== 'undefined') {
-            new QRCode(container, {
-                text: jsonString,
-                width: 256,
-                height: 256,
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.L,
-                typeNumber: 15
-            });
+            try {
+                new QRCode(container, {
+                    text: jsonString,
+                    width: 256,
+                    height: 256,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.L,
+                    typeNumber: 15
+                });
+            } catch (e) {
+                // « Too long data » : la lib vendorée peut ignorer typeNumber et jeter.
+                console.error('QR génération échec:', e);
+                container.innerHTML = '<div style="padding:20px; text-align:center; color:#f0556a;">'
+                    + 'QR trop dense pour ce lot d\'entrées.<br>Réessaie avec moins d\'entrées (journal plus court).</div>';
+            }
         }
         
         if (this.qrChunks.length > 1) {
@@ -123,16 +130,24 @@ export const QrSync = {
     },
 
     stopScanner() {
-        if (this.html5QrCode) { 
+        if (this.html5QrCode) {
             this.html5QrCode.stop().then(() => {
                 this.html5QrCode = null;
-            }).catch(err => console.log("Stop failed", err));
+            }).catch(err => {
+                // Même en échec, on réinitialise l'instance : sinon le scanner
+                // restait définitivement inutilisable (caméra bloquée).
+                console.log("Stop failed", err);
+                this.html5QrCode = null;
+            });
         }
     },
 
     handleScanSuccess(decodedText, callback) {
         try {
             const data = JSON.parse(decodedText);
+            // N'accepte QUE les QR émis par PC-Tac (tag protocole) : sans ce contrôle,
+            // n'importe quel QR JSON contenant un tableau « d » contaminait le journal.
+            if (data.t !== 'PC-TAC-V1') { console.warn('QR ignoré (tag inconnu):', data.t); return; }
             if (data.d && Array.isArray(data.d)) {
                 const currentLogs = Storage.loadLogData();
                 const currentIds = new Set(currentLogs.map(l => l.id));

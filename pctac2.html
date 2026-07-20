@@ -1485,17 +1485,11 @@
         }
 
         /* --- Gestion de la visibilité des cadenas (Option 3) --- */
-        /* Par défaut, cacher les cadenas (sauf s'ils sont verrouillés) */
+        /* Par défaut, cacher tous les cadenas (y compris ceux verrouillés) */
         .plan-lock-badge {
             opacity: 0 !important;
             pointer-events: none !important;
             transition: opacity 0.2s ease-in-out;
-        }
-
-        /* Toujours afficher les cadenas verrouillés (jaunes) pour information (non interactifs hors édition) */
-        .plan-lock-badge.locked {
-            opacity: 1 !important;
-            pointer-events: none !important;
         }
 
         /* En mode édition (quand le dock de dessin est ouvert) : afficher tous les cadenas */
@@ -1504,7 +1498,7 @@
             pointer-events: auto !important;
         }
 
-        /* Cadenas verrouillés et actifs en mode édition */
+        /* Cadenas verrouillés en mode édition (opacité renforcée) */
         body:has(#plan_draw_dock.open) .plan-lock-badge.locked {
             opacity: 1 !important;
             pointer-events: auto !important;
